@@ -2,130 +2,148 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Dealer Order Support</title>
+<title>Admin Panel</title>
 <style>
   * { box-sizing: border-box; }
-  body { margin:0; font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-         background:#eef2f7; height:100vh; display:flex; align-items:center; justify-content:center; }
+  body { margin:0; font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:#eef2f7; height:100vh; }
   .hidden { display:none !important; }
-  #login { background:#fff; padding:32px; border-radius:16px; width:360px;
-           box-shadow:0 12px 40px rgba(0,0,0,.12); }
-  #login h2 { margin:0 0 6px; font-size:20px; color:#1e293b; }
-  #login p  { margin:0 0 22px; font-size:13px; color:#64748b; }
-  #login input { width:100%; padding:11px 13px; margin-bottom:12px; border:1px solid #cbd5e1;
-                 border-radius:9px; font-size:14px; outline:none; }
-  #login input:focus { border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.12); }
-  #login button { width:100%; padding:12px; background:#2563eb; color:#fff; border:0;
-                  border-radius:9px; font-size:15px; font-weight:600; cursor:pointer; }
-  #login button:hover { background:#1d4ed8; }
+  #login { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; padding:32px; border-radius:16px; width:360px; box-shadow:0 12px 40px rgba(0,0,0,.12); }
+  #login h2 { margin:0 0 6px; color:#1e293b; }
+  #login p  { margin:0 0 20px; color:#64748b; font-size:13px; }
+  #login input { width:100%; padding:11px 13px; border:1px solid #cbd5e1; border-radius:9px; font-size:14px; outline:none; }
+  #login button { width:100%; padding:12px; background:#2563eb; color:#fff; border:0; border-radius:9px; font-weight:600; cursor:pointer; margin-top:12px; }
   #loginErr { color:#dc2626; font-size:13px; margin-top:8px; min-height:18px; }
-  #chat { width:430px; height:92vh; max-height:760px; background:#fff; border-radius:16px;
-          display:flex; flex-direction:column; overflow:hidden; box-shadow:0 12px 40px rgba(0,0,0,.12); }
-  .chat-head { background:linear-gradient(135deg,#2563eb,#1e40af); color:#fff;
-               padding:14px 18px; display:flex; align-items:center; gap:12px; }
-  .avatar { width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,.2);
-            display:flex; align-items:center; justify-content:center; font-size:20px; }
-  .chat-head h3 { margin:0; font-size:15px; }
-  .chat-head small { opacity:.85; font-size:12px; }
-  .dot { width:8px; height:8px; border-radius:50%; background:#4ade80; display:inline-block; margin-right:4px; }
-  #messages { flex:1; overflow-y:auto; padding:18px; background:#f8fafc;
-              display:flex; flex-direction:column; gap:12px; }
-  .msg { max-width:82%; padding:10px 14px; border-radius:14px; font-size:13.5px;
-         line-height:1.5; white-space:pre-wrap; word-wrap:break-word; }
-  .msg.dealer { align-self:flex-end; background:#2563eb; color:#fff; border-bottom-right-radius:4px; }
-  .msg.bot    { align-self:flex-start; background:#fff; color:#1e293b;
-                border:1px solid #e2e8f0; border-bottom-left-radius:4px; }
-  .msg.agent  { align-self:flex-start; background:#ecfdf5; color:#065f46;
-                border:1px solid #a7f3d0; border-bottom-left-radius:4px; }
-  .msg .meta { font-size:10px; opacity:.6; margin-top:6px; }
-  .chips { padding:8px 14px 0; display:flex; gap:8px; flex-wrap:wrap; background:#f8fafc; }
-  .chip { background:#fff; border:1px solid #cbd5e1; color:#334155; font-size:12px;
-          padding:5px 11px; border-radius:20px; cursor:pointer; }
-  .chip:hover { background:#2563eb; color:#fff; border-color:#2563eb; }
-  .chat-input { display:flex; gap:8px; padding:12px; border-top:1px solid #e2e8f0; background:#fff; }
-  .chat-input input { flex:1; padding:11px 14px; border:1px solid #cbd5e1; border-radius:22px;
-                      font-size:14px; outline:none; }
-  .chat-input input:focus { border-color:#2563eb; }
-  .chat-input button { width:44px; height:44px; border-radius:50%; border:0; background:#2563eb;
-                       color:#fff; font-size:18px; cursor:pointer; }
-  .chat-input button:hover { background:#1d4ed8; }
-  .typing { font-size:11px; color:#64748b; padding:0 18px 6px; height:14px; }
+  #dash { display:flex; height:100vh; }
+  .sidebar { width:340px; background:#fff; border-right:1px solid #e2e8f0; display:flex; flex-direction:column; }
+  .sidebar-head { padding:16px; border-bottom:1px solid #e2e8f0; }
+  .sidebar-head h2 { margin:0 0 4px; font-size:16px; color:#1e293b; }
+  .sidebar-head small { color:#64748b; font-size:12px; }
+  .actions { padding:10px 16px; display:flex; gap:8px; flex-wrap:wrap; border-bottom:1px solid #e2e8f0; }
+  .actions button { background:#f1f5f9; border:1px solid #cbd5e1; border-radius:8px; padding:7px 11px; font-size:12px; cursor:pointer; color:#334155; }
+  .actions button:hover { background:#2563eb; color:#fff; border-color:#2563eb; }
+  #sessionList { flex:1; overflow-y:auto; }
+  .session { padding:12px 16px; border-bottom:1px solid #f1f5f9; cursor:pointer; }
+  .session:hover { background:#f8fafc; }
+  .session.active { background:#eff6ff; border-left:3px solid #2563eb; }
+  .session .top { display:flex; justify-content:space-between; align-items:center; }
+  .session .code { font-weight:600; color:#1e293b; font-size:13.5px; }
+  .session .badge { background:#ef4444; color:#fff; font-size:10px; padding:1px 6px; border-radius:10px; }
+  .session .last { color:#64748b; font-size:12px; margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .session .time { color:#94a3b8; font-size:11px; margin-top:2px; }
+  .main { flex:1; display:flex; flex-direction:column; }
+  .main-head { padding:14px 20px; background:#fff; border-bottom:1px solid #e2e8f0; }
+  .main-head h3 { margin:0; font-size:15px; color:#1e293b; }
+  .main-head small { color:#64748b; font-size:12px; }
+  #adminMessages { flex:1; overflow-y:auto; padding:18px; background:#f8fafc; display:flex; flex-direction:column; gap:10px; }
+  .msg { max-width:70%; padding:10px 14px; border-radius:12px; font-size:13.5px; line-height:1.5; white-space:pre-wrap; word-wrap:break-word; }
+  .msg.dealer { align-self:flex-start; background:#fff; border:1px solid #e2e8f0; color:#1e293b; }
+  .msg.agent  { align-self:flex-end; background:#2563eb; color:#fff; }
+  .msg.bot    { align-self:flex-start; background:#f0f9ff; border:1px solid #bae6fd; color:#0c4a6e; font-style:italic; }
+  .msg .meta  { font-size:10px; opacity:.6; margin-top:5px; }
+  .msg .from  { font-size:10px; font-weight:600; opacity:.8; margin-bottom:3px; }
+  .reply-bar { display:flex; gap:8px; padding:12px; background:#fff; border-top:1px solid #e2e8f0; }
+  .reply-bar input { flex:1; padding:11px 14px; border:1px solid #cbd5e1; border-radius:22px; font-size:14px; outline:none; }
+  .reply-bar button { padding:0 22px; background:#2563eb; color:#fff; border:0; border-radius:22px; font-weight:600; cursor:pointer; }
+  .empty { display:flex; align-items:center; justify-content:center; height:100%; color:#94a3b8; font-size:14px; }
+  .toast { position:fixed; top:18px; right:18px; background:#111827; color:#fff; padding:10px 16px; border-radius:8px; font-size:13px; z-index:99; }
 </style>
 </head>
 <body>
 
 <div id="login">
-  <h2>🏭 Dealer Order Support</h2>
-  <p>Apna Dealer Code daal kar order status poochein</p>
-  <input id="inpCode" placeholder="Dealer Code (e.g. D1001)" autocomplete="off" />
-  <input id="inpName" placeholder="Dealer Name (optional)" autocomplete="off" />
-  <button onclick="join()">Start Chat</button>
+  <h2>🔐 Admin Login</h2>
+  <p>Dealer Order Support — Admin Panel</p>
+  <input id="inpPass" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')login()" />
+  <button onclick="login()">Login</button>
   <div id="loginErr"></div>
 </div>
 
-<div id="chat" class="hidden">
-  <div class="chat-head">
-    <div class="avatar">🤖</div>
-    <div>
-      <h3>Order Support Assistant</h3>
-      <small><span class="dot"></span><span id="whoami">—</span></small>
+<div id="dash" class="hidden">
+  <aside class="sidebar">
+    <div class="sidebar-head">
+      <h2>💬 Dealer Sessions</h2>
+      <small><span id="orderCount">0</span> orders loaded</small>
     </div>
-  </div>
-  <div id="messages"></div>
-  <div class="typing" id="typing"></div>
-  <div class="chips">
-    <div class="chip" onclick="quick('Mere saare recent orders ka status batao')">📋 Recent Orders</div>
-    <div class="chip" onclick="quick('Mera order back order me hai, ETA batao')">⏳ Back Order ETA</div>
-    <div class="chip" onclick="quick('agent')">💬 Talk to Agent</div>
-  </div>
-  <div class="chat-input">
-    <input id="inpMsg" placeholder="PO number ya Part number likhein..." autocomplete="off"
-           onkeydown="if(event.key==='Enter') send()" />
-    <button onclick="send()">➤</button>
-  </div>
+    <div class="actions">
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" class="hidden" onchange="uploadExcel(this)" />
+      <button onclick="document.getElementById('fileInput').click()">📤 Upload Excel</button>
+      <button onclick="downloadSummary()">📥 Download Summary</button>
+      <button onclick="window.open('/api/admin/template','_blank')">📄 Template</button>
+    </div>
+    <div id="sessionList"></div>
+  </aside>
+  <main class="main">
+    <div class="main-head">
+      <h3 id="activeDealer">Select a dealer session</h3>
+      <small id="activeDealerSub">—</small>
+    </div>
+    <div id="adminMessages"><div class="empty">👈 Kisi dealer ko select karein</div></div>
+    <div class="reply-bar">
+      <input id="replyInput" placeholder="Type reply..." onkeydown="if(event.key==='Enter')sendReply()" />
+      <button onclick="sendReply()">Send</button>
+    </div>
+  </main>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-let socket = null, dealerCode = null;
-function join() {
-  const code = document.getElementById('inpCode').value.trim().toUpperCase();
-  const name = document.getElementById('inpName').value.trim();
-  if (!code) { document.getElementById('loginErr').textContent = 'Dealer Code zaroori hai'; return; }
+let socket = null, password = '', sessions = [], activeDealer = null, chatHistory = {};
+function login() {
+  const p = document.getElementById('inpPass').value;
+  if (!p) return;
   socket = io();
   socket.on('connect', () => {
-    socket.emit('dealer:join', { dealerCode: code, dealerName: name }, (res) => {
-      if (!res || !res.ok) {
-        document.getElementById('loginErr').textContent = res?.error || 'Connection failed';
-        return;
-      }
-      dealerCode = code;
+    socket.emit('admin:join', { password: p }, (res) => {
+      if (!res || !res.ok) { document.getElementById('loginErr').textContent = res?.error || 'Login failed'; socket.disconnect(); return; }
+      password = p; chatHistory = res.chats || {}; sessions = res.sessions || [];
       document.getElementById('login').classList.add('hidden');
-      document.getElementById('chat').classList.remove('hidden');
-      document.getElementById('whoami').textContent = code + (res.dealerName ? ' • ' + res.dealerName : '');
-      document.getElementById('messages').innerHTML = '';
-      if (res.history && res.history.length) res.history.forEach(addMessage);
-      else addMessage({ sender:'bot', message:'Namaste! 🙏 Main aapka Order Support Assistant hoon.\n\n• PO number likh kar status poochein\n• Part number se bhi poochein\n• "agent" likhein live executive ke liye', created_at: new Date().toISOString() });
+      document.getElementById('dash').classList.remove('hidden');
+      document.getElementById('orderCount').textContent = res.orderCount || 0;
+      renderSessions();
     });
   });
-  socket.on('chat:message', addMessage);
-  socket.on('bot:typing', (v) => document.getElementById('typing').textContent = v ? 'Assistant typing…' : '');
+  socket.on('chat:message', (m) => {
+    if (!chatHistory[m.dealerCode]) chatHistory[m.dealerCode] = [];
+    chatHistory[m.dealerCode].push(m);
+    if (m.dealerCode === activeDealer) appendMessage(m);
+  });
+  socket.on('sessions:update', (list) => { sessions = list; renderSessions(); });
+  socket.on('need:agent', (info) => toast(`⚠️ Dealer ${info.dealerCode} ko agent chahiye`));
+  socket.on('orders:update', ({ count }) => { document.getElementById('orderCount').textContent = count; toast('✅ ' + count + ' orders loaded'); });
 }
-function send() {
-  const inp = document.getElementById('inpMsg');
-  const text = inp.value.trim();
-  if (!text || !socket) return;
-  inp.value = '';
-  socket.emit('dealer:message', { text });
+function renderSessions() {
+  const list = document.getElementById('sessionList');
+  list.innerHTML = '';
+  if (!sessions.length) { list.innerHTML = '<div class="empty" style="height:100px;font-size:12px">Koi session nahi</div>'; return; }
+  sessions.forEach(s => {
+    const div = document.createElement('div');
+    div.className = 'session' + (s.dealerCode === activeDealer ? ' active' : '');
+    div.onclick = () => selectDealer(s.dealerCode, s.dealerName);
+    div.innerHTML = `<div class="top"><span class="code">${esc(s.dealerCode)}</span>${s.unread ? '<span class="badge">NEW</span>' : ''}</div><div class="last">${esc(((s.dealerName ? s.dealerName + ' • ' : '') + (s.lastMessage || '')).slice(0,80))}</div><div class="time">${s.lastAt ? new Date(s.lastAt).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : ''}</div>`;
+    list.appendChild(div);
+  });
 }
-function quick(t) { document.getElementById('inpMsg').value = t; send(); }
-function addMessage(m) {
-  const box = document.getElementById('messages');
+function selectDealer(code, name) {
+  activeDealer = code;
+  document.getElementById('activeDealer').textContent = code + (name ? ' — ' + name : '');
+  document.getElementById('activeDealerSub').textContent = 'Dealer Code: ' + code;
+  renderSessions();
+  const box = document.getElementById('adminMessages');
+  box.innerHTML = '';
+  const msgs = chatHistory[code] || [];
+  if (!msgs.length) box.innerHTML = '<div class="empty">Abhi tak koi message nahi</div>';
+  else msgs.forEach(appendMessage);
+  box.scrollTop = box.scrollHeight;
+  document.getElementById('replyInput').focus();
+}
+function appendMessage(m) {
+  const box = document.getElementById('adminMessages');
+  const empty = box.querySelector('.empty');
+  if (empty) empty.remove();
   const div = document.createElement('div');
-  div.className = 'msg ' + (m.sender === 'dealer' ? 'dealer' : m.sender === 'agent' ? 'agent' : 'bot');
-  const label = m.sender === 'agent' ? '👨‍💼 Support: ' : '';
-  div.textContent = label + m.message;
+  div.className = 'msg ' + m.sender;
+  const from = m.sender === 'dealer' ? '👤 Dealer' : m.sender === 'agent' ? '👨‍💼 You' : '🤖 Bot';
+  div.innerHTML = `<div class="from">${from}</div>${esc(m.message)}`;
   const meta = document.createElement('div');
   meta.className = 'meta';
   meta.textContent = new Date(m.created_at).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
@@ -133,6 +151,25 @@ function addMessage(m) {
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
 }
+function sendReply() {
+  if (!activeDealer) return toast('Pehle dealer select karein');
+  const inp = document.getElementById('replyInput');
+  const text = inp.value.trim();
+  if (!text) return;
+  socket.emit('admin:reply', { dealerCode: activeDealer, text }, (res) => { if (res && res.ok) inp.value = ''; });
+}
+function uploadExcel(input) {
+  const file = input.files[0]; if (!file) return;
+  const fd = new FormData();
+  fd.append('file', file); fd.append('password', password);
+  fetch('/api/admin/upload', { method:'POST', body: fd })
+    .then(r => r.json()).then(j => { if (j.error) toast('❌ ' + j.error); else toast('✅ ' + j.count + ' orders load'); })
+    .catch(e => toast('Upload failed: ' + e.message));
+  input.value = '';
+}
+function downloadSummary() { window.open('/api/admin/summary?password=' + encodeURIComponent(password), '_blank'); }
+function toast(msg) { const el = document.createElement('div'); el.className = 'toast'; el.textContent = msg; document.body.appendChild(el); setTimeout(() => el.remove(), 3000); }
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 </script>
 </body>
 </html>
