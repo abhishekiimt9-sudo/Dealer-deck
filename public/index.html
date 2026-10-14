@@ -432,6 +432,20 @@ function getStatusColor(status) {
   return 'yellow';
 }
 
+/* ⭐ Progress levels for transition validation */
+function getStatusLevel(status) {
+  const s = String(status || '').toLowerCase().trim();
+  if (s.includes('cancel')) return 0;
+  if (s.includes('back') || s.includes('hold')) return 1;
+  if (s.includes('received') || s.includes('booked')) return 2;
+  if (s.includes('processing') || s.includes('pending')) return 3;
+  if (s.includes('partial')) return 4;
+  if (s.includes('dispatch')) return 5;
+  if (s.includes('transit')) return 6;
+  if (s.includes('deliver')) return 7;
+  return 3;
+}
+
 /* LOGIN */
 async function attemptLogin() {
   const inp = document.getElementById('loginInput');
@@ -483,26 +497,21 @@ function doLogout() {
   document.getElementById('loginScreen').classList.remove('hidden');
 }
 
+/* ⭐ FIX 1: Welcome message — removed pending count line */
 function loginDealer(dealerCode, dealerName) {
   const myO = ORDERS.filter(o => o.orderNumber);
   const uniqueOrders = new Set(myO.map(o => o.orderNumber));
-  const pendingCount = myO.filter(o => Number(o.pendingQty) > 0).length;
   const isHi = LANG === 'hi';
   let wmsg = `✅ ${t('verified')}: <strong>${dealerName}</strong> (${dealerCode}).<br><br>`;
   wmsg += isHi
     ? `आपके <strong>${uniqueOrders.size}</strong> ऑर्डर और <strong>${myO.length}</strong> पार्ट्स हैं।`
     : `You have <strong>${uniqueOrders.size}</strong> order(s) with <strong>${myO.length}</strong> part(s).`;
-  if (pendingCount > 0) {
-    wmsg += isHi
-      ? `<br><br>⏳ <strong>${pendingCount}</strong> पेंडिंग पार्ट्स हैं।`
-      : `<br><br>⏳ <strong>${pendingCount}</strong> pending part(s).`;
-  }
   wmsg += `<br><br>${t('howCanHelp')}`;
   addMsg(wmsg, 'bot');
   renderMainChips();
 }
 
-/* BROADCAST LISTENER */
+/* ⭐ FIX 2: Broadcast — shown even on first load */
 function setupBroadcastListener() {
   if (broadcastListener) broadcastListener();
   broadcastListener = db.collection('broadcasts')
@@ -510,25 +519,32 @@ function setupBroadcastListener() {
     .onSnapshot(snap => {
       const newB = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
       const seen = JSON.parse(localStorage.getItem('mg_seen_broadcasts') || '[]');
-      let isFirstLoad = BROADCASTS.length === 0;
+      const toShow = [];
       newB.forEach(b => {
         if (!seen.includes(b._id)) {
           seen.push(b._id);
-          if (!isFirstLoad) {
-            addMsg(`<div style="background:#eff6ff;border-left:4px solid #2563eb;padding:10px 12px;border-radius:8px;font-size:12.5px">
-              <strong style="color:#1e40af">📢 ${LANG==='hi'?'घोषणा':'Announcement'}</strong><br><br>
-              ${b.title ? `<strong>${b.title}</strong><br>` : ''}
-              ${b.message}
-            </div>`, 'bot', true);
-          }
+          toShow.push(b);
         }
       });
       localStorage.setItem('mg_seen_broadcasts', JSON.stringify(seen));
+      const wasFirstLoad = BROADCASTS.length === 0;
       BROADCASTS = newB;
+
+      toShow.forEach((b, idx) => {
+        const delay = wasFirstLoad ? (2500 + idx * 700) : (300 + idx * 300);
+        setTimeout(() => {
+          const titlePart = b.title ? `<strong>${b.title}</strong><br>` : '';
+          addMsg(`<div style="background:#eff6ff;border-left:4px solid #2563eb;padding:10px 12px;border-radius:8px;font-size:12.5px">
+            <strong style="color:#1e40af">📢 ${LANG==='hi'?'घोषणा':'Announcement'}</strong><br><br>
+            ${titlePart}
+            ${b.message}
+          </div>`, 'bot', true, false, true);
+        }, delay);
+      });
     }, err => console.error('Broadcast listener:', err));
 }
 
-/* AUTO NOTIFICATIONS */
+/* ⭐ FIX 3: Auto notification — only forward transitions */
 function checkAutoNotifications() {
   const lastStatuses = JSON.parse(localStorage.getItem('mg_last_statuses') || '{}');
   const updates = [];
@@ -536,8 +552,15 @@ function checkAutoNotifications() {
   ORDERS.forEach(o => {
     if (!o.orderNumber) return;
     currentStatuses[o.orderNumber] = o.orderStatus;
-    if (lastStatuses[o.orderNumber] && lastStatuses[o.orderNumber] !== o.orderStatus) {
-      updates.push({ order: o, old: lastStatuses[o.orderNumber], new: o.orderStatus });
+    const oldStatus = lastStatuses[o.orderNumber];
+    const newStatus = o.orderStatus;
+    if (oldStatus && oldStatus !== newStatus) {
+      // Only notify if it's a forward transition (progress made)
+      const oldLevel = getStatusLevel(oldStatus);
+      const newLevel = getStatusLevel(newStatus);
+      if (newLevel > oldLevel) {
+        updates.push({ order: o, old: oldStatus, new: newStatus });
+      }
     }
   });
   localStorage.setItem('mg_last_statuses', JSON.stringify(currentStatuses));
@@ -553,7 +576,7 @@ function checkAutoNotifications() {
       });
       html += `</div>`;
       addMsg(html, 'bot', true);
-    }, 500);
+    }, 800);
   }
 }
 
@@ -764,11 +787,7 @@ function findOrdersMulti(text) {
   return { results, notFound };
 }
 
-/* ============================================================
-   NEW FEATURES
-   ============================================================ */
-
-/* 1. PENDING ORDERS */
+/* FEATURES */
 function showPendingOrders() {
   const isHi = LANG === 'hi';
   const pending = ORDERS.filter(o => Number(o.pendingQty) > 0);
@@ -792,7 +811,6 @@ function showPendingOrders() {
   addMsg(html, 'bot');
 }
 
-/* 2. RECENT ORDERS */
 function showRecentOrders() {
   const isHi = LANG === 'hi';
   const recent = [...ORDERS].filter(o => o.orderNumber).slice(-10).reverse();
@@ -813,18 +831,12 @@ function showRecentOrders() {
   addMsg(html, 'bot');
 }
 
-/* 3. MY STATS — FIXED */
 function showMyStats() {
   const isHi = LANG === 'hi';
-
-  // Unique order numbers
   const uniqueOrders = new Set(ORDERS.filter(o => o.orderNumber).map(o => String(o.orderNumber)));
   const totalOrders = uniqueOrders.size;
-
-  // Total parts (each row = 1 part)
   const totalParts = ORDERS.filter(o => o.partNumber).length;
 
-  // Status-based counts
   const dispatched = ORDERS.filter(o => {
     const s = String(o.orderStatus || '').toLowerCase();
     if (s.includes('pending')) return false;
@@ -863,7 +875,6 @@ function showMyStats() {
   addMsg(html, 'bot');
 }
 
-/* 4. PART AVAILABILITY CHECK */
 function checkPartAvailability(text) {
   const isHi = LANG === 'hi';
   const match = text.match(/(?:check\s+part|part\s+check|part\s+availability|पार्ट\s+चेक)[\s:]*([A-Z0-9\-_]+)/i);
@@ -888,9 +899,7 @@ function checkPartAvailability(text) {
   return true;
 }
 
-/* ============================================================
-   HANDLE MESSAGE
-   ============================================================ */
+/* HANDLE MESSAGE */
 async function handleMessage(text) {
   if (!authState.loggedIn) return;
   addMsg(text, 'user');
