@@ -142,22 +142,6 @@
   .badge-transit { background: #e0e7ff; color: #3730a3; }
   .badge-delivered { background: #d1fae5; color: #065f46; }
   .badge-hold { background: #fee2e2; color: #991b1b; }
-
-  .dealer-option {
-    border: 1.5px solid #e5e7ef; border-radius: 12px; padding: 14px 16px;
-    margin-bottom: 10px; cursor: pointer; transition: 0.15s; background: #fafbff;
-    display: flex; align-items: center; gap: 12px;
-  }
-  .dealer-option:hover { border-color: #b3001b; background: #fff5f6; transform: translateY(-1px); }
-  .dealer-avatar {
-    width: 42px; height: 42px; border-radius: 50%; background: #b3001b;
-    color: #fff; display: flex; align-items: center; justify-content: center;
-    font-weight: 700; font-size: 16px; flex-shrink: 0;
-  }
-  .dealer-info { flex: 1; }
-  .dealer-info .d-name { font-size: 13.5px; font-weight: 700; color: #333; }
-  .dealer-info .d-code { font-size: 11px; color: #888; margin-top: 2px; }
-  .dealer-info .d-count { font-size: 10.5px; color: #16a34a; margin-top: 2px; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -216,10 +200,11 @@ const I18N = {
     inputPlaceholder: 'Type your message...',
     silentText: 'Your request has been sent to the Dealer Support Team.',
     welcome: 'Welcome to MG Parts & Order Support.',
-    enterCode: 'Please select your Dealership to continue.',
+    enterCode: 'Please enter your Dealer Code to continue.',
+    demoCodes: 'Demo codes: MGDL001, MGDL002',
     verified: 'Verified', howCanHelp: 'How can I help you today?',
     notFound: 'Dealer code not found. Please verify and try again.',
-    loggedOut: 'Logged out successfully.',
+    loggedOut: 'Logged out successfully. Please enter your Dealer Code.',
     chips: {
       myOrders: 'My Orders', orderStatus: 'Order Status', raiseTicket: 'Raise Ticket',
       trackTicket: 'Track Ticket', faq: 'FAQ', otherQuery: 'Other Query',
@@ -253,10 +238,11 @@ const I18N = {
     inputPlaceholder: 'अपना संदेश लिखें...',
     silentText: 'आपका अनुरोध डीलर सपोर्ट टीम को भेज दिया गया है।',
     welcome: 'MG पार्ट्स और ऑर्डर सपोर्ट में आपका स्वागत है।',
-    enterCode: 'कृपया अपना डीलरशिप चुनें।',
+    enterCode: 'कृपया अपना डीलर कोड दर्ज करें।',
+    demoCodes: 'डेमो कोड: MGDL001, MGDL002',
     verified: 'सत्यापित', howCanHelp: 'मैं आपकी कैसे सहायता कर सकता हूँ?',
     notFound: 'डीलर कोड नहीं मिला। कृपया जाँचें।',
-    loggedOut: 'सफलतापूर्वक लॉग आउट।',
+    loggedOut: 'सफलतापूर्वक लॉग आउट। कृपया अपना डीलर कोड दर्ज करें।',
     chips: {
       myOrders: 'मेरे ऑर्डर', orderStatus: 'ऑर्डर स्थिति', raiseTicket: 'टिकट बनाएं',
       trackTicket: 'टिकट ट्रैक करें', faq: 'सामान्य प्रश्न', otherQuery: 'अन्य प्रश्न',
@@ -349,22 +335,15 @@ function saveData() {
 /* ============================================================
    SUPPORT THREAD HELPERS
    ============================================================ */
-function getThreads() {
-  return JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
-}
-function saveThreads(threads) {
-  localStorage.setItem(THREADS_KEY, JSON.stringify(threads));
-}
+function getThreads() { return JSON.parse(localStorage.getItem(THREADS_KEY) || '{}'); }
+function saveThreads(threads) { localStorage.setItem(THREADS_KEY, JSON.stringify(threads)); }
+
 function ensureThread(dealerCode, dealerName) {
   const threads = getThreads();
   if (!threads[dealerCode]) {
     threads[dealerCode] = {
-      dealerCode, dealerName,
-      messages: [],
-      status: 'open',
-      lastUpdate: todayStamp(),
-      unreadByAdmin: 0,
-      unreadByDealer: 0
+      dealerCode, dealerName, messages: [], status: 'open',
+      lastUpdate: todayStamp(), unreadByAdmin: 0, unreadByDealer: 0
     };
     saveThreads(threads);
   }
@@ -377,9 +356,7 @@ function addThreadMessage(dealerCode, from, text, dealerName) {
       messages: [], status: 'open', lastUpdate: todayStamp(),
       unreadByAdmin: 0, unreadByDealer: 0 };
   }
-  threads[dealerCode].messages.push({
-    from, text, time: nowTime(), timestamp: Date.now()
-  });
+  threads[dealerCode].messages.push({ from, text, time: nowTime(), timestamp: Date.now() });
   threads[dealerCode].lastUpdate = todayStamp();
   threads[dealerCode].status = 'open';
   if (from === 'dealer') threads[dealerCode].unreadByAdmin = (threads[dealerCode].unreadByAdmin || 0) + 1;
@@ -412,107 +389,6 @@ function applyLanguage() {
   document.getElementById('silentText').textContent = t('silentText');
   updateHoursBar();
   document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === LANG));
-}
-
-/* ============================================================
-   DEALER SELECTION POPUP
-   ============================================================ */
-function getUniqueDealers() {
-  const map = {};
-  ORDERS.forEach(o => {
-    const code = o.dealerCode;
-    const name = o.dealerName || code;
-    if (!code) return;
-    if (!map[code]) {
-      map[code] = { code, name, orderCount: 0 };
-    }
-    if (o.orderNumber) map[code].orderCount++;
-  });
-  return Object.values(map).sort((a, b) => a.name.localeCompare(b.name));
-}
-
-function openDealerSelectModal() {
-  const modalOverlay = document.getElementById('modalOverlay');
-  const modalIcon = document.getElementById('modalIcon');
-  const modalTitle = document.getElementById('modalTitle');
-  const modalSubtitle = document.getElementById('modalSubtitle');
-  const modalInput = document.getElementById('modalInput');
-  const modalTextarea = document.getElementById('modalTextarea');
-  const modalDynamic = document.getElementById('modalDynamic');
-  const modalLabel = document.getElementById('modalLabel');
-  const modalBtns = document.getElementById('modalBtns');
-
-  modalIcon.textContent = '\uD83C\uDFE2';
-  modalTitle.textContent = LANG === 'hi' ? 'अपना डीलरशिप चुनें' : 'Select Your Dealership';
-  modalSubtitle.textContent = LANG === 'hi'
-    ? 'नीचे से अपना डीलर चुनें'
-    : 'Choose your dealership from the list below';
-
-  modalInput.style.display = 'none';
-  modalTextarea.style.display = 'none';
-  modalLabel.style.display = 'none';
-  modalBtns.style.display = 'none';
-  modalDynamic.style.display = 'block';
-
-  const dealers = getUniqueDealers();
-
-  if (!dealers.length) {
-    modalDynamic.innerHTML = `
-      <div style="text-align:center;padding:20px;color:#999;font-size:13px">
-        No dealerships available.<br>Please contact admin.
-      </div>`;
-    modalOverlay.classList.add('show');
-    return;
-  }
-
-  modalDynamic.innerHTML = dealers.map(d => `
-    <div class="dealer-option" data-code="${d.code}" data-name="${d.name}">
-      <div class="dealer-avatar">${d.name.charAt(0).toUpperCase()}</div>
-      <div class="dealer-info">
-        <div class="d-name">${d.name}</div>
-        <div class="d-code">${d.code}</div>
-        <div class="d-count">${d.orderCount} order${d.orderCount !== 1 ? 's' : ''}</div>
-      </div>
-    </div>
-  `).join('');
-
-  modalOverlay.classList.add('show');
-
-  setTimeout(() => {
-    document.querySelectorAll('.dealer-option').forEach(el => {
-      el.onclick = () => {
-        const code = el.dataset.code;
-        const name = el.dataset.name;
-        closeModal();
-        loginDealer(code, name);
-      };
-    });
-  }, 50);
-}
-
-function loginDealer(dealerCode, dealerName) {
-  clearChat();
-  authState.dealerCode = dealerCode;
-  authState.dealerName = dealerName;
-
-  const myO = ORDERS.filter(o => String(o.dealerCode).toUpperCase() === dealerCode.toUpperCase() && o.orderNumber);
-  const pend = myO.filter(o => o.pendingQty > 0).length;
-  const hold = myO.filter(o => o.orderStatus === 'On Hold').length;
-
-  const isHi = LANG === 'hi';
-  let wmsg = `✅ ${t('verified')}: <strong>${dealerName}</strong> (${dealerCode}).<br><br>`;
-  if (isHi) {
-    wmsg += `आपके <strong>${myO.length}</strong> ऑर्डर हैं।<br>`;
-    if (pend) wmsg += `&bull; <strong>${pend}</strong> डिस्पैच बाकी<br>`;
-    if (hold) wmsg += `&bull; <strong>${hold}</strong> होल्ड पर<br>`;
-  } else {
-    wmsg += `You have <strong>${myO.length}</strong> order(s).<br>`;
-    if (pend) wmsg += `&bull; <strong>${pend}</strong> pending dispatch<br>`;
-    if (hold) wmsg += `&bull; <strong>${hold}</strong> on hold<br>`;
-  }
-  wmsg += `<br>${t('howCanHelp')}`;
-  botReply(wmsg);
-  renderMainChips();
 }
 
 /* ============================================================
@@ -624,9 +500,7 @@ function closeModal() {
   modalInput.value = ''; modalTextarea.value = '';
 }
 modalCancel.onclick = closeModal;
-modalOverlay.addEventListener('click', e => {
-  if (e.target === modalOverlay && currentModalType !== 'dealer-select') closeModal();
-});
+modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
 modalInput.addEventListener('keydown', e => { if (e.key === 'Enter') modalSubmit.click(); });
 modalTextarea.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); modalSubmit.click(); } });
 
@@ -798,8 +672,7 @@ function handleMessage(text) {
     requestSupportTeam(); return;
   }
   if (/^(hi|hello|hey|namaste|नमस्ते)/.test(msg)) {
-    botReply(`${t('welcome')}<br><br>${t('enterCode')}`);
-    openDealerSelectModal();
+    botReply(`${t('welcome')}<br><br>${t('enterCode')}<br><em>${t('demoCodes')}</em>`);
     return;
   }
 
@@ -810,8 +683,7 @@ function handleMessage(text) {
       const dealer = ORDERS.find(o => String(o.dealerCode).toUpperCase() === code);
       loginDealer(dealer.dealerCode, dealer.dealerName);
     } else {
-      botReply(t('notFound'));
-      setTimeout(openDealerSelectModal, 1200);
+      botReply(t('notFound') + '<br><br>' + t('enterCode') + '<br><em>' + t('demoCodes') + '</em>');
     }
     return;
   }
@@ -819,7 +691,6 @@ function handleMessage(text) {
   if (/logout|switch dealer|change dealer|लॉग आउट/.test(msg)) {
     clearChat(); authState.dealerCode = null; authState.dealerName = null;
     botReply(t('loggedOut'));
-    setTimeout(openDealerSelectModal, 800);
     return;
   }
 
@@ -881,6 +752,31 @@ function handleMessage(text) {
     : `Could not find a match for "<strong>${text}</strong>".<br><br>Please verify the Order Number, Dealer Code, or Part Number.`);
 }
 
+function loginDealer(dealerCode, dealerName) {
+  clearChat();
+  authState.dealerCode = dealerCode;
+  authState.dealerName = dealerName;
+
+  const myO = ORDERS.filter(o => String(o.dealerCode).toUpperCase() === dealerCode.toUpperCase() && o.orderNumber);
+  const pend = myO.filter(o => o.pendingQty > 0).length;
+  const hold = myO.filter(o => o.orderStatus === 'On Hold').length;
+
+  const isHi = LANG === 'hi';
+  let wmsg = `✅ ${t('verified')}: <strong>${dealerName}</strong> (${dealerCode}).<br><br>`;
+  if (isHi) {
+    wmsg += `आपके <strong>${myO.length}</strong> ऑर्डर हैं।<br>`;
+    if (pend) wmsg += `&bull; <strong>${pend}</strong> डिस्पैच बाकी<br>`;
+    if (hold) wmsg += `&bull; <strong>${hold}</strong> होल्ड पर<br>`;
+  } else {
+    wmsg += `You have <strong>${myO.length}</strong> order(s).<br>`;
+    if (pend) wmsg += `&bull; <strong>${pend}</strong> pending dispatch<br>`;
+    if (hold) wmsg += `&bull; <strong>${hold}</strong> on hold<br>`;
+  }
+  wmsg += `<br>${t('howCanHelp')}`;
+  botReply(wmsg);
+  renderMainChips();
+}
+
 function renderMainChips() {
   const c = I18N[LANG].chips;
   renderChips([c.myOrders, c.orderStatus, c.raiseTicket, c.trackTicket, c.faq, c.otherQuery, c.support]);
@@ -927,8 +823,7 @@ document.querySelectorAll('.lang-btn').forEach(b => {
     applyLanguage();
     if (!authState.dealerCode) {
       chat.innerHTML = '';
-      addMsg(`${t('welcome')}<br><br>${t('enterCode')}`);
-      openDealerSelectModal();
+      addMsg(`${t('welcome')}<br><br>${t('enterCode')}<br><em>${t('demoCodes')}</em>`);
     } else { renderMainChips(); }
   };
 });
@@ -960,8 +855,9 @@ setInterval(() => {
    ============================================================ */
 applyLanguage();
 setInterval(updateHoursBar, 60000);
-addMsg(`${t('welcome')}<br><br>${t('enterCode')}`);
-setTimeout(() => { openDealerSelectModal(); }, 500);
+
+addMsg(`${t('welcome')}<br><br>${t('enterCode')}<br><em>${t('demoCodes')}</em>`);
+renderChips(["MGDL001", "MGDL002"]);
 </script>
 </body>
 </html>
