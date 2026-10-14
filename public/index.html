@@ -36,6 +36,8 @@
     border-bottom-left-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
   .user { background: #b3001b; color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
   .bot strong { color: #b3001b; }
+  .admin-msg { background: #ecfdf5 !important; border-left: 4px solid #16a34a !important;
+    box-shadow: 0 2px 8px rgba(22,163,74,0.15) !important; }
   .bot table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 12.5px; }
   .bot table td { padding: 4px 6px; border-bottom: 1px solid #eee; vertical-align: top; }
   .bot table td:first-child { color: #666; width: 45%; }
@@ -194,9 +196,9 @@ const I18N = {
   en: {
     hdrTitle: 'Parts & Order Support', hdrSub: 'MG Aftersales Assistant',
     hoursOpen: 'Support Team Available: 9:00 AM - 7:00 PM (Mon-Sat)',
-    hoursClosed: 'Support Team Offline. You can still chat with the bot. Next available: 9:00 AM',
+    hoursClosed: 'Support Team Offline. Bot available 24x7.',
     inputPlaceholder: 'Type your message...',
-    silentText: 'Your request has been sent to the Dealer Support Team.',
+    silentText: 'Your request has been sent to the Dealer Support Team. You can continue typing below.',
     welcome: 'Welcome to MG Parts & Order Support.',
     enterCode: 'Please enter your Dealer Code to continue.',
     demoCodes: 'Demo codes: MGDL001, MGDL002',
@@ -232,7 +234,7 @@ const I18N = {
   hi: {
     hdrTitle: 'पार्ट्स और ऑर्डर सपोर्ट', hdrSub: 'MG आफ्टरसेल्स असिस्टेंट',
     hoursOpen: 'सपोर्ट टीम उपलब्ध: सुबह 9:00 - शाम 7:00 (सोम-शनि)',
-    hoursClosed: 'सपोर्ट टीम ऑफलाइन है। बॉट से चैट जारी रखें।',
+    hoursClosed: 'सपोर्ट टीम ऑफलाइन है। बॉट 24x7 उपलब्ध।',
     inputPlaceholder: 'अपना संदेश लिखें...',
     silentText: 'आपका अनुरोध डीलर सपोर्ट टीम को भेज दिया गया है।',
     welcome: 'MG पार्ट्स और ऑर्डर सपोर्ट में आपका स्वागत है।',
@@ -284,6 +286,7 @@ const STORAGE_KEY = 'mg_orders_data';
 const LOG_KEY = 'mg_upload_log';
 const TICKETS_KEY = 'mg_support_tickets';
 const FEEDBACK_KEY = 'mg_feedback';
+const THREADS_KEY = 'mg_support_threads';   // ⭐ NEW
 
 const DEMO_ORDERS = [
   { orderNumber:"ORD123456", dealerCode:"MGDL001", dealerName:"ABC Motors Pvt Ltd",
@@ -330,6 +333,47 @@ function saveData() {
 }
 
 /* ============================================================
+   SUPPORT THREAD HELPERS  ⭐ NEW
+   ============================================================ */
+function getThreads() {
+  return JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
+}
+function saveThreads(threads) {
+  localStorage.setItem(THREADS_KEY, JSON.stringify(threads));
+}
+function ensureThread(dealerCode, dealerName) {
+  const threads = getThreads();
+  if (!threads[dealerCode]) {
+    threads[dealerCode] = {
+      dealerCode, dealerName,
+      messages: [],
+      status: 'open',
+      lastUpdate: todayStamp(),
+      unreadByAdmin: 0,
+      unreadByDealer: 0
+    };
+    saveThreads(threads);
+  }
+  return threads[dealerCode];
+}
+function addThreadMessage(dealerCode, from, text, dealerName) {
+  const threads = getThreads();
+  if (!threads[dealerCode]) {
+    threads[dealerCode] = { dealerCode, dealerName: dealerName || dealerCode,
+      messages: [], status: 'open', lastUpdate: todayStamp(),
+      unreadByAdmin: 0, unreadByDealer: 0 };
+  }
+  threads[dealerCode].messages.push({
+    from, text, time: nowTime(), timestamp: Date.now()
+  });
+  threads[dealerCode].lastUpdate = todayStamp();
+  threads[dealerCode].status = 'open';
+  if (from === 'dealer') threads[dealerCode].unreadByAdmin++;
+  if (from === 'admin') threads[dealerCode].unreadByDealer++;
+  saveThreads(threads);
+}
+
+/* ============================================================
    UTILITIES
    ============================================================ */
 function nowTime() { return new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }); }
@@ -347,7 +391,6 @@ function updateHoursBar() {
   if (isWorkingHours()) { bar.textContent = t('hoursOpen'); bar.classList.remove('closed'); }
   else { bar.textContent = t('hoursClosed'); bar.classList.add('closed'); }
 }
-
 function applyLanguage() {
   document.getElementById('hdrTitle').textContent = t('hdrTitle');
   document.getElementById('hdrSub').textContent = t('hdrSub');
@@ -371,8 +414,8 @@ const modalLabel = document.getElementById('modalLabel');
 const modalCancel = document.getElementById('modalCancel');
 const modalSubmit = document.getElementById('modalSubmit');
 const modalBtns = document.getElementById('modalBtns');
-
 let currentModalType = null;
+
 function hideAllModalInputs() {
   modalInput.style.display = 'none'; modalTextarea.style.display = 'none';
   modalDynamic.style.display = 'none'; modalDynamic.innerHTML = '';
@@ -461,7 +504,6 @@ function getStatusBadge(status) {
   if (s.includes('hold')) return 'badge-hold';
   return 'badge-pending';
 }
-
 function closeModal() {
   modalOverlay.classList.remove('show'); currentModalType = null;
   modalInput.value = ''; modalTextarea.value = '';
@@ -505,11 +547,13 @@ const sendBtn = document.getElementById('sendBtn');
 const chips = document.getElementById('chips');
 const silentBanner = document.getElementById('silentBanner');
 
-let authState = { dealerCode: null, lastOrderContext: null, silentMode: false, supportRequested: false };
+let authState = { dealerCode: null, dealerName: null, lastOrderContext: null,
+  silentMode: false, supportRequested: false };
+let adminMsgSeen = {};   // ⭐ Per-dealer tracking of admin messages already shown
 
-function addMsg(text, who = "bot", showTime = true) {
+function addMsg(text, who = "bot", showTime = true, isAdmin = false) {
   const w = document.createElement('div');
-  w.className = 'msg ' + who;
+  w.className = 'msg ' + who + (isAdmin ? ' admin-msg' : '');
   let html = text;
   if (showTime) html += `<div class="ts">${nowTime()}</div>`;
   w.innerHTML = html;
@@ -599,25 +643,47 @@ function findOrders(q) {
     String(o.dealerCode).toUpperCase() === s);
 }
 
+/* ============================================================
+   SUPPORT TEAM REQUEST  ⭐ UPDATED
+   ============================================================ */
 function requestSupportTeam() {
   if (authState.supportRequested) return;
-  authState.supportRequested = true; authState.silentMode = true;
+  authState.supportRequested = true;
+  authState.silentMode = true;
+
+  // Create/open thread
+  ensureThread(authState.dealerCode, authState.dealerName);
+  addThreadMessage(authState.dealerCode, 'dealer',
+    'REQUEST: Talk to Dealer Support Team', authState.dealerName);
+
   const isHi = LANG === 'hi';
   if (isWorkingHours()) {
     addMsg(isHi
-      ? `<strong>डीलर सपोर्ट टीम</strong> को अनुरोध भेजा गया।<br><br>टीम जल्द संपर्क करेगी।`
-      : `Request sent to <strong>Dealer Support Team</strong>.<br><br>Our team will connect with you shortly.`, 'bot');
+      ? `<strong>डीलर सपोर्ट टीम</strong> को अनुरोध भेजा गया।<br><br>टीम जल्द संपर्क करेगी। नीचे अपना संदेश टाइप कर सकते हैं।`
+      : `Request sent to <strong>Dealer Support Team</strong>.<br><br>Our team will connect with you shortly. You can continue typing your message below.`, 'bot');
   } else {
     addMsg(isHi
-      ? `<strong>डीलर सपोर्ट टीम</strong> के लिए अनुरोध दर्ज।<br><br>टीम ऑफलाइन है। सपोर्ट समय: 9AM-7PM (सोम-शनि)।`
-      : `Request recorded for <strong>Dealer Support Team</strong>.<br><br>Team is offline. Support: 9AM-7PM (Mon-Sat).`, 'bot');
+      ? `<strong>डीलर सपोर्ट टीम</strong> के लिए अनुरोध दर्ज।<br><br>टीम अभी ऑफलाइन है। सपोर्ट समय: 9AM-7PM (सोम-शनि)। संदेश छोड़ें।`
+      : `Request recorded for <strong>Dealer Support Team</strong>.<br><br>Team is currently offline. Support: 9AM-7PM (Mon-Sat). Leave your message below.`, 'bot');
   }
-  silentBanner.style.display = 'block'; chips.innerHTML = '';
+  silentBanner.style.display = 'block';
+  chips.innerHTML = '';
 }
 
+/* ============================================================
+   HANDLE MESSAGE  ⭐ UPDATED for silent mode
+   ============================================================ */
 function handleMessage(text) {
   addMsg(text, 'user');
-  if (authState.silentMode) return;
+
+  // If silent mode is on → save message to thread, no bot reply
+  if (authState.silentMode) {
+    if (authState.dealerCode) {
+      addThreadMessage(authState.dealerCode, 'dealer', text, authState.dealerName);
+    }
+    return;
+  }
+
   const msg = text.toLowerCase().trim();
   const isHi = LANG === 'hi';
 
@@ -634,11 +700,12 @@ function handleMessage(text) {
     if (exists) {
       clearChat();
       authState.dealerCode = code;
-      const name = ORDERS.find(o => String(o.dealerCode).toUpperCase() === code).dealerName;
+      const dealer = ORDERS.find(o => String(o.dealerCode).toUpperCase() === code);
+      authState.dealerName = dealer.dealerName;
       const myO = ORDERS.filter(o => String(o.dealerCode).toUpperCase() === code);
       const pend = myO.filter(o => o.pendingQty > 0).length;
       const hold = myO.filter(o => o.orderStatus === 'On Hold').length;
-      let wmsg = `${t('verified')}: <strong>${name}</strong> (${code}).<br><br>`;
+      let wmsg = `${t('verified')}: <strong>${dealer.dealerName}</strong> (${code}).<br><br>`;
       if (isHi) {
         wmsg += `आपके <strong>${myO.length}</strong> ऑर्डर हैं।<br>`;
         if (pend) wmsg += `&bull; <strong>${pend}</strong> डिस्पैच बाकी<br>`;
@@ -655,7 +722,7 @@ function handleMessage(text) {
   }
 
   if (/logout|switch dealer|change dealer|लॉग आउट/.test(msg)) {
-    clearChat(); authState.dealerCode = null;
+    clearChat(); authState.dealerCode = null; authState.dealerName = null;
     botReply(t('loggedOut')); renderChips(["MGDL001", "MGDL002"]); return;
   }
 
@@ -768,6 +835,40 @@ document.querySelectorAll('.lang-btn').forEach(b => {
       renderChips(["MGDL001", "MGDL002"]);
     } else { renderMainChips(); }
   };
+});
+
+/* ============================================================
+   POLL FOR ADMIN REPLIES  ⭐ NEW
+   ============================================================ */
+setInterval(() => {
+  if (!authState.silentMode || !authState.dealerCode) return;
+  const threads = getThreads();
+  const thread = threads[authState.dealerCode];
+  if (!thread || !thread.messages) return;
+
+  const adminMsgs = thread.messages.filter(m => m.from === 'admin');
+  const seen = adminMsgSeen[authState.dealerCode] || 0;
+
+  if (adminMsgs.length > seen) {
+    adminMsgs.slice(seen).forEach(m => {
+      addMsg(`<strong style="color:#16a34a">🛡️ Dealer Support Team:</strong><br>${m.text}`,
+        'bot', true, true);
+    });
+    adminMsgSeen[authState.dealerCode] = adminMsgs.length;
+    // Clear dealer unread count
+    const th = getThreads();
+    if (th[authState.dealerCode]) {
+      th[authState.dealerCode].unreadByDealer = 0;
+      saveThreads(th);
+    }
+  }
+}, 2000);
+
+/* Storage event — instant when admin replies in same browser */
+window.addEventListener('storage', e => {
+  if (e.key === THREADS_KEY && authState.silentMode && authState.dealerCode) {
+    // Triggers in OTHER tab — polling handles it too
+  }
 });
 
 /* BOOT */
