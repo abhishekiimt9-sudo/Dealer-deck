@@ -79,7 +79,7 @@
   .stat.warn .val { color: #d97706; }
   .stat.err .val { color: #dc2626; }
   .stat.blue .val { color: #1e40af; }
-  .preview-table { max-height: 320px; overflow: auto; border-radius: 10px;
+  .preview-table { max-height: 500px; overflow: auto; border-radius: 10px;
     border: 1px solid #e5e7ef; margin-top: 12px; }
   .preview-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
   .preview-table th { background: #b3001b; color: #fff; padding: 9px 10px;
@@ -87,6 +87,8 @@
   .preview-table td { padding: 8px 10px; border-bottom: 1px solid #eee; white-space: nowrap; }
   .preview-table tr:nth-child(even) td { background: #fafbff; }
   .preview-table tr.bad td { background: #fee2e2; color: #991b1b; }
+  .preview-table tr.clickable { cursor: pointer; transition: 0.15s; }
+  .preview-table tr.clickable:hover td { background: #fff5f6; }
   .empty { text-align: center; padding: 30px; color: #999; font-size: 13px; }
   .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
   .kpi { background: linear-gradient(135deg, #fff5f6, #fef2f4);
@@ -163,6 +165,41 @@
   .toast { position: fixed; top: 20px; right: 20px; background: #b3001b;
     color: #fff; padding: 14px 20px; border-radius: 10px; font-size: 13px;
     font-weight: 600; box-shadow: 0 8px 30px rgba(0,0,0,0.25); z-index: 9999; }
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100; padding: 20px; }
+  .modal-overlay.show { display: flex; }
+  .modal-box { background: #fff; border-radius: 16px; width: 100%; max-width: 500px;
+    padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto; }
+  .modal-box h3 { font-size: 16px; color: #111; margin-bottom: 4px; font-weight: 700; }
+  .modal-box .sub { font-size: 12px; color: #888; margin-bottom: 16px; }
+  .modal-box label { display: block; font-size: 11.5px; color: #555; font-weight: 600;
+    margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px; }
+  .modal-box input, .modal-box select, .modal-box textarea {
+    width: 100%; border: 1.5px solid #d7dbe6; border-radius: 10px;
+    padding: 10px 12px; font-size: 13.5px; outline: none; margin-bottom: 12px;
+    font-family: inherit; }
+  .modal-box input:focus, .modal-box select:focus, .modal-box textarea:focus {
+    border-color: #b3001b; box-shadow: 0 0 0 3px rgba(179,0,27,0.1); }
+  .modal-box textarea { resize: vertical; min-height: 80px; }
+  .modal-box .info-row { display: flex; justify-content: space-between;
+    padding: 6px 0; border-bottom: 1px solid #f0f2f7; font-size: 12.5px; }
+  .modal-box .info-row:last-child { border-bottom: none; }
+  .modal-box .info-row .lbl { color: #666; }
+  .modal-box .info-row .val { font-weight: 700; color: #111; }
+  .modal-btns { display: flex; gap: 10px; margin-top: 8px; }
+  .modal-btns button { flex: 1; padding: 12px; border-radius: 10px; font-size: 13px;
+    font-weight: 600; cursor: pointer; border: none; }
+  .modal-btns .btn-cancel { background: #f0f2f7; color: #555; }
+  .modal-btns .btn-save { background: #b3001b; color: #fff; }
+  .modal-btns .btn-save:hover { background: #7a0012; }
+  .badge-status { display: inline-block; padding: 4px 10px; border-radius: 20px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase; }
+  .badge-status.open { background: #fef3c7; color: #92400e; }
+  .badge-status.in-progress { background: #dbeafe; color: #1e40af; }
+  .badge-status.resolved { background: #d1fae5; color: #065f46; }
+  .badge-status.closed { background: #e5e7eb; color: #4b5563; }
   @media (max-width: 700px) {
     .support-wrap { grid-template-columns: 1fr; }
     .threads-list { max-height: 200px; }
@@ -201,18 +238,21 @@
   </div>
 
   <div class="nav-tabs">
-    <div class="nav-tab active" data-tab="support">
+    <div class="nav-tab" data-tab="support">
       💬 Support Chats
       <span class="badge" id="supportBadge" style="display:none">0</span>
     </div>
-    <div class="nav-tab" data-tab="upload">📤 Upload Data</div>
+    <div class="nav-tab" data-tab="tickets">
+      🎫 Tickets
+      <span class="badge" id="ticketBadge" style="display:none">0</span>
+    </div>
+    <div class="nav-tab active" data-tab="upload">📤 Upload Data</div>
     <div class="nav-tab" data-tab="analytics">📊 Analytics</div>
     <div class="nav-tab" data-tab="records">📦 Orders</div>
-    <div class="nav-tab" data-tab="tickets">🎫 Tickets</div>
   </div>
 
   <div class="content">
-    <div class="tab-panel active" id="panel-support">
+    <div class="tab-panel" id="panel-support">
       <div class="card" style="padding:0;overflow:hidden">
         <div class="support-wrap">
           <div class="threads-list">
@@ -239,11 +279,37 @@
       </div>
     </div>
 
-    <div class="tab-panel" id="panel-upload">
+    <div class="tab-panel" id="panel-tickets">
+      <div class="card">
+        <h3>🎫 Support Tickets</h3>
+        <p style="font-size:12.5px;color:#666;margin-bottom:14px">
+          👆 <strong>Kisi bhi ticket pe click karo</strong> — status change karo, remarks add karo.
+        </p>
+        <div class="stats">
+          <div class="stat warn"><div class="val" id="tkOpen">0</div><div class="lbl">Open</div></div>
+          <div class="stat blue"><div class="val" id="tkInProgress">0</div><div class="lbl">In Progress</div></div>
+          <div class="stat ok"><div class="val" id="tkClosed">0</div><div class="lbl">Closed / Resolved</div></div>
+          <div class="stat"><div class="val" id="tkTotal">0</div><div class="lbl">Total</div></div>
+        </div>
+        <div class="dealer-filter" style="margin-top:14px">
+          <input id="tkSearch" type="text" placeholder="Search ticket / dealer / order..." style="flex:1;min-width:200px" />
+          <select id="tkStatusFilter">
+            <option value="">All Statuses</option>
+            <option>Open</option>
+            <option>In Progress</option>
+            <option>Resolved</option>
+            <option>Closed</option>
+          </select>
+        </div>
+        <div class="preview-table" id="ticketsTable"></div>
+      </div>
+    </div>
+
+    <div class="tab-panel active" id="panel-upload">
       <div class="card">
         <h3>📤 Upload Excel / CSV File</h3>
         <p style="font-size:12.5px;color:#666;margin-bottom:14px">
-          ✅ <strong>Smart Column Detection:</strong> Column names kuch bhi ho (Invoice No, Inv #, LR No, Docket No, LR Date, LR Mode) — chatbot automatic detect kar lega.
+          ✅ <strong>Smart Column Detection:</strong> Column names kuch bhi ho — chatbot automatic detect kar lega.
         </p>
         <div class="upload-zone" id="uploadZone">
           <div class="icon">📤</div>
@@ -305,25 +371,39 @@
         <div class="preview-table" id="recordsTable"></div>
       </div>
     </div>
+  </div>
+</div>
 
-    <div class="tab-panel" id="panel-tickets">
-      <div class="card">
-        <h3>🎫 Support Tickets</h3>
-        <div class="stats">
-          <div class="stat warn"><div class="val" id="tkOpen">0</div><div class="lbl">Open</div></div>
-          <div class="stat ok"><div class="val" id="tkClosed">0</div><div class="lbl">Closed</div></div>
-          <div class="stat blue"><div class="val" id="tkTotal">0</div><div class="lbl">Total</div></div>
-        </div>
-        <div class="preview-table" id="ticketsTable" style="margin-top:14px"></div>
-      </div>
+<!-- TICKET MODAL -->
+<div class="modal-overlay" id="ticketModal">
+  <div class="modal-box">
+    <h3 id="tkModalTitle">Ticket Details</h3>
+    <p class="sub" id="tkModalSub">—</p>
+
+    <div id="tkModalInfo"></div>
+
+    <div style="margin-top:16px">
+      <label>Ticket Status</label>
+      <select id="tkModalStatus">
+        <option value="Open">Open</option>
+        <option value="In Progress">In Progress</option>
+        <option value="Resolved">Resolved</option>
+        <option value="Closed">Closed</option>
+      </select>
+
+      <label>Resolution Remarks / Action Taken</label>
+      <textarea id="tkModalRemarks" placeholder="e.g. Replacement dispatched on 15-Oct-2026"></textarea>
+    </div>
+
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeTicketModal()">Cancel</button>
+      <button class="btn-save" onclick="saveTicketChanges()">💾 Save Changes</button>
     </div>
   </div>
 </div>
 
 <script>
-/* ============================================================
-   FIREBASE INIT
-   ============================================================ */
+/* FIREBASE INIT */
 const firebaseConfig = {
   apiKey: "AIzaSyA6QL0wWLb_l9uyofgYrsgc6CiCRUufHdM",
   authDomain: "mg-parts-chatbot.firebaseapp.com",
@@ -342,6 +422,7 @@ let TICKETS = [];
 let FEEDBACK = [];
 let THREADS = {};
 let selectedDealer = null;
+let selectedTicketId = null;
 let allThreadsListener = null;
 
 function todayStamp() {
@@ -357,107 +438,59 @@ function showToast(msg) {
   setTimeout(() => el.remove(), 4000);
 }
 
-/* ============================================================
-   SMART COLUMN DETECTION
-   ============================================================ */
+/* SMART COLUMN DETECTION */
 function detectColumnMapping(headerName) {
   if (!headerName) return null;
   const h = String(headerName).trim().toLowerCase()
-    .replace(/[_\-\.#\/\\]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+    .replace(/[_\-\.#\/\\]/g, ' ').replace(/\s+/g, ' ').trim();
 
-  // ── LR DATE (before generic LR) ──
   if ((h.includes('lr') || h.includes('docket') || h.includes('consignment') || h.includes('dkt')) &&
       (h.includes('date') || h === 'lr dt' || h.includes('lr dt'))) return 'lrDate';
-
-  // ── LR MODE ──
   if ((h.includes('lr') || h.includes('transport') || h.includes('shipment')) &&
       (h.includes('mode') || h.includes('type'))) return 'lrMode';
-
-  // ── INVOICE ──
   if (h.includes('invoice') || h.includes('inv no') || h.includes('inv #') ||
       h.includes('bill no') || h.includes('gst invoice') || h.includes('gst bill')) return 'invoiceNumber';
-
-  // ── LR / DOCKET ──
   if (h.includes('lr no') || h.includes('lr #') || h === 'lr' ||
       h.includes('docket') || h.includes('dkt') ||
       h.includes('consignment') || h.includes('cn no')) return 'docketLR';
-
-  // ── TRANSPORTER ──
   if (h.includes('transporter') || h.includes('courier') || h.includes('logistics') ||
       h.includes('carrier') || h.includes('transport')) return 'transporter';
-
-  // ── DISPATCH DATE ──
   if (h.includes('dispatch') && (h.includes('date') || h.includes('dt'))) return 'dispatchDate';
   if (h.includes('dispatch') && (h.includes('qty') || h.includes('quantity') || h === 'dispatch')) return 'dispatchedQty';
-
-  // ── ORDER TYPE ──
   if (h.includes('order') && h.includes('type')) return 'orderType';
   if (h === 'type' || h === 'order type') return 'orderType';
-
-  // ── ORDER NUMBER ──
   if (h.includes('order') && (h.includes('no') || h.includes('num') || h.includes('id') || h.includes('#'))) return 'orderNumber';
   if (h === 'order' || h === 'order no' || h === 'order number') return 'orderNumber';
-
-  // ── ORDER DATE ──
   if (h.includes('order') && (h.includes('date') || h.includes('dt'))) return 'orderDate';
   if (h === 'date' || h === 'order date') return 'orderDate';
-
-  // ── PART NUMBER ──
   if ((h.includes('part') || h.includes('item') || h.includes('material') || h.includes('sku') || h.includes('product')) &&
       (h.includes('no') || h.includes('num') || h.includes('code') || h.includes('id') || h.includes('#'))) return 'partNumber';
   if (h === 'part' || h === 'part no' || h === 'part number' || h === 'partno' || h === 'item code') return 'partNumber';
-
-  // ── PART DESCRIPTION ──
   if (h.includes('part') && (h.includes('desc') || h.includes('name'))) return 'partDescription';
   if (h.includes('description') || h.includes('item name') || h.includes('product name')) return 'partDescription';
-
-  // ── DISPATCHED QTY ──
   if (h.includes('dispatch')) return 'dispatchedQty';
-
-  // ── PENDING QTY ──
   if ((h.includes('pending') || h.includes('balance') || h.includes('outstanding')) &&
       (h.includes('qty') || h.includes('quantity'))) return 'pendingQty';
-
-  // ── ORDERED QTY ──
   if ((h.includes('ordered') || h.includes('order qty')) &&
       (h.includes('qty') || h.includes('quantity'))) return 'orderedQty';
   if (h === 'qty' || h === 'quantity' || h.includes('ordered quantity')) return 'orderedQty';
-
-  // ── STOCK ──
   if (h.includes('stock') || h.includes('availability')) return 'stockAvailability';
-
-  // ── ETA ──
   if (h.includes('eta') || h.includes('expected') || h.includes('tentative') ||
       (h.includes('delivery') && h.includes('date')) || h.includes('exp date')) return 'eta';
-
-  // ── HOLD REASON ──
   if (h.includes('hold') || h.includes('reason') || h.includes('remark')) return 'holdReason';
-
-  // ── DEALER CODE ──
   if ((h.includes('dealer') || h.includes('party') || h.includes('customer')) &&
       (h.includes('code') || h.includes('id') || h.includes('no') || h.includes('#'))) return 'dealerCode';
   if (h === 'dealer' || h === 'dealer code' || h === 'party code') return 'dealerCode';
-
-  // ── DEALER NAME ──
   if ((h.includes('dealer') || h.includes('party') || h.includes('customer')) &&
       (h.includes('name') || h === 'dealer name')) return 'dealerName';
   if (h === 'dealer name' || h === 'party name') return 'dealerName';
-
-  // ── LAST UPDATED ──
   if (h.includes('last') && h.includes('update')) return 'lastUpdated';
-
-  // ── TICKET ──
   if (h.includes('ticket') && (h.includes('no') || h.includes('num') || h.includes('#'))) return 'ticketNumber';
   if (h.includes('ticket') && h.includes('status')) return 'ticketStatus';
-
   return null;
 }
-
 function smartMapRow(rawRow) {
-  const obj = {};
-  const detected = {};
+  const obj = {}; const detected = {};
   Object.keys(rawRow).forEach(colName => {
     const mapped = detectColumnMapping(colName);
     if (mapped) {
@@ -470,9 +503,7 @@ function smartMapRow(rawRow) {
   return { obj, detected };
 }
 
-/* ============================================================
-   LOGIN
-   ============================================================ */
+/* LOGIN */
 function doLogin() {
   const u = document.getElementById('loginUser').value.trim();
   const p = document.getElementById('loginPass').value;
@@ -486,7 +517,6 @@ function doLogin() {
   }
 }
 document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
-
 function doLogout() {
   sessionStorage.removeItem('mg_admin');
   if (allThreadsListener) allThreadsListener();
@@ -495,7 +525,6 @@ function doLogout() {
   document.getElementById('loginUser').value = '';
   document.getElementById('loginPass').value = '';
 }
-
 function showDashboard(username) {
   document.getElementById('loginWrap').style.display = 'none';
   document.getElementById('dashWrap').classList.add('show');
@@ -505,17 +534,16 @@ function showDashboard(username) {
 const session = sessionStorage.getItem('mg_admin');
 if (session) showDashboard(session);
 
-/* ============================================================
-   REAL-TIME LISTENERS
-   ============================================================ */
+/* LISTENERS */
 function setupListeners() {
   db.collection('orders').onSnapshot(snap => {
-    ORDERS = snap.docs.map(d => d.data());
+    ORDERS = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
     renderAll();
   });
   db.collection('tickets').onSnapshot(snap => {
-    TICKETS = snap.docs.map(d => d.data());
+    TICKETS = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
     renderTickets();
+    updateTicketBadge();
     renderAnalytics();
   });
   db.collection('feedback').onSnapshot(snap => {
@@ -550,9 +578,7 @@ document.querySelectorAll('.nav-tab').forEach(tab => {
   };
 });
 
-/* ============================================================
-   SUPPORT CHAT
-   ============================================================ */
+/* SUPPORT CHAT */
 function renderThreads() {
   const el = document.getElementById('threadsList');
   const entries = Object.values(THREADS).sort((a, b) => {
@@ -582,7 +608,6 @@ function renderThreads() {
   }).join('');
   updateSupportBadge();
 }
-
 function updateSupportBadge() {
   let total = 0;
   Object.values(THREADS).forEach(t => {
@@ -592,7 +617,6 @@ function updateSupportBadge() {
   if (total > 0) { badge.textContent = total; badge.style.display = 'inline-block'; }
   else { badge.style.display = 'none'; }
 }
-
 async function selectDealer(dealerCode) {
   selectedDealer = dealerCode;
   const t = THREADS[dealerCode];
@@ -622,7 +646,6 @@ async function selectDealer(dealerCode) {
   setTimeout(() => document.getElementById('adminReplyInput').focus(), 100);
   renderThreads();
 }
-
 async function sendAdminReply() {
   const inp = document.getElementById('adminReplyInput');
   const text = inp.value.trim();
@@ -631,12 +654,9 @@ async function sendAdminReply() {
     await db.collection('threads').add({
       dealerCode: selectedDealer,
       dealerName: THREADS[selectedDealer].dealerName,
-      sender: 'admin',
-      message: text,
-      timestamp: Date.now(),
+      sender: 'admin', message: text, timestamp: Date.now(),
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      readByAdmin: true,
-      readByDealer: false
+      readByAdmin: true, readByDealer: false
     });
     inp.value = '';
   } catch (e) { console.error(e); alert('Failed: ' + e.message); }
@@ -646,8 +666,160 @@ document.getElementById('adminReplyInput')?.addEventListener('keydown', e => {
 });
 
 /* ============================================================
-   UPLOAD
+   TICKET MANAGEMENT (NEW)
    ============================================================ */
+function getStatusClass(status) {
+  const s = String(status || '').toLowerCase();
+  if (s.includes('open')) return 'open';
+  if (s.includes('progress')) return 'in-progress';
+  if (s.includes('resolv')) return 'resolved';
+  if (s.includes('clos')) return 'closed';
+  return 'open';
+}
+
+function updateTicketBadge() {
+  const open = TICKETS.filter(t => {
+    const s = String(t.ticketStatus || '').toLowerCase();
+    return s.includes('open') || s.includes('progress');
+  }).length;
+  const badge = document.getElementById('ticketBadge');
+  if (open > 0) { badge.textContent = open; badge.style.display = 'inline-block'; }
+  else { badge.style.display = 'none'; }
+}
+
+function renderTickets() {
+  const open = TICKETS.filter(t => String(t.ticketStatus || '').toLowerCase().includes('open')).length;
+  const inProgress = TICKETS.filter(t => String(t.ticketStatus || '').toLowerCase().includes('progress')).length;
+  const closed = TICKETS.filter(t => {
+    const s = String(t.ticketStatus || '').toLowerCase();
+    return s.includes('clos') || s.includes('resolv');
+  }).length;
+  document.getElementById('tkOpen').textContent = open;
+  document.getElementById('tkInProgress').textContent = inProgress;
+  document.getElementById('tkClosed').textContent = closed;
+  document.getElementById('tkTotal').textContent = TICKETS.length;
+  updateTicketBadge();
+
+  const el = document.getElementById('ticketsTable');
+  const s = (document.getElementById('tkSearch')?.value || '').toLowerCase().trim();
+  const st = (document.getElementById('tkStatusFilter')?.value || '');
+
+  let filtered = TICKETS.filter(t => {
+    if (st && (t.ticketStatus || '') !== st) return false;
+    if (!s) return true;
+    return String(t.ticketNumber || '').toLowerCase().includes(s) ||
+      String(t.dealerCode || '').toLowerCase().includes(s) ||
+      String(t.orderNumber || '').toLowerCase().includes(s) ||
+      String(t.partNumber || '').toLowerCase().includes(s) ||
+      String(t.issueDescription || '').toLowerCase().includes(s);
+  });
+
+  // Sort by latest first
+  filtered.sort((a, b) => {
+    const ta = a.createdAt?.seconds || 0;
+    const tb = b.createdAt?.seconds || 0;
+    return tb - ta;
+  });
+
+  if (!filtered.length) { el.innerHTML = '<div class="empty">No tickets found.</div>'; return; }
+
+  let html = `<table><thead><tr>
+    <th>Ticket #</th><th>Dealer</th><th>Order</th><th>Part</th>
+    <th>Issue</th><th>Status</th><th>Raised</th><th>Action</th>
+  </tr></thead><tbody>`;
+
+  filtered.forEach(t => {
+    const cls = getStatusClass(t.ticketStatus);
+    html += `<tr class="clickable" onclick="openTicketModal('${t._id}')">
+      <td><strong>${t.ticketNumber || '-'}</strong></td>
+      <td>${t.dealerCode || '-'}</td>
+      <td>${t.orderNumber || '-'}</td>
+      <td>${t.partNumber || '-'}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${t.issueDescription || '-'}</td>
+      <td><span class="badge-status ${cls}">${t.ticketStatus || 'Open'}</span></td>
+      <td>${t.raisedDate || '-'}</td>
+      <td style="color:#b3001b;font-weight:600">Edit →</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+document.getElementById('tkSearch')?.addEventListener('input', renderTickets);
+document.getElementById('tkStatusFilter')?.addEventListener('change', renderTickets);
+
+/* TICKET MODAL */
+function openTicketModal(id) {
+  const t = TICKETS.find(x => x._id === id);
+  if (!t) return;
+  selectedTicketId = id;
+
+  document.getElementById('tkModalTitle').textContent = '🎫 ' + (t.ticketNumber || 'Ticket');
+  document.getElementById('tkModalSub').textContent = 'Raised on ' + (t.raisedDate || '-');
+
+  const info = document.getElementById('tkModalInfo');
+  info.innerHTML = `
+    <div class="info-row"><span class="lbl">Dealer Code</span><span class="val">${t.dealerCode || '-'}</span></div>
+    <div class="info-row"><span class="lbl">Order Number</span><span class="val">${t.orderNumber || '-'}</span></div>
+    <div class="info-row"><span class="lbl">Part Number</span><span class="val">${t.partNumber || '-'}</span></div>
+    <div class="info-row" style="display:block">
+      <div class="lbl" style="margin-bottom:6px">Issue Description</div>
+      <div class="val" style="font-weight:400;background:#f9fafc;padding:10px;border-radius:8px;font-size:12.5px;line-height:1.5">${t.issueDescription || '-'}</div>
+    </div>
+    ${t.resolutionRemarks ? `<div class="info-row" style="display:block">
+      <div class="lbl" style="margin-bottom:6px">Previous Remarks</div>
+      <div class="val" style="font-weight:400;background:#ecfdf5;padding:10px;border-radius:8px;font-size:12.5px;line-height:1.5;color:#065f46">${t.resolutionRemarks}</div>
+    </div>` : ''}
+  `;
+
+  document.getElementById('tkModalStatus').value = t.ticketStatus || 'Open';
+  document.getElementById('tkModalRemarks').value = '';
+
+  document.getElementById('ticketModal').classList.add('show');
+}
+function closeTicketModal() {
+  document.getElementById('ticketModal').classList.remove('show');
+  selectedTicketId = null;
+}
+
+async function saveTicketChanges() {
+  if (!selectedTicketId) return;
+  const newStatus = document.getElementById('tkModalStatus').value;
+  const newRemarks = document.getElementById('tkModalRemarks').value.trim();
+
+  const t = TICKETS.find(x => x._id === selectedTicketId);
+  if (!t) return;
+
+  // Merge remarks with existing
+  let finalRemarks = t.resolutionRemarks || '';
+  if (newRemarks) {
+    const stamp = todayStamp();
+    finalRemarks = finalRemarks ? finalRemarks + '\n---\n[' + stamp + '] ' + newRemarks : '[' + stamp + '] ' + newRemarks;
+  }
+
+  const update = {
+    ticketStatus: newStatus,
+    resolutionRemarks: finalRemarks
+  };
+  if (newStatus === 'Closed' || newStatus === 'Resolved') {
+    update.closedDate = todayStamp();
+  }
+
+  const btn = event?.target;
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+
+  try {
+    await db.collection('tickets').doc(selectedTicketId).update(update);
+    showToast('✅ Ticket updated!');
+    closeTicketModal();
+    renderTickets();
+  } catch (e) {
+    alert('❌ Failed: ' + e.message);
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '💾 Save Changes'; }
+}
+
+/* UPLOAD */
 document.getElementById('uploadZone').onclick = () => document.getElementById('fileInput').click();
 const zone = document.getElementById('uploadZone');
 zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
@@ -676,23 +848,19 @@ function handleFile(file) {
 function validateRows(raw) {
   const rows = []; const errors = []; const seen = new Set();
   const detectedMap = {};
-
   raw.forEach((r, i) => {
     const rowNum = i + 2;
     const { obj, detected } = smartMapRow(r);
     Object.assign(detectedMap, detected);
-
     if (!obj.dealerCode || !obj.dealerName) {
       errors.push({ row: rowNum, reason: 'Missing Dealer Code or Dealer Name' });
       return;
     }
-
     if (obj.orderNumber) {
       const key = obj.orderNumber + '|' + (obj.partNumber || '');
       if (seen.has(key)) { errors.push({ row: rowNum, reason: 'Duplicate order+part' }); return; }
       seen.add(key);
     }
-
     obj.orderedQty = Number(obj.orderedQty) || 0;
     obj.dispatchedQty = Number(obj.dispatchedQty) || 0;
     obj.pendingQty = Number(obj.pendingQty) || (obj.orderedQty - obj.dispatchedQty);
@@ -702,7 +870,6 @@ function validateRows(raw) {
     }
     rows.push(obj);
   });
-
   return { rows, errors, detectedMap };
 }
 
@@ -712,7 +879,6 @@ function renderPreview(result, fileName) {
   document.getElementById('statTotal').textContent = rows.length + errors.length;
   document.getElementById('statValid').textContent = rows.length;
   document.getElementById('statRejected').textContent = errors.length;
-
   const colEl = document.getElementById('detectedColumns');
   if (Object.keys(detectedMap).length) {
     const pairs = Object.entries(detectedMap).map(([orig, mapped]) =>
@@ -721,10 +887,7 @@ function renderPreview(result, fileName) {
       </span>`).join('');
     colEl.innerHTML = `<div style="margin-bottom:6px"><strong>✅ Auto-detected columns:</strong></div>${pairs}`;
     colEl.style.display = 'block';
-  } else {
-    colEl.style.display = 'none';
-  }
-
+  } else { colEl.style.display = 'none'; }
   const cols = ['dealerCode','dealerName','orderNumber','partNumber','orderStatus','invoiceNumber','docketLR','lrDate','lrMode','eta'];
   let html = '<table><thead><tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
   rows.forEach(o => { html += '<tr>' + cols.map(c => `<td>${o[c] ?? ''}</td>`).join('') + '</tr>'; });
@@ -750,7 +913,6 @@ async function publishData(rows, errors, fileName) {
       if (count % 400 === 0) { await batch.commit(); batch = db.batch(); }
     }
     if (count % 400 !== 0) await batch.commit();
-
     batch = db.batch(); count = 0;
     for (const o of rows) {
       const ref = db.collection('orders').doc();
@@ -759,7 +921,6 @@ async function publishData(rows, errors, fileName) {
       if (count % 400 === 0) { await batch.commit(); batch = db.batch(); }
     }
     if (count % 400 !== 0) await batch.commit();
-
     alert(`✅ Published!\n\n${rows.length} records live.` + (errors.length ? `\n${errors.length} rejected.` : ''));
     document.getElementById('previewCard').style.display = 'none';
     document.getElementById('fileInput').value = '';
@@ -797,9 +958,7 @@ function downloadTemplate() {
   XLSX.writeFile(wb, 'MG_Template_' + new Date().toISOString().slice(0,10) + '.xlsx');
 }
 
-/* ============================================================
-   ANALYTICS
-   ============================================================ */
+/* ANALYTICS */
 function renderAnalytics() {
   const el = document.getElementById('analyticsBody');
   const total = ORDERS.filter(o => o.orderNumber).length;
@@ -819,7 +978,10 @@ function renderAnalytics() {
   const topDealers = Object.entries(dealerCount).sort((a,b) => b[1] - a[1]).slice(0, 5);
   const thumbsUp = FEEDBACK.filter(f => f.rating === 'up').length;
   const thumbsDown = FEEDBACK.filter(f => f.rating === 'down').length;
-  const openTickets = TICKETS.filter(tk => tk.ticketStatus !== 'Closed' && tk.ticketStatus !== 'Resolved').length;
+  const openTickets = TICKETS.filter(tk => {
+    const s = String(tk.ticketStatus || '').toLowerCase();
+    return !s.includes('clos') && !s.includes('resolv');
+  }).length;
   const closedTickets = TICKETS.length - openTickets;
 
   el.innerHTML = `
@@ -904,21 +1066,6 @@ function renderRecords() {
 }
 document.getElementById('recSearch')?.addEventListener('input', renderRecords);
 document.getElementById('recStatusFilter')?.addEventListener('change', renderRecords);
-
-function renderTickets() {
-  const open = TICKETS.filter(t => t.ticketStatus !== 'Closed' && t.ticketStatus !== 'Resolved').length;
-  const closed = TICKETS.length - open;
-  document.getElementById('tkOpen').textContent = open;
-  document.getElementById('tkClosed').textContent = closed;
-  document.getElementById('tkTotal').textContent = TICKETS.length;
-  const el = document.getElementById('ticketsTable');
-  if (!TICKETS.length) { el.innerHTML = '<div class="empty">No tickets yet.</div>'; return; }
-  const cols = ['ticketNumber','dealerCode','orderNumber','partNumber','issueDescription','ticketStatus','raisedDate'];
-  let html = '<table><thead><tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
-  TICKETS.forEach(t => { html += '<tr>' + cols.map(c => `<td>${t[c] ?? ''}</td>`).join('') + '</tr>'; });
-  html += '</tbody></table>';
-  el.innerHTML = html;
-}
 
 function renderAll() { renderRecords(); renderAnalytics(); }
 </script>
