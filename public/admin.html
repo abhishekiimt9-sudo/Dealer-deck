@@ -220,6 +220,9 @@
     align-self: flex-start; border-bottom-left-radius: 4px; }
   .chat-msg.admin { background: #b3001b; color: #fff;
     align-self: flex-end; border-bottom-right-radius: 4px; }
+  .chat-msg.bot { background: #f8fafc; border: 1px dashed #cbd5e1;
+    align-self: flex-start; border-bottom-left-radius: 4px; color: #555;
+    font-style: italic; max-width: 70%; }
   .chat-msg .m-time { font-size: 10px; opacity: 0.75; margin-top: 4px; }
   .chat-msg.admin .m-time { color: rgba(255,255,255,0.8); }
   .chat-input-bar { display: flex; gap: 8px; padding: 12px 16px;
@@ -232,7 +235,6 @@
     font-weight: 600; cursor: pointer; }
   .chat-input-bar button:hover { background: #7a0012; }
 
-  /* Toast */
   .toast { position: fixed; top: 20px; right: 20px; background: #b3001b;
     color: #fff; padding: 14px 20px; border-radius: 10px; font-size: 13px;
     font-weight: 600; box-shadow: 0 8px 30px rgba(0,0,0,0.25); z-index: 9999;
@@ -243,7 +245,6 @@
     .support-wrap { grid-template-columns: 1fr; }
     .threads-list { max-height: 200px; }
     .content { padding: 14px; }
-    .bar-row .bar-label { width: 90px; font-size: 11px; }
   }
 </style>
 </head>
@@ -325,7 +326,7 @@
         <div class="upload-zone" id="uploadZone">
           <div class="icon">📤</div>
           <p><strong>Click to upload</strong> or drag file here</p>
-          <small>Required columns: <strong>Dealer Code</strong> and <strong>Dealer Name</strong> only</small>
+          <small>Required: <strong>Dealer Code</strong> and <strong>Dealer Name</strong> only</small>
           <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" />
         </div>
         <div style="margin-top:14px;padding-top:14px;border-top:1px dashed #e5e7ef;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -351,7 +352,7 @@
       <div class="card">
         <h3>💾 Data Backup & Restore</h3>
         <p style="font-size:12.5px;color:#666;margin-bottom:14px">
-          Data browser me save hoti hai. Backup zaroor rakho — refresh ya dusre browser me data na dikhe toh restore kar sakte ho.
+          Data browser me save hoti hai. Backup zaroor rakho.
         </p>
         <div class="btn-row">
           <button class="btn" onclick="exportData()">📥 Export Data (JSON)</button>
@@ -411,14 +412,8 @@
 </div>
 
 <script>
-/* ============================================================
-   ADMIN CREDENTIALS
-   ============================================================ */
 const ADMIN_USERS = { 'admin': 'mg@2026' };
 
-/* ============================================================
-   STORAGE KEYS
-   ============================================================ */
 const STORAGE_KEY = 'mg_orders_data';
 const LOG_KEY = 'mg_upload_log';
 const TICKETS_KEY = 'mg_support_tickets';
@@ -481,9 +476,6 @@ function todayStamp() {
 }
 function nowTime() { return new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }); }
 
-/* ============================================================
-   TOAST
-   ============================================================ */
 function showToast(msg) {
   const t = document.createElement('div');
   t.className = 'toast';
@@ -492,9 +484,6 @@ function showToast(msg) {
   setTimeout(() => t.remove(), 4000);
 }
 
-/* ============================================================
-   LOGIN
-   ============================================================ */
 function doLogin() {
   const u = document.getElementById('loginUser').value.trim();
   const p = document.getElementById('loginPass').value;
@@ -526,9 +515,6 @@ function showDashboard(username) {
 const session = sessionStorage.getItem('mg_admin');
 if (session) showDashboard(session);
 
-/* ============================================================
-   TABS
-   ============================================================ */
 document.querySelectorAll('.nav-tab').forEach(tab => {
   tab.onclick = () => {
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
@@ -562,12 +548,13 @@ function renderThreads() {
     const lastMsg = t.messages.length ? t.messages[t.messages.length - 1] : null;
     const preview = lastMsg ? lastMsg.text.substring(0, 40) : 'No messages';
     const time = lastMsg ? lastMsg.time : '';
+    const fromLabel = lastMsg ? (lastMsg.from === 'dealer' ? '' : lastMsg.from === 'bot' ? '🤖 ' : '🛡️ ') : '';
     return `
       <div class="thread-item ${selectedDealer === t.dealerCode ? 'active' : ''}"
            onclick="selectDealer('${t.dealerCode}')">
         <div class="t-name">${t.dealerName || t.dealerCode}</div>
         <div class="t-code">${t.dealerCode}</div>
-        <div class="t-preview">${preview}</div>
+        <div class="t-preview">${fromLabel}${preview}</div>
         <div class="t-meta">
           <span>${time}</span>
           ${t.unreadByAdmin ? `<span class="unread-badge">${t.unreadByAdmin}</span>` : ''}
@@ -591,7 +578,6 @@ function selectDealer(dealerCode) {
   const t = THREADS[dealerCode];
   if (!t) return;
 
-  // Mark as read
   t.unreadByAdmin = 0;
   saveThreads();
 
@@ -604,11 +590,17 @@ function selectDealer(dealerCode) {
     <button class="chat-refresh-btn" onclick="selectDealer('${dealerCode}')">🔄 Refresh</button>`;
 
   const body = document.getElementById('chatBody');
-  body.innerHTML = t.messages.length ? t.messages.map(m => `
-    <div class="chat-msg ${m.from}">
-      ${m.text}
-      <div class="m-time">${m.time}</div>
-    </div>`).join('') : '<div class="empty">No messages yet.</div>';
+  body.innerHTML = t.messages.length ? t.messages.map(m => {
+    const cls = m.from === 'dealer' ? 'dealer' : (m.from === 'admin' ? 'admin' : 'bot');
+    const label = m.from === 'bot' ? '<div style="font-size:10px;color:#888;margin-bottom:3px">🤖 Bot reply</div>' :
+                  m.from === 'dealer' ? '<div style="font-size:10px;color:#888;margin-bottom:3px">👤 Dealer</div>' :
+                  '<div style="font-size:10px;color:rgba(255,255,255,0.8);margin-bottom:3px">🛡️ You (Support)</div>';
+    return `
+      <div class="chat-msg ${cls}">
+        ${label}${m.text}
+        <div class="m-time">${m.time}</div>
+      </div>`;
+  }).join('') : '<div class="empty">No messages yet.</div>';
   body.scrollTop = body.scrollHeight;
 
   document.getElementById('adminReplyInput').disabled = false;
@@ -640,7 +632,7 @@ document.getElementById('adminReplyInput')?.addEventListener('keydown', e => {
 });
 
 /* ============================================================
-   UPLOAD — ONLY Dealer Code + Dealer Name required
+   UPLOAD
    ============================================================ */
 const COLUMN_MAP = {
   'dealer code': 'dealerCode', 'dealer name': 'dealerName',
@@ -655,8 +647,6 @@ const COLUMN_MAP = {
   'last updated': 'lastUpdated', 'support ticket number': 'ticketNumber',
   'ticket status': 'ticketStatus'
 };
-
-// ⭐ Only these 2 are required
 const REQUIRED = ['dealerCode', 'dealerName'];
 
 document.getElementById('uploadZone').onclick = () => document.getElementById('fileInput').click();
@@ -696,11 +686,9 @@ function validateRows(raw) {
       const mapped = COLUMN_MAP[normalizeHeader(k)];
       if (mapped) obj[mapped] = typeof r[k] === 'string' ? r[k].trim() : r[k];
     });
-    // Only check Dealer Code & Dealer Name
     const missing = REQUIRED.filter(f => obj[f] === undefined || obj[f] === '');
     if (missing.length) { errors.push({ row: rowNum, reason: 'Missing: ' + missing.join(', ') }); return; }
 
-    // Optional order checks (only if order fields exist)
     if (obj.orderNumber) {
       const key = obj.orderNumber + '|' + (obj.partNumber || '');
       if (seen.has(key)) { errors.push({ row: rowNum, reason: 'Duplicate order+part' }); return; }
@@ -742,7 +730,6 @@ function renderPreview(result, fileName) {
 
 function publishData(rows, errors, fileName) {
   if (!rows.length) { alert('No valid rows to publish.'); return; }
-
   rows.forEach(r => { r.lastUpdated = r.lastUpdated || todayStamp(); });
   ORDERS = rows;
 
@@ -751,15 +738,11 @@ function publishData(rows, errors, fileName) {
     valid: rows.length, rejected: errors.length, timestamp: todayStamp() });
   UPLOAD_LOG = UPLOAD_LOG.slice(0, 20);
 
-  try { saveData(); } catch (e) {
-    alert('❌ Failed to save data!\n\n' + e.message);
-    return;
-  }
+  try { saveData(); } catch (e) { alert('❌ Failed to save: ' + e.message); return; }
 
-  // Verify
   const verify = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
   if (!verify || verify.length !== rows.length) {
-    alert('⚠️ Data not saved properly!\nExpected: ' + rows.length + '\nFound: ' + (verify ? verify.length : 0));
+    alert('⚠️ Data not saved properly!');
     return;
   }
 
@@ -771,12 +754,8 @@ function publishData(rows, errors, fileName) {
   document.getElementById('previewCard').style.display = 'none';
   document.getElementById('fileInput').value = '';
   renderAll();
-  updateStorageInfo();
 }
 
-/* ============================================================
-   TEMPLATE DOWNLOAD
-   ============================================================ */
 function downloadTemplate() {
   const sampleData = [
     { 'Dealer Code':'MGDL001','Dealer Name':'ABC Motors Pvt Ltd','Order Number':'ORD100001',
@@ -801,7 +780,6 @@ function downloadTemplate() {
       'Order Hold Reason':'Procurement Block','Last Updated Date & Time':'14-Oct-2026 10:00',
       'Support Ticket Number':'','Ticket Status':'' }
   ];
-
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(sampleData);
   ws['!cols'] = [
@@ -810,7 +788,6 @@ function downloadTemplate() {
     {wch:18},{wch:14}
   ];
   XLSX.utils.book_append_sheet(wb, ws, 'Orders');
-
   const instructions = [
     { 'Instructions': 'MG Parts & Order Management - Excel Template' },
     { 'Instructions': '' },
@@ -818,13 +795,8 @@ function downloadTemplate() {
     { 'Instructions': '  1. Dealer Code' },
     { 'Instructions': '  2. Dealer Name' },
     { 'Instructions': '' },
-    { 'Instructions': '🟢 ALL OTHER COLUMNS ARE OPTIONAL:' },
-    { 'Instructions': '  Order Number, Order Type, Order Date, Part Number, Part Description,' },
-    { 'Instructions': '  Ordered Quantity, Dispatched Quantity, Pending Quantity, Order Status,' },
-    { 'Instructions': '  Stock Availability, Tentative ETA, Dispatch Date, Docket/LR Number,' },
-    { 'Instructions': '  Transporter Name, Order Hold Reason, Last Updated, Ticket Number, Ticket Status' },
-    { 'Instructions': '' },
-    { 'Instructions': 'You can also add your OWN custom columns — they will be ignored by the chatbot.' },
+    { 'Instructions': '🟢 ALL OTHER COLUMNS ARE OPTIONAL.' },
+    { 'Instructions': 'You can add your OWN custom columns too.' },
     { 'Instructions': '' },
     { 'Instructions': 'CONDITIONAL RULES (only if order data present):' },
     { 'Instructions': '  - Dispatched Qty cannot exceed Ordered Qty' },
@@ -834,13 +806,9 @@ function downloadTemplate() {
   const ws2 = XLSX.utils.json_to_sheet(instructions);
   ws2['!cols'] = [{ wch: 100 }];
   XLSX.utils.book_append_sheet(wb, ws2, 'Instructions');
-
   XLSX.writeFile(wb, 'MG_Orders_Template_' + new Date().toISOString().slice(0,10) + '.xlsx');
 }
 
-/* ============================================================
-   BACKUP / RESTORE
-   ============================================================ */
 function updateStorageInfo() {
   const el = document.getElementById('storageDetails');
   if (!el) return;
@@ -850,7 +818,7 @@ function updateStorageInfo() {
     const tickets = JSON.parse(localStorage.getItem('mg_support_tickets') || '[]');
     const kb = (size / 1024).toFixed(1);
     el.innerHTML = `<strong>${orders.length}</strong> orders • <strong>${tickets.length}</strong> tickets • 
-      <strong>${kb} KB</strong> used<br>
+      <strong>${kb} KB</strong><br>
       <span style="font-size:11px;color:#888">Status: ${orders.length > 0 ? '✅ Data saved' : '⚠️ No data'}</span>`;
   } catch (e) { el.textContent = 'Error'; }
 }
@@ -873,7 +841,7 @@ function exportData() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  alert('✅ Backup downloaded!\n\nFile ko safe rakho.');
+  alert('✅ Backup downloaded!');
 }
 
 function importData(event) {
@@ -883,22 +851,18 @@ function importData(event) {
   reader.onload = e => {
     try {
       const data = JSON.parse(e.target.result);
-      if (!data.orders || !Array.isArray(data.orders)) {
-        alert('❌ Invalid backup file.');
-        return;
-      }
-      if (!confirm('📦 Backup Details:\n\n• Orders: ' + data.orders.length +
+      if (!data.orders || !Array.isArray(data.orders)) { alert('❌ Invalid file.'); return; }
+      if (!confirm('📦 Backup:\n\n• Orders: ' + data.orders.length +
         '\n• Tickets: ' + (data.tickets?.length || 0) +
-        '\n• Exported: ' + (data.exportedAt || 'Unknown') +
-        '\n\n⚠️ Current data will be REPLACED. Continue?')) return;
+        '\n• Exported: ' + (data.exportedAt || '?') +
+        '\n\n⚠️ Current data will be replaced. Continue?')) return;
 
       localStorage.setItem('mg_orders_data', JSON.stringify(data.orders));
       localStorage.setItem('mg_support_tickets', JSON.stringify(data.tickets || []));
       localStorage.setItem('mg_feedback', JSON.stringify(data.feedback || []));
       localStorage.setItem('mg_support_threads', JSON.stringify(data.threads || {}));
       localStorage.setItem('mg_upload_log', JSON.stringify(data.uploadLog || []));
-
-      alert('✅ Data imported!\n\nRefreshing...');
+      alert('✅ Imported! Refreshing...');
       setTimeout(() => location.reload(), 800);
     } catch (err) { alert('❌ Failed: ' + err.message); }
   };
@@ -916,16 +880,12 @@ function renderAnalytics() {
   const onHold = ORDERS.filter(o => o.orderStatus === 'On Hold').length;
 
   const statuses = {};
-  ORDERS.filter(o => o.orderStatus).forEach(o => {
-    statuses[o.orderStatus] = (statuses[o.orderStatus] || 0) + 1;
-  });
+  ORDERS.filter(o => o.orderStatus).forEach(o => { statuses[o.orderStatus] = (statuses[o.orderStatus] || 0) + 1; });
   const statusEntries = Object.entries(statuses).sort((a,b) => b[1] - a[1]);
   const maxStatus = Math.max(1, ...statusEntries.map(e => e[1]));
 
   const types = {};
-  ORDERS.filter(o => o.orderType).forEach(o => {
-    types[o.orderType] = (types[o.orderType] || 0) + 1;
-  });
+  ORDERS.filter(o => o.orderType).forEach(o => { types[o.orderType] = (types[o.orderType] || 0) + 1; });
   const typeEntries = Object.entries(types).sort((a,b) => b[1] - a[1]);
   const maxType = Math.max(1, ...typeEntries.map(e => e[1]));
 
@@ -938,7 +898,6 @@ function renderAnalytics() {
 
   const thumbsUp = FEEDBACK.filter(f => f.rating === 'up').length;
   const thumbsDown = FEEDBACK.filter(f => f.rating === 'down').length;
-  const totalFb = FEEDBACK.length || 1;
   const openTickets = TICKETS.filter(tk => tk.ticketStatus !== 'Closed' && tk.ticketStatus !== 'Resolved').length;
   const closedTickets = TICKETS.length - openTickets;
 
@@ -1037,9 +996,6 @@ function renderAnalytics() {
   `;
 }
 
-/* ============================================================
-   RECORDS
-   ============================================================ */
 function renderRecords() {
   const el = document.getElementById('recordsTable');
   const s = (document.getElementById('recSearch')?.value || '').toLowerCase().trim();
@@ -1055,39 +1011,28 @@ function renderRecords() {
   if (!filtered.length) { el.innerHTML = '<div class="empty">No matching records.</div>'; return; }
   const cols = ['dealerCode','dealerName','orderNumber','orderType','partNumber','orderStatus','orderedQty','dispatchedQty','pendingQty','eta'];
   let html = '<table><thead><tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
-  filtered.slice(0, 100).forEach(o => {
-    html += '<tr>' + cols.map(c => `<td>${o[c] ?? ''}</td>`).join('') + '</tr>';
-  });
+  filtered.slice(0, 100).forEach(o => { html += '<tr>' + cols.map(c => `<td>${o[c] ?? ''}</td>`).join('') + '</tr>'; });
   html += '</tbody></table>';
   el.innerHTML = html;
 }
 document.getElementById('recSearch')?.addEventListener('input', renderRecords);
 document.getElementById('recStatusFilter')?.addEventListener('change', renderRecords);
 
-/* ============================================================
-   TICKETS
-   ============================================================ */
 function renderTickets() {
   const open = TICKETS.filter(t => t.ticketStatus !== 'Closed' && t.ticketStatus !== 'Resolved').length;
   const closed = TICKETS.length - open;
   document.getElementById('tkOpen').textContent = open;
   document.getElementById('tkClosed').textContent = closed;
   document.getElementById('tkTotal').textContent = TICKETS.length;
-
   const el = document.getElementById('ticketsTable');
   if (!TICKETS.length) { el.innerHTML = '<div class="empty">No tickets yet.</div>'; return; }
   const cols = ['ticketNumber','dealerCode','orderNumber','partNumber','issueDescription','ticketStatus','raisedDate'];
   let html = '<table><thead><tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
-  TICKETS.forEach(t => {
-    html += '<tr>' + cols.map(c => `<td>${t[c] ?? ''}</td>`).join('') + '</tr>';
-  });
+  TICKETS.forEach(t => { html += '<tr>' + cols.map(c => `<td>${t[c] ?? ''}</td>`).join('') + '</tr>'; });
   html += '</tbody></table>';
   el.innerHTML = html;
 }
 
-/* ============================================================
-   HISTORY
-   ============================================================ */
 function renderHistory() {
   const el = document.getElementById('uploadHistory');
   if (!UPLOAD_LOG.length) { el.innerHTML = '<div class="empty">No uploads yet.</div>'; return; }
@@ -1102,9 +1047,6 @@ function renderHistory() {
     </div>`).join('');
 }
 
-/* ============================================================
-   RENDER ALL
-   ============================================================ */
 function renderAll() {
   renderThreads();
   renderHistory();
@@ -1115,61 +1057,46 @@ function renderAll() {
 }
 
 /* ============================================================
-   LIVE POLLING FOR SUPPORT CHAT  ⭐ MAIN FIX
+   LIVE POLLING — same-browser + storage events
    ============================================================ */
-let lastThreadCounts = {};
-let lastMessageLengths = {};
+let lastMsgCounts = {};
 
 setInterval(() => {
-  // Reload threads from storage
   const freshThreads = JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
 
-  // Check for NEW messages (dealer sent)
-  let newMsgFromDealer = false;
+  // Detect new dealer messages
+  let newFromDealer = false;
   Object.keys(freshThreads).forEach(code => {
     const t = freshThreads[code];
-    const msgCount = t.messages ? t.messages.length : 0;
-    const lastSeen = lastMessageLengths[code] || 0;
-
-    if (msgCount > lastSeen) {
-      // New messages!
-      const newMsgs = t.messages.slice(lastSeen);
-      const hasDealerMsg = newMsgs.some(m => m.from === 'dealer');
-      if (hasDealerMsg && code !== selectedDealer) {
-        newMsgFromDealer = true;
-      }
+    const count = t.messages ? t.messages.length : 0;
+    const prev = lastMsgCounts[code] || 0;
+    if (count > prev) {
+      const newMsgs = t.messages.slice(prev);
+      if (newMsgs.some(m => m.from === 'dealer')) newFromDealer = true;
     }
-    lastMessageLengths[code] = msgCount;
+    lastMsgCounts[code] = count;
   });
 
-  // Only update if there are changes
   THREADS = freshThreads;
   updateSupportBadge();
 
-  // Refresh thread list if on support tab
   if (document.getElementById('panel-support')?.classList.contains('active')) {
     renderThreads();
-  }
-
-  // Auto-refresh open chat
-  if (selectedDealer && THREADS[selectedDealer]) {
-    const t = THREADS[selectedDealer];
-    const currentMsgCount = t.messages ? t.messages.length : 0;
-    const bodyCount = document.querySelectorAll('#chatBody .chat-msg').length;
-
-    if (currentMsgCount !== bodyCount) {
-      // New message in open chat
-      selectDealer(selectedDealer);
+    if (selectedDealer && THREADS[selectedDealer]) {
+      const t = THREADS[selectedDealer];
+      const bodyCount = document.querySelectorAll('#chatBody .chat-msg').length;
+      if ((t.messages ? t.messages.length : 0) !== bodyCount) {
+        selectDealer(selectedDealer);
+      }
     }
   }
 
-  // Toast notification
-  if (newMsgFromDealer) {
-    showToast('💬 New message from a dealer!');
+  if (newFromDealer) {
+    showToast('💬 New message from dealer!');
   }
 }, 1000);
 
-/* Also listen for storage events (fires across tabs) */
+/* Cross-tab storage listener */
 window.addEventListener('storage', e => {
   if (e.key === THREADS_KEY) {
     THREADS = JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
