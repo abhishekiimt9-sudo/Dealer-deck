@@ -156,16 +156,25 @@
     background: #fffbeb; padding: 8px 12px; border-radius: 10px; margin-bottom: 8px;
     font-size: 12px; font-weight: 700; color: #92400e; border-left: 4px solid #f59e0b;
   }
-  .ticket-card {
-    border: 1px solid #e5e7ef; border-radius: 10px; padding: 10px 12px;
-    margin-bottom: 8px; background: #fafbff;
-  }
+  .ticket-card { border: 1px solid #e5e7ef; border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 8px; background: #fafbff; }
   .ticket-card .tc-header { display: flex; justify-content: space-between;
     align-items: center; margin-bottom: 6px; }
   .ticket-card .tc-num { font-size: 12.5px; font-weight: 700; color: #b3001b; }
   .ticket-card .tc-row { font-size: 11.5px; color: #555; margin-top: 3px; }
   .ticket-card .tc-remarks { background: #ecfdf5; color: #065f46; padding: 8px 10px;
     border-radius: 8px; font-size: 11.5px; margin-top: 6px; line-height: 1.5; }
+  /* Support choice popup buttons */
+  .choice-btn {
+    width: 100%; padding: 14px; border: none; border-radius: 10px;
+    font-size: 13.5px; font-weight: 600; cursor: pointer; margin-bottom: 10px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: 0.15s;
+  }
+  .choice-btn.primary { background: #b3001b; color: #fff; }
+  .choice-btn.primary:hover { background: #7a0012; }
+  .choice-btn.secondary { background: #f0f2f7; color: #555; margin-bottom: 0; }
+  .choice-btn.secondary:hover { background: #e2e5ec; }
 </style>
 </head>
 <body>
@@ -244,10 +253,9 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-/* Support team config */
 const SUPPORT_START_HOUR = 9;
 const SUPPORT_END_HOUR = 19;
-const SUPPORT_WORKING_DAYS = [1,2,3,4,5,6]; // Mon-Sat
+const SUPPORT_WORKING_DAYS = [1,2,3,4,5,6];
 const BOT_WAIT_MS = 60000;
 
 /* TRANSLATIONS */
@@ -288,7 +296,7 @@ const I18N = {
     },
     faq: [
       { q: 'How can I track my VOR order?', a: 'Enter your VOR order number in the chat.' },
-      { q: 'What does "On Hold" mean?', a: 'Order is temporarily paused. Common reasons: credit block, stock unavailability.' },
+      { q: 'What does "On Hold" mean?', a: 'Order is temporarily paused.' },
       { q: 'When will my order be dispatched?', a: 'Orders are dispatched within 24-48 hours once stock is available.' },
       { q: 'How do I raise a support ticket?', a: 'Click "Raise Ticket" button.' },
       { q: 'What are the support hours?', a: 'Mon-Sat, 9:00 AM to 7:00 PM. Bot available 24x7.' },
@@ -641,7 +649,6 @@ function orderCard(o) {
   if (o.partNumber) rows.push([oc.partNumber, o.partNumber]);
   if (o.partDescription) rows.push([oc.partDesc, o.partDescription]);
   rows.push([oc.orderedQty, o.orderedQty || 0]);
-
   if (group === 'backorder' || group === 'hold' || group === 'cancel') {
     rows.push([oc.eta, o.eta ? formatDate(o.eta) : oc.notAvailable, !o.eta]);
     if (o.holdReason) rows.push([oc.holdReason, o.holdReason, true]);
@@ -675,12 +682,10 @@ function orderCard(o) {
     if (o.lrMode) rows.push([oc.lrMode, o.lrMode]);
     if (o.transporter) rows.push([oc.transporter, o.transporter]);
   }
-
   const tableRows = rows.map(([label, val, hl]) =>
     `<tr${hl ? ' class="highlight"' : ''}><td>${label}</td><td>${val}</td></tr>`).join('');
   const thanksText = LANG === 'hi' ? 'फीडबैक के लिए धन्यवाद!' : 'Thank you for your feedback!';
   const showProgress = !['backorder','hold','cancel'].includes(group);
-
   return `
     <div class="order-card-header">
       <div class="order-num">${o.orderNumber}</div>
@@ -742,7 +747,6 @@ function findOrdersMulti(text) {
   });
   return { results, notFound };
 }
-
 async function handleMessage(text) {
   if (!authState.loggedIn) return;
   addMsg(text, 'user');
@@ -791,33 +795,31 @@ async function handleMessage(text) {
   }
 }
 
-/* ⭐ SUPPORT TEAM — FINAL LOGIC */
+/* ⭐ SUPPORT TEAM — with popup choice */
 function requestSupportTeam() {
   if (authState.supportRequested) return;
   authState.supportRequested = true;
   authState.silentMode = true;
 
-  /* Log request to thread (for admin) */
   sendThreadMessage('dealer', 'REQUEST: Talk to Dealer Support Team');
-
-  /* Show banner — silent mode active */
   silentBanner.style.display = 'block';
   chips.innerHTML = '';
 
   const isHi = LANG === 'hi';
 
-  /* ⭐ CASE 1: OFF HOURS → Bot replies with offline message */
+  /* CASE 1: OFF HOURS */
   if (!isWorkingHours()) {
     setTimeout(() => {
       addMsg(isHi
-        ? `🕐 अभी हमारी सपोर्ट टीम <strong>ऑफलाइन</strong> है।<br><br>सपोर्ट समय: <strong>सुबह 9:00 - शाम 7:00 (सोम-शनि)</strong><br><br>कृपया अपना संदेश यहाँ टाइप करें — आपका संदेश टीम के पास पहुँच जाएगा और वे अगली उपलब्धता पर संपर्क करेंगे।`
-        : `🕐 Our support team is currently <strong>offline</strong>.<br><br>Support Hours: <strong>9:00 AM - 7:00 PM (Mon-Sat)</strong><br><br>Please type your message here — it will be forwarded to the team and they will reach out when available.`,
+        ? `🕐 हमारी सपोर्ट टीम अभी <strong>ऑफलाइन</strong> है।<br><br>सपोर्ट समय: <strong>सुबह 9:00 - शाम 7:00 (सोम-शनि)</strong><br><br>आपका संदेश टीम के पास पहुँच जाएगा — वे अगली उपलब्धता पर संपर्क करेंगे।`
+        : `🕐 Our support team is currently <strong>offline</strong>.<br><br>Support Hours: <strong>9:00 AM - 7:00 PM (Mon-Sat)</strong><br><br>Your message will be forwarded to the team — they will reach out when available.`,
         'bot', true, false, true);
+      setTimeout(() => openSupportChoiceModal(), 800);
     }, 500);
     return;
   }
 
-  /* ⭐ CASE 2: WORKING HOURS → Wait 1 min, if no admin reply → bot msg */
+  /* CASE 2: WORKING HOURS — wait 1 min */
   adminRepliedInWindow = false;
   if (supportTimer) { clearTimeout(supportTimer); supportTimer = null; }
 
@@ -827,9 +829,59 @@ function requestSupportTeam() {
         ? `⏳ हमारी सपोर्ट टीम अभी अन्य अनुरोधों में व्यस्त है। वे जल्द ही आपसे संपर्क करेंगे।<br><br>कृपया अपना संदेश टाइप करते रहें — यह टीम को भेज दिया जाएगा।`
         : `⏳ Our support team is currently busy with other requests. They will connect with you shortly.<br><br>Please continue typing your message — it will be forwarded to the team.`,
         'bot', true, false, true);
+      setTimeout(() => openSupportChoiceModal(), 800);
     }
     supportTimer = null;
   }, BOT_WAIT_MS);
+}
+
+/* ⭐ NEW: Support Choice Popup */
+function openSupportChoiceModal() {
+  currentModalType = 'support-choice';
+  hideAllModalInputs();
+  const isHi = LANG === 'hi';
+
+  modalIcon.textContent = '💬';
+  modalTitle.textContent = isHi ? 'क्या करना चाहेंगे?' : 'What would you like to do?';
+  modalSubtitle.textContent = isHi
+    ? 'आपका अनुरोध सपोर्ट टीम को भेज दिया गया है। तब तक आप बॉट से बात कर सकते हैं।'
+    : 'Your request has been sent to the support team. Meanwhile, you can continue with the bot.';
+
+  modalLabel.style.display = 'none';
+  modalBtns.style.display = 'none';
+  modalDynamic.style.display = 'block';
+  modalDynamic.innerHTML = `
+    <button class="choice-btn primary" onclick="continueWithBot()">
+      🤖 ${isHi ? 'बॉट से बात करें' : 'Continue with Bot'}
+    </button>
+    <button class="choice-btn secondary" onclick="waitForSupport()">
+      ⏳ ${isHi ? 'सपोर्ट टीम का इंतज़ार करें' : 'Wait for Support Team'}
+    </button>
+  `;
+
+  modalOverlay.classList.add('show');
+}
+
+function continueWithBot() {
+  closeModal();
+  authState.silentMode = false;
+  authState.supportRequested = false;
+  silentBanner.style.display = 'none';
+  const isHi = LANG === 'hi';
+  addMsg(isHi
+    ? '👍 ठीक है! अब आप बॉट से पूछ सकते हैं। जब सपोर्ट टीम reply करेगी तो यहाँ दिखेगा।'
+    : '👍 Sure! You can now continue chatting with the bot. When the support team replies, it will appear here.',
+    'bot', true, false, true);
+  renderMainChips();
+}
+
+function waitForSupport() {
+  closeModal();
+  const isHi = LANG === 'hi';
+  addMsg(isHi
+    ? '⏳ ठीक है! आपका अनुरोध टीम के पास है। आप चाहें तो संदेश टाइप करके छोड़ सकते हैं।'
+    : '⏳ Okay! Your request is with the support team. You can still type your message if you want.',
+    'bot', true, false, true);
 }
 
 /* CHIPS */
