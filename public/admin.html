@@ -420,43 +420,9 @@ const TICKETS_KEY = 'mg_support_tickets';
 const FEEDBACK_KEY = 'mg_feedback';
 const THREADS_KEY = 'mg_support_threads';
 
-const DEMO_ORDERS = [
-  { dealerCode:"MGDL001", dealerName:"ABC Motors Pvt Ltd", orderNumber:"ORD123456",
-    orderType:"VOR", orderDate:"01-Oct-2026", partNumber:"MG-P-45678",
-    partDescription:"Brake Pad Front", orderedQty:2, dispatchedQty:0, pendingQty:2,
-    orderStatus:"Pending Dispatch", stockAvailability:"Available", eta:"15-Oct-2026",
-    dispatchDate:"", docketLR:"", transporter:"", holdReason:"",
-    lastUpdated:"13-Oct-2026 14:30", ticketNumber:"TKT-2026-001", ticketStatus:"Open" },
-  { dealerCode:"MGDL001", dealerName:"ABC Motors Pvt Ltd", orderNumber:"ORD123457",
-    orderType:"Stock Order", orderDate:"05-Oct-2026", partNumber:"MG-P-99001",
-    partDescription:"Air Filter", orderedQty:10, dispatchedQty:10, pendingQty:0,
-    orderStatus:"Fully Dispatched", stockAvailability:"Available", eta:"12-Oct-2026",
-    dispatchDate:"10-Oct-2026", docketLR:"LR987654", transporter:"BlueDart Logistics",
-    holdReason:"", lastUpdated:"13-Oct-2026 14:30", ticketNumber:"", ticketStatus:"" },
-  { dealerCode:"MGDL001", dealerName:"ABC Motors Pvt Ltd", orderNumber:"ORD123458",
-    orderType:"Back Order", orderDate:"08-Oct-2026", partNumber:"MG-P-77777",
-    partDescription:"Clutch Plate", orderedQty:3, dispatchedQty:0, pendingQty:3,
-    orderStatus:"On Hold", stockAvailability:"Not Available", eta:"",
-    dispatchDate:"", docketLR:"", transporter:"", holdReason:"Stock Unavailability",
-    lastUpdated:"13-Oct-2026 14:30", ticketNumber:"", ticketStatus:"" },
-  { dealerCode:"MGDL002", dealerName:"XYZ Auto Parts", orderNumber:"ORD900001",
-    orderType:"VOR", orderDate:"02-Oct-2026", partNumber:"MG-P-11111",
-    partDescription:"Headlight Assembly", orderedQty:1, dispatchedQty:1, pendingQty:0,
-    orderStatus:"Fully Dispatched", stockAvailability:"Available", eta:"11-Oct-2026",
-    dispatchDate:"09-Oct-2026", docketLR:"LR112233", transporter:"DTDC",
-    holdReason:"", lastUpdated:"13-Oct-2026 14:30", ticketNumber:"", ticketStatus:"" }
-];
-
-const DEMO_TICKETS = [
-  { ticketNumber:"TKT-2026-001", dealerCode:"MGDL001", orderNumber:"ORD123456",
-    partNumber:"MG-P-45678", issueDescription:"Part received damaged",
-    ticketStatus:"In Progress", raisedDate:"10-Oct-2026", closedDate:"",
-    resolutionRemarks:"Replacement under process" }
-];
-
-let ORDERS = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') || DEMO_ORDERS;
+let ORDERS = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
 let UPLOAD_LOG = JSON.parse(localStorage.getItem(LOG_KEY) || '[]');
-let TICKETS = JSON.parse(localStorage.getItem(TICKETS_KEY) || 'null') || DEMO_TICKETS;
+let TICKETS = JSON.parse(localStorage.getItem(TICKETS_KEY) || '[]');
 let FEEDBACK = JSON.parse(localStorage.getItem(FEEDBACK_KEY) || '[]');
 let THREADS = JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
 let selectedDealer = null;
@@ -478,8 +444,7 @@ function nowTime() { return new Date().toLocaleTimeString('en-IN', { hour:'2-dig
 
 function showToast(msg) {
   const t = document.createElement('div');
-  t.className = 'toast';
-  t.textContent = msg;
+  t.className = 'toast'; t.textContent = msg;
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 4000);
 }
@@ -548,7 +513,7 @@ function renderThreads() {
     const lastMsg = t.messages.length ? t.messages[t.messages.length - 1] : null;
     const preview = lastMsg ? lastMsg.text.substring(0, 40) : 'No messages';
     const time = lastMsg ? lastMsg.time : '';
-    const fromLabel = lastMsg ? (lastMsg.from === 'dealer' ? '' : lastMsg.from === 'bot' ? '🤖 ' : '🛡️ ') : '';
+    const fromLabel = lastMsg ? (lastMsg.from === 'dealer' ? '👤 ' : lastMsg.from === 'bot' ? '🤖 ' : '🛡️ ') : '';
     return `
       <div class="thread-item ${selectedDealer === t.dealerCode ? 'active' : ''}"
            onclick="selectDealer('${t.dealerCode}')">
@@ -641,11 +606,15 @@ const COLUMN_MAP = {
   'ordered quantity': 'orderedQty', 'dispatched quantity': 'dispatchedQty',
   'pending quantity': 'pendingQty', 'order status': 'orderStatus',
   'stock availability': 'stockAvailability', 'tentative eta': 'eta',
-  'dispatch date': 'dispatchDate', 'docket / lr number': 'docketLR',
-  'docket/lr number': 'docketLR', 'transporter name': 'transporter',
-  'order hold reason': 'holdReason', 'last updated date & time': 'lastUpdated',
-  'last updated': 'lastUpdated', 'support ticket number': 'ticketNumber',
-  'ticket status': 'ticketStatus'
+  'dispatch date': 'dispatchDate',
+  'docket / lr number': 'docketLR', 'docket/lr number': 'docketLR',
+  'lr number': 'docketLR', 'lr no': 'docketLR',
+  'docket number': 'docketLR', 'docket no': 'docketLR',
+  'transporter name': 'transporter',
+  'order hold reason': 'holdReason',
+  'last updated date & time': 'lastUpdated', 'last updated': 'lastUpdated',
+  'support ticket number': 'ticketNumber', 'ticket status': 'ticketStatus',
+  'invoice number': 'invoiceNumber', 'invoice no': 'invoiceNumber', 'invoice': 'invoiceNumber'
 };
 const REQUIRED = ['dealerCode', 'dealerName'];
 
@@ -715,7 +684,7 @@ function renderPreview(result, fileName) {
   document.getElementById('statTotal').textContent = rows.length + errors.length;
   document.getElementById('statValid').textContent = rows.length;
   document.getElementById('statRejected').textContent = errors.length;
-  const cols = ['dealerCode','dealerName','orderNumber','orderType','partNumber','orderStatus','eta'];
+  const cols = ['dealerCode','dealerName','orderNumber','partNumber','orderStatus','invoiceNumber','docketLR'];
   let html = '<table><thead><tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
   rows.forEach(o => { html += '<tr>' + cols.map(c => `<td>${o[c] ?? ''}</td>`).join('') + '</tr>'; });
   errors.forEach(e => { html += `<tr class="bad"><td colspan="${cols.length}">Row ${e.row}: ${e.reason}</td></tr>`; });
@@ -762,43 +731,40 @@ function downloadTemplate() {
       'Order Type':'VOR','Order Date':'10-Oct-2026','Part Number':'MG-P-11111',
       'Part Description':'Brake Pad Front','Ordered Quantity':5,'Dispatched Quantity':0,
       'Pending Quantity':5,'Order Status':'Pending Dispatch','Stock Availability':'Available',
-      'Tentative ETA':'20-Oct-2026','Dispatch Date':'','Docket / LR Number':'',
-      'Transporter Name':'','Order Hold Reason':'','Last Updated Date & Time':'14-Oct-2026 10:00',
-      'Support Ticket Number':'','Ticket Status':'' },
+      'Tentative ETA':'20-Oct-2026','Dispatch Date':'','Invoice Number':'INV-2026-001',
+      'Docket / LR Number':'','Transporter Name':'','Order Hold Reason':'',
+      'Last Updated Date & Time':'14-Oct-2026 10:00','Support Ticket Number':'','Ticket Status':'' },
     { 'Dealer Code':'MGDL002','Dealer Name':'XYZ Auto Parts','Order Number':'ORD100002',
       'Order Type':'Stock Order','Order Date':'10-Oct-2026','Part Number':'MG-P-22222',
       'Part Description':'Air Filter','Ordered Quantity':20,'Dispatched Quantity':20,
       'Pending Quantity':0,'Order Status':'Fully Dispatched','Stock Availability':'Available',
-      'Tentative ETA':'15-Oct-2026','Dispatch Date':'13-Oct-2026','Docket / LR Number':'LR555111',
-      'Transporter Name':'DTDC','Order Hold Reason':'','Last Updated Date & Time':'14-Oct-2026 10:00',
-      'Support Ticket Number':'','Ticket Status':'' },
-    { 'Dealer Code':'SW04','Dealer Name':'South West Motors','Order Number':'ORD100003',
-      'Order Type':'Back Order','Order Date':'11-Oct-2026','Part Number':'MG-P-33333',
-      'Part Description':'Oil Filter','Ordered Quantity':10,'Dispatched Quantity':0,
-      'Pending Quantity':10,'Order Status':'On Hold','Stock Availability':'Not Available',
-      'Tentative ETA':'','Dispatch Date':'','Docket / LR Number':'','Transporter Name':'',
-      'Order Hold Reason':'Procurement Block','Last Updated Date & Time':'14-Oct-2026 10:00',
-      'Support Ticket Number':'','Ticket Status':'' }
+      'Tentative ETA':'15-Oct-2026','Dispatch Date':'13-Oct-2026','Invoice Number':'INV-2026-002',
+      'Docket / LR Number':'LR555111','Transporter Name':'DTDC','Order Hold Reason':'',
+      'Last Updated Date & Time':'14-Oct-2026 10:00','Support Ticket Number':'','Ticket Status':'' }
   ];
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(sampleData);
   ws['!cols'] = [
     {wch:12},{wch:22},{wch:15},{wch:15},{wch:14},{wch:15},{wch:22},{wch:12},{wch:14},
-    {wch:12},{wch:18},{wch:14},{wch:14},{wch:14},{wch:18},{wch:18},{wch:18},{wch:22},
+    {wch:12},{wch:18},{wch:14},{wch:14},{wch:16},{wch:18},{wch:18},{wch:18},{wch:22},
     {wch:18},{wch:14}
   ];
   XLSX.utils.book_append_sheet(wb, ws, 'Orders');
   const instructions = [
     { 'Instructions': 'MG Parts & Order Management - Excel Template' },
     { 'Instructions': '' },
-    { 'Instructions': '🔴 REQUIRED COLUMNS (must have):' },
+    { 'Instructions': '🔴 REQUIRED COLUMNS:' },
     { 'Instructions': '  1. Dealer Code' },
     { 'Instructions': '  2. Dealer Name' },
     { 'Instructions': '' },
-    { 'Instructions': '🟢 ALL OTHER COLUMNS ARE OPTIONAL.' },
-    { 'Instructions': 'You can add your OWN custom columns too.' },
+    { 'Instructions': '🟢 OPTIONAL COLUMNS (add if needed):' },
+    { 'Instructions': '  Order Number, Order Type, Order Date, Part Number, Part Description,' },
+    { 'Instructions': '  Ordered Quantity, Dispatched Quantity, Pending Quantity, Order Status,' },
+    { 'Instructions': '  Stock Availability, Tentative ETA, Dispatch Date, Invoice Number,' },
+    { 'Instructions': '  Docket / LR Number, Transporter Name, Order Hold Reason,' },
+    { 'Instructions': '  Last Updated, Support Ticket Number, Ticket Status' },
     { 'Instructions': '' },
-    { 'Instructions': 'CONDITIONAL RULES (only if order data present):' },
+    { 'Instructions': 'CONDITIONAL RULES:' },
     { 'Instructions': '  - Dispatched Qty cannot exceed Ordered Qty' },
     { 'Instructions': '  - If Dispatched Qty > 0 → Docket/LR + Transporter required' },
     { 'Instructions': '  - If Status = "On Hold" → Hold Reason required' }
@@ -1009,7 +975,7 @@ function renderRecords() {
       String(o.dealerName || '').toLowerCase().includes(s);
   });
   if (!filtered.length) { el.innerHTML = '<div class="empty">No matching records.</div>'; return; }
-  const cols = ['dealerCode','dealerName','orderNumber','orderType','partNumber','orderStatus','orderedQty','dispatchedQty','pendingQty','eta'];
+  const cols = ['dealerCode','dealerName','orderNumber','orderType','partNumber','orderStatus','orderedQty','dispatchedQty','pendingQty','invoiceNumber','docketLR','eta'];
   let html = '<table><thead><tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
   filtered.slice(0, 100).forEach(o => { html += '<tr>' + cols.map(c => `<td>${o[c] ?? ''}</td>`).join('') + '</tr>'; });
   html += '</tbody></table>';
@@ -1057,14 +1023,13 @@ function renderAll() {
 }
 
 /* ============================================================
-   LIVE POLLING — same-browser + storage events
+   LIVE POLLING
    ============================================================ */
 let lastMsgCounts = {};
 
 setInterval(() => {
   const freshThreads = JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
 
-  // Detect new dealer messages
   let newFromDealer = false;
   Object.keys(freshThreads).forEach(code => {
     const t = freshThreads[code];
@@ -1096,7 +1061,6 @@ setInterval(() => {
   }
 }, 1000);
 
-/* Cross-tab storage listener */
 window.addEventListener('storage', e => {
   if (e.key === THREADS_KEY) {
     THREADS = JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
