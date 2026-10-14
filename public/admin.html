@@ -9,7 +9,6 @@
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
   body { background: #f0f2f7; min-height: 100vh; }
 
-  /* Login Screen */
   .login-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px;
     background: linear-gradient(135deg, #0b1b3a 0%, #1e3c72 100%); }
   .login-box { background: #fff; border-radius: 16px; padding: 30px 26px;
@@ -32,7 +31,6 @@
     border-radius: 8px; font-size: 12px; margin-bottom: 14px; text-align: center; }
   .login-hint { font-size: 11px; color: #999; text-align: center; margin-top: 14px; }
 
-  /* Dashboard */
   .dash-wrap { display: none; }
   .dash-wrap.show { display: block; }
   .topbar { background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
@@ -57,9 +55,12 @@
     border-bottom: 1px solid #e5e7ef; overflow-x: auto; }
   .nav-tab { padding: 12px 16px; font-size: 13px; font-weight: 600; color: #888;
     cursor: pointer; border-bottom: 3px solid transparent; transition: 0.15s;
-    white-space: nowrap; }
+    white-space: nowrap; position: relative; }
   .nav-tab:hover { color: #b3001b; }
   .nav-tab.active { color: #b3001b; border-bottom-color: #b3001b; }
+  .nav-tab .badge { position: absolute; top: 6px; right: 4px;
+    background: #dc2626; color: #fff; font-size: 9.5px; font-weight: 700;
+    padding: 1px 6px; border-radius: 10px; min-width: 16px; text-align: center; }
 
   .content { padding: 22px; max-width: 1200px; margin: 0 auto; }
   .tab-panel { display: none; }
@@ -123,7 +124,6 @@
 
   .empty { text-align: center; padding: 30px; color: #999; font-size: 13px; }
 
-  /* Analytics */
   .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 12px; }
   .kpi { background: linear-gradient(135deg, #fff5f6, #fef2f4);
@@ -181,10 +181,59 @@
     font-size: 13px; outline: none; }
   .dealer-filter input:focus, .dealer-filter select:focus { border-color: #b3001b; }
 
-  @media (max-width: 600px) {
+  /* ============ SUPPORT CHAT ============ */
+  .support-wrap { display: grid; grid-template-columns: 300px 1fr; gap: 0;
+    background: #fff; border-radius: 12px; overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05); min-height: 550px; }
+  .threads-list { border-right: 1px solid #e5e7ef; overflow-y: auto; max-height: 600px; }
+  .threads-header { padding: 14px 16px; background: #fafbff;
+    border-bottom: 1px solid #e5e7ef; font-size: 12px; font-weight: 700;
+    color: #555; text-transform: uppercase; letter-spacing: 0.5px; }
+  .thread-item { padding: 12px 16px; border-bottom: 1px solid #f0f2f7;
+    cursor: pointer; transition: 0.15s; }
+  .thread-item:hover { background: #fafbff; }
+  .thread-item.active { background: #fff5f6; border-left: 4px solid #b3001b; }
+  .thread-item .t-name { font-size: 13px; font-weight: 700; color: #333; }
+  .thread-item .t-code { font-size: 10.5px; color: #888; margin-top: 2px; }
+  .thread-item .t-preview { font-size: 11.5px; color: #777; margin-top: 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .thread-item .t-meta { display: flex; justify-content: space-between;
+    align-items: center; margin-top: 4px; font-size: 10px; color: #999; }
+  .unread-badge { background: #dc2626; color: #fff; font-size: 10px;
+    padding: 1px 7px; border-radius: 10px; font-weight: 700; }
+
+  .chat-window { display: flex; flex-direction: column; max-height: 600px; }
+  .chat-header { padding: 14px 18px; background: #fafbff;
+    border-bottom: 1px solid #e5e7ef; display: flex; align-items: center; gap: 10px; }
+  .chat-header .dot { width: 10px; height: 10px; border-radius: 50%; background: #16a34a; }
+  .chat-header .ch-name { font-size: 14px; font-weight: 700; color: #333; }
+  .chat-header .ch-code { font-size: 11px; color: #888; }
+  .chat-body { flex: 1; overflow-y: auto; padding: 16px 18px;
+    background: #f9fafc; display: flex; flex-direction: column; gap: 10px;
+    min-height: 400px; max-height: 450px; }
+  .chat-msg { max-width: 78%; padding: 10px 14px; border-radius: 14px;
+    font-size: 13px; line-height: 1.45; word-wrap: break-word; }
+  .chat-msg.dealer { background: #fff; border: 1px solid #e5e7ef;
+    align-self: flex-start; border-bottom-left-radius: 4px; }
+  .chat-msg.admin { background: #b3001b; color: #fff;
+    align-self: flex-end; border-bottom-right-radius: 4px; }
+  .chat-msg .m-time { font-size: 10px; opacity: 0.75; margin-top: 4px; }
+  .chat-msg.admin .m-time { color: rgba(255,255,255,0.8); }
+  .chat-input-bar { display: flex; gap: 8px; padding: 12px 16px;
+    background: #fff; border-top: 1px solid #e5e7ef; }
+  .chat-input-bar input { flex: 1; border: 1.5px solid #d7dbe6;
+    border-radius: 10px; padding: 11px 14px; font-size: 13.5px; outline: none; }
+  .chat-input-bar input:focus { border-color: #b3001b; }
+  .chat-input-bar button { background: #b3001b; color: #fff; border: none;
+    border-radius: 10px; padding: 11px 20px; font-size: 13px;
+    font-weight: 600; cursor: pointer; }
+  .chat-input-bar button:hover { background: #7a0012; }
+
+  @media (max-width: 700px) {
+    .support-wrap { grid-template-columns: 1fr; }
+    .threads-list { max-height: 200px; }
     .content { padding: 14px; }
     .bar-row .bar-label { width: 90px; font-size: 11px; }
-    .kpi .kpi-val { font-size: 24px; }
   }
 </style>
 </head>
@@ -222,16 +271,49 @@
   </div>
 
   <div class="nav-tabs">
-    <div class="nav-tab active" data-tab="upload">📤 Upload Data</div>
+    <div class="nav-tab active" data-tab="support">
+      💬 Support Chats
+      <span class="badge" id="supportBadge" style="display:none">0</span>
+    </div>
+    <div class="nav-tab" data-tab="upload">📤 Upload Data</div>
     <div class="nav-tab" data-tab="analytics">📊 Analytics</div>
     <div class="nav-tab" data-tab="records">📦 Orders</div>
     <div class="nav-tab" data-tab="tickets">🎫 Tickets</div>
-    <div class="nav-tab" data-tab="history">📜 Upload History</div>
+    <div class="nav-tab" data-tab="history">📜 History</div>
   </div>
 
   <div class="content">
+
+    <!-- SUPPORT CHAT (default) -->
+    <div class="tab-panel active" id="panel-support">
+      <div class="card" style="padding:0;overflow:hidden">
+        <div class="support-wrap">
+          <div class="threads-list">
+            <div class="threads-header">Dealer Conversations</div>
+            <div id="threadsList"></div>
+          </div>
+          <div class="chat-window">
+            <div class="chat-header" id="chatHeader">
+              <div class="dot"></div>
+              <div>
+                <div class="ch-name">Select a dealer</div>
+                <div class="ch-code">No conversation selected</div>
+              </div>
+            </div>
+            <div class="chat-body" id="chatBody">
+              <div class="empty">Select a dealer from the left to view the conversation.</div>
+            </div>
+            <div class="chat-input-bar">
+              <input id="adminReplyInput" type="text" placeholder="Type your reply..." autocomplete="off" disabled />
+              <button id="adminSendBtn" onclick="sendAdminReply()" disabled>Send</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- UPLOAD -->
-    <div class="tab-panel active" id="panel-upload">
+    <div class="tab-panel" id="panel-upload">
       <div class="card">
         <h3><span class="num">1</span> Upload Excel / CSV File</h3>
         <div class="upload-zone" id="uploadZone">
@@ -239,6 +321,10 @@
           <p><strong>Click to upload</strong> or drag file here</p>
           <small>Supports .xlsx, .xls, .csv</small>
           <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" />
+        </div>
+        <div style="margin-top:14px;padding-top:14px;border-top:1px dashed #e5e7ef;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <button class="btn ghost" onclick="downloadTemplate()">⬇️ Download Excel Template</button>
+          <span style="font-size:12px;color:#888">Sample data ke saath ready-to-use template</span>
         </div>
       </div>
 
@@ -272,6 +358,7 @@
             <option value="">All Statuses</option>
             <option>Pending Dispatch</option>
             <option>Fully Dispatched</option>
+            <option>Partially Dispatched</option>
             <option>In Transit</option>
             <option>Delivered</option>
             <option>On Hold</option>
@@ -302,24 +389,24 @@
         <div id="uploadHistory"><div class="empty">No uploads yet.</div></div>
       </div>
     </div>
+
   </div>
 </div>
 
 <script>
 /* ============================================================
-   ADMIN CREDENTIALS (change these)
+   ADMIN CREDENTIALS
    ============================================================ */
-const ADMIN_USERS = {
-  'admin': 'mg@2026'
-};
+const ADMIN_USERS = { 'admin': 'mg@2026' };
 
 /* ============================================================
-   DATA STORE (shared with dealer chatbot via localStorage)
+   STORAGE KEYS
    ============================================================ */
 const STORAGE_KEY = 'mg_orders_data';
 const LOG_KEY = 'mg_upload_log';
 const TICKETS_KEY = 'mg_support_tickets';
 const FEEDBACK_KEY = 'mg_feedback';
+const THREADS_KEY = 'mg_support_threads';
 
 const DEMO_ORDERS = [
   { orderNumber:"ORD123456", dealerCode:"MGDL001", dealerName:"ABC Motors Pvt Ltd",
@@ -359,6 +446,8 @@ let ORDERS = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') || DEMO_ORD
 let UPLOAD_LOG = JSON.parse(localStorage.getItem(LOG_KEY) || '[]');
 let TICKETS = JSON.parse(localStorage.getItem(TICKETS_KEY) || 'null') || DEMO_TICKETS;
 let FEEDBACK = JSON.parse(localStorage.getItem(FEEDBACK_KEY) || '[]');
+let THREADS = JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
+let selectedDealer = null;
 
 function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(ORDERS));
@@ -366,15 +455,17 @@ function saveData() {
   localStorage.setItem(TICKETS_KEY, JSON.stringify(TICKETS));
   localStorage.setItem(FEEDBACK_KEY, JSON.stringify(FEEDBACK));
 }
+function saveThreads() { localStorage.setItem(THREADS_KEY, JSON.stringify(THREADS)); }
 
 function todayStamp() {
   const d = new Date();
   return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
     + ' ' + d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
 }
+function nowTime() { return new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }); }
 
 /* ============================================================
-   LOGIN / LOGOUT
+   LOGIN
    ============================================================ */
 function doLogin() {
   const u = document.getElementById('loginUser').value.trim();
@@ -391,7 +482,6 @@ function doLogin() {
 document.getElementById('loginPass').addEventListener('keydown', e => {
   if (e.key === 'Enter') doLogin();
 });
-
 function doLogout() {
   sessionStorage.removeItem('mg_admin');
   document.getElementById('loginWrap').style.display = 'flex';
@@ -399,15 +489,12 @@ function doLogout() {
   document.getElementById('loginUser').value = '';
   document.getElementById('loginPass').value = '';
 }
-
 function showDashboard(username) {
   document.getElementById('loginWrap').style.display = 'none';
   document.getElementById('dashWrap').classList.add('show');
   document.getElementById('adminName').textContent = username;
   renderAll();
 }
-
-// Auto-login if session active
 const session = sessionStorage.getItem('mg_admin');
 if (session) showDashboard(session);
 
@@ -424,7 +511,104 @@ document.querySelectorAll('.nav-tab').forEach(tab => {
     if (tab.dataset.tab === 'records') renderRecords();
     if (tab.dataset.tab === 'tickets') renderTickets();
     if (tab.dataset.tab === 'history') renderHistory();
+    if (tab.dataset.tab === 'support') { renderThreads(); updateSupportBadge(); }
   };
+});
+
+/* ============================================================
+   SUPPORT CHAT  ⭐ NEW
+   ============================================================ */
+function renderThreads() {
+  THREADS = JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
+  const el = document.getElementById('threadsList');
+  const entries = Object.values(THREADS).sort((a, b) =>
+    new Date(b.lastUpdate.replace(' ', 'T')) - new Date(a.lastUpdate.replace(' ', 'T'))
+  );
+  if (!entries.length) {
+    el.innerHTML = '<div class="empty" style="padding:20px;font-size:12px">No dealer chats yet.</div>';
+    return;
+  }
+  el.innerHTML = entries.map(t => {
+    const lastMsg = t.messages.length ? t.messages[t.messages.length - 1] : null;
+    const preview = lastMsg ? lastMsg.text.substring(0, 40) : 'No messages';
+    return `
+      <div class="thread-item ${selectedDealer === t.dealerCode ? 'active' : ''}"
+           onclick="selectDealer('${t.dealerCode}')">
+        <div class="t-name">${t.dealerName || t.dealerCode}</div>
+        <div class="t-code">${t.dealerCode}</div>
+        <div class="t-preview">${preview}</div>
+        <div class="t-meta">
+          <span>${t.lastUpdate.split(' ')[1] || ''}</span>
+          ${t.unreadByAdmin ? `<span class="unread-badge">${t.unreadByAdmin}</span>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+  updateSupportBadge();
+}
+
+function updateSupportBadge() {
+  THREADS = JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
+  const total = Object.values(THREADS).reduce((s, t) => s + (t.unreadByAdmin || 0), 0);
+  const badge = document.getElementById('supportBadge');
+  if (total > 0) { badge.textContent = total; badge.style.display = 'inline-block'; }
+  else { badge.style.display = 'none'; }
+}
+
+function selectDealer(dealerCode) {
+  selectedDealer = dealerCode;
+  THREADS = JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
+  const t = THREADS[dealerCode];
+  if (!t) return;
+
+  // Mark as read
+  t.unreadByAdmin = 0;
+  saveThreads();
+
+  // Render header
+  document.getElementById('chatHeader').innerHTML = `
+    <div class="dot"></div>
+    <div>
+      <div class="ch-name">${t.dealerName || dealerCode}</div>
+      <div class="ch-code">${dealerCode}</div>
+    </div>`;
+
+  // Render messages
+  const body = document.getElementById('chatBody');
+  body.innerHTML = t.messages.length ? t.messages.map(m => `
+    <div class="chat-msg ${m.from}">
+      ${m.text}
+      <div class="m-time">${m.time}</div>
+    </div>`).join('') : '<div class="empty">No messages yet.</div>';
+  body.scrollTop = body.scrollHeight;
+
+  // Enable input
+  document.getElementById('adminReplyInput').disabled = false;
+  document.getElementById('adminSendBtn').disabled = false;
+  setTimeout(() => document.getElementById('adminReplyInput').focus(), 100);
+
+  // Refresh thread list to clear active highlight
+  renderThreads();
+}
+
+function sendAdminReply() {
+  const inp = document.getElementById('adminReplyInput');
+  const text = inp.value.trim();
+  if (!text || !selectedDealer) return;
+
+  THREADS = JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
+  const t = THREADS[selectedDealer];
+  if (!t) return;
+  t.messages.push({ from: 'admin', text, time: nowTime(), timestamp: Date.now() });
+  t.lastUpdate = todayStamp();
+  t.unreadByDealer = (t.unreadByDealer || 0) + 1;
+  saveThreads();
+
+  inp.value = '';
+  selectDealer(selectedDealer);   // re-render
+}
+
+document.getElementById('adminReplyInput')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') sendAdminReply();
 });
 
 /* ============================================================
@@ -471,7 +655,6 @@ function handleFile(file) {
   };
   reader.readAsArrayBuffer(file);
 }
-
 function normalizeHeader(h) { return String(h).trim().toLowerCase(); }
 
 function validateRows(raw) {
@@ -539,6 +722,85 @@ function publishData(rows, errors, fileName) {
 }
 
 /* ============================================================
+   TEMPLATE DOWNLOAD
+   ============================================================ */
+function downloadTemplate() {
+  const sampleData = [
+    { 'Dealer Code':'MGDL001','Dealer Name':'ABC Motors Pvt Ltd','Order Number':'ORD100001',
+      'Order Type':'VOR','Order Date':'10-Oct-2026','Part Number':'MG-P-11111',
+      'Part Description':'Brake Pad Front','Ordered Quantity':5,'Dispatched Quantity':0,
+      'Pending Quantity':5,'Order Status':'Pending Dispatch','Stock Availability':'Available',
+      'Tentative ETA':'20-Oct-2026','Dispatch Date':'','Docket / LR Number':'',
+      'Transporter Name':'','Order Hold Reason':'','Last Updated Date & Time':'14-Oct-2026 10:00',
+      'Support Ticket Number':'','Ticket Status':'' },
+    { 'Dealer Code':'MGDL001','Dealer Name':'ABC Motors Pvt Ltd','Order Number':'ORD100002',
+      'Order Type':'Stock Order','Order Date':'10-Oct-2026','Part Number':'MG-P-22222',
+      'Part Description':'Air Filter','Ordered Quantity':20,'Dispatched Quantity':20,
+      'Pending Quantity':0,'Order Status':'Fully Dispatched','Stock Availability':'Available',
+      'Tentative ETA':'15-Oct-2026','Dispatch Date':'13-Oct-2026','Docket / LR Number':'LR555111',
+      'Transporter Name':'DTDC','Order Hold Reason':'','Last Updated Date & Time':'14-Oct-2026 10:00',
+      'Support Ticket Number':'','Ticket Status':'' },
+    { 'Dealer Code':'MGDL001','Dealer Name':'ABC Motors Pvt Ltd','Order Number':'ORD100003',
+      'Order Type':'Back Order','Order Date':'11-Oct-2026','Part Number':'MG-P-33333',
+      'Part Description':'Oil Filter','Ordered Quantity':10,'Dispatched Quantity':0,
+      'Pending Quantity':10,'Order Status':'On Hold','Stock Availability':'Not Available',
+      'Tentative ETA':'','Dispatch Date':'','Docket / LR Number':'','Transporter Name':'',
+      'Order Hold Reason':'Procurement Block','Last Updated Date & Time':'14-Oct-2026 10:00',
+      'Support Ticket Number':'','Ticket Status':'' },
+    { 'Dealer Code':'MGDL002','Dealer Name':'XYZ Auto Parts','Order Number':'ORD100004',
+      'Order Type':'VOR','Order Date':'11-Oct-2026','Part Number':'MG-P-44444',
+      'Part Description':'Headlight Assembly','Ordered Quantity':2,'Dispatched Quantity':1,
+      'Pending Quantity':1,'Order Status':'Partially Dispatched','Stock Availability':'Partial',
+      'Tentative ETA':'18-Oct-2026','Dispatch Date':'13-Oct-2026','Docket / LR Number':'LR777888',
+      'Transporter Name':'BlueDart','Order Hold Reason':'','Last Updated Date & Time':'14-Oct-2026 10:00',
+      'Support Ticket Number':'TKT-2026-005','Ticket Status':'Open' },
+    { 'Dealer Code':'MGDL002','Dealer Name':'XYZ Auto Parts','Order Number':'ORD100005',
+      'Order Type':'Stock Order','Order Date':'12-Oct-2026','Part Number':'MG-P-55555',
+      'Part Description':'Spark Plug','Ordered Quantity':50,'Dispatched Quantity':0,
+      'Pending Quantity':50,'Order Status':'Processing','Stock Availability':'Available',
+      'Tentative ETA':'22-Oct-2026','Dispatch Date':'','Docket / LR Number':'','Transporter Name':'',
+      'Order Hold Reason':'','Last Updated Date & Time':'14-Oct-2026 10:00',
+      'Support Ticket Number':'','Ticket Status':'' }
+  ];
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(sampleData);
+  ws['!cols'] = [
+    {wch:12},{wch:22},{wch:15},{wch:15},{wch:14},{wch:15},{wch:22},{wch:12},{wch:14},
+    {wch:12},{wch:18},{wch:14},{wch:14},{wch:14},{wch:18},{wch:18},{wch:18},{wch:22},
+    {wch:18},{wch:14}
+  ];
+  XLSX.utils.book_append_sheet(wb, ws, 'Orders Template');
+
+  const instructions = [
+    { 'Instructions': 'MG Parts & Order Management - Excel Template' },
+    { 'Instructions': '' },
+    { 'Instructions': 'IMPORTANT: Do not change column names in the "Orders Template" sheet.' },
+    { 'Instructions': 'Fill data from Row 2 onwards. Date format: DD-MMM-YYYY' },
+    { 'Instructions': '' },
+    { 'Instructions': 'REQUIRED COLUMNS: Dealer Code, Order Number, Order Type, Part Number, Ordered Quantity, Order Status' },
+    { 'Instructions': '' },
+    { 'Instructions': 'ALLOWED VALUES:' },
+    { 'Instructions': 'Order Type: VOR | Stock Order | Back Order' },
+    { 'Instructions': 'Order Status: Order Received | Processing | Pending Dispatch | Partially Dispatched | Fully Dispatched | In Transit | Delivered | On Hold | Cancelled' },
+    { 'Instructions': 'Stock Availability: Available | Partial | Not Available' },
+    { 'Instructions': 'Order Hold Reason: Credit Block | Stock Unavailability | Procurement Block | Account Issue | Pending Approval' },
+    { 'Instructions': 'Ticket Status: Open | In Progress | Resolved | Closed' },
+    { 'Instructions': '' },
+    { 'Instructions': 'VALIDATION RULES:' },
+    { 'Instructions': '  - Dispatched Qty cannot exceed Ordered Qty' },
+    { 'Instructions': '  - If Dispatched Qty > 0, then Docket/LR + Transporter required' },
+    { 'Instructions': '  - If Status = "On Hold", then Hold Reason required' },
+    { 'Instructions': '  - Order + Part combination must be unique' }
+  ];
+  const ws2 = XLSX.utils.json_to_sheet(instructions);
+  ws2['!cols'] = [{ wch: 100 }];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Instructions');
+
+  XLSX.writeFile(wb, 'MG_Orders_Template_' + new Date().toISOString().slice(0,10) + '.xlsx');
+}
+
+/* ============================================================
    ANALYTICS
    ============================================================ */
 function renderAnalytics() {
@@ -568,7 +830,6 @@ function renderAnalytics() {
   const thumbsUp = FEEDBACK.filter(f => f.rating === 'up').length;
   const thumbsDown = FEEDBACK.filter(f => f.rating === 'down').length;
   const totalFb = FEEDBACK.length || 1;
-
   const openTickets = TICKETS.filter(tk => tk.ticketStatus !== 'Closed' && tk.ticketStatus !== 'Resolved').length;
   const closedTickets = TICKETS.length - openTickets;
 
@@ -653,15 +914,12 @@ function renderAnalytics() {
       <div class="stats">
         <div class="stat ok"><div class="val">${thumbsUp}</div><div class="lbl">👍 Helpful</div></div>
         <div class="stat err"><div class="val">${thumbsDown}</div><div class="lbl">👎 Not Helpful</div></div>
-        <div class="stat blue"><div class="val">${FEEDBACK.length}</div><div class="lbl">Total Feedback</div></div>
+        <div class="stat blue"><div class="val">${FEEDBACK.length}</div><div class="lbl">Total</div></div>
       </div>
       ${FEEDBACK.length ? `
         <div style="margin-top:14px;height:16px;border-radius:8px;overflow:hidden;display:flex;background:#e5e7eb">
           <div style="width:${(thumbsUp/totalFb)*100}%;background:#16a34a"></div>
           <div style="width:${(thumbsDown/totalFb)*100}%;background:#dc2626"></div>
-        </div>
-        <div style="font-size:12px;color:#666;margin-top:8px;text-align:center">
-          ${Math.round((thumbsUp/totalFb)*100)}% found it helpful
         </div>` : ''}
     </div>
 
@@ -690,9 +948,7 @@ function renderRecords() {
       String(o.dealerCode).toLowerCase().includes(s) ||
       String(o.dealerName || '').toLowerCase().includes(s);
   });
-
   if (!filtered.length) { el.innerHTML = '<div class="empty">No matching records.</div>'; return; }
-
   const cols = ['orderNumber','dealerCode','orderType','partNumber','orderStatus','orderedQty','dispatchedQty','pendingQty','eta'];
   let html = '<table><thead><tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
   filtered.slice(0, 100).forEach(o => {
@@ -746,11 +1002,35 @@ function renderHistory() {
    RENDER ALL
    ============================================================ */
 function renderAll() {
+  renderThreads();
   renderHistory();
   renderRecords();
   renderTickets();
   renderAnalytics();
 }
+
+/* ============================================================
+   POLL for new dealer messages  ⭐ NEW
+   ============================================================ */
+setInterval(() => {
+  THREADS = JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
+  const before = Object.values(THREADS).reduce((s, t) => s + (t.unreadByAdmin || 0), 0);
+  updateSupportBadge();
+  if (document.getElementById('panel-support')?.classList.contains('active')) {
+    // Preserve selected
+    const prevSel = selectedDealer;
+    renderThreads();
+    if (prevSel && THREADS[prevSel]) {
+      const t = THREADS[prevSel];
+      // Only re-render chat if there are new messages
+      const body = document.getElementById('chatBody');
+      const currentCount = body.querySelectorAll('.chat-msg').length;
+      if (t.messages.length !== currentCount) {
+        selectDealer(prevSel);
+      }
+    }
+  }
+}, 2000);
 </script>
 </body>
 </html>
