@@ -87,14 +87,6 @@
   .preview-table td { padding: 8px 10px; border-bottom: 1px solid #eee; white-space: nowrap; }
   .preview-table tr:nth-child(even) td { background: #fafbff; }
   .preview-table tr.bad td { background: #fee2e2; color: #991b1b; }
-  .log-item { display: flex; align-items: center; gap: 12px; padding: 12px 0;
-    border-bottom: 1px solid #eee; font-size: 13px; }
-  .log-badge { padding: 4px 10px; border-radius: 6px; font-size: 11px;
-    font-weight: 700; color: #fff; }
-  .log-badge.success { background: #16a34a; }
-  .log-badge.partial { background: #d97706; }
-  .log-badge.failed { background: #dc2626; }
-  .log-meta { margin-left: auto; text-align: right; color: #888; font-size: 11.5px; }
   .empty { text-align: center; padding: 30px; color: #999; font-size: 13px; }
   .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
   .kpi { background: linear-gradient(135deg, #fff5f6, #fef2f4);
@@ -250,6 +242,9 @@
     <div class="tab-panel" id="panel-upload">
       <div class="card">
         <h3>📤 Upload Excel / CSV File</h3>
+        <p style="font-size:12.5px;color:#666;margin-bottom:14px">
+          ✅ <strong>Smart Column Detection:</strong> Column names kuch bhi ho (Invoice No, Inv #, LR No, Docket No) — chatbot automatic detect kar lega.
+        </p>
         <div class="upload-zone" id="uploadZone">
           <div class="icon">📤</div>
           <p><strong>Click to upload</strong> or drag file here</p>
@@ -263,6 +258,7 @@
 
       <div class="card" id="previewCard" style="display:none">
         <h3>✅ Preview & Validate</h3>
+        <div id="detectedColumns" style="margin-bottom:12px;padding:10px;background:#ecfdf5;border-radius:8px;font-size:12px;color:#065f46;display:none"></div>
         <div class="stats">
           <div class="stat blue"><div class="val" id="statTotal">0</div><div class="lbl">Total Rows</div></div>
           <div class="stat ok"><div class="val" id="statValid">0</div><div class="lbl">Valid</div></div>
@@ -278,7 +274,7 @@
       <div class="card">
         <h3>🗑️ Clear All Data</h3>
         <p style="font-size:12.5px;color:#666;margin-bottom:14px">
-          Firestore se saara orders data delete kar dega. Chat/tickets safe rahenge.
+          Firestore se saara orders data delete kar dega.
         </p>
         <button class="btn" onclick="clearAllData()" style="background:#dc2626">🗑️ Delete All Orders</button>
       </div>
@@ -342,10 +338,9 @@ const ADMIN_USERS = { 'admin': 'mg@2026' };
 let ORDERS = [];
 let TICKETS = [];
 let FEEDBACK = [];
-let THREADS = {};       // dealerCode -> { dealerName, messages: [] }
+let THREADS = {};
 let selectedDealer = null;
 let allThreadsListener = null;
-let currentThreadListener = null;
 
 function todayStamp() {
   const d = new Date();
@@ -358,6 +353,112 @@ function showToast(msg) {
   el.className = 'toast'; el.textContent = msg;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 4000);
+}
+
+/* ============================================================
+   SMART COLUMN DETECTION  ⭐ NEW
+   ============================================================ */
+function detectColumnMapping(headerName) {
+  if (!headerName) return null;
+  // Normalize: lowercase, replace special chars with space, collapse spaces
+  const h = String(headerName).trim().toLowerCase()
+    .replace(/[_\-\.#\/\\]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // Invoice — check first (specific)
+  if (h.includes('invoice') || h.includes('inv no') || h.includes('inv #') || h.includes('bill no')) return 'invoiceNumber';
+
+  // LR / Docket / Consignment
+  if (h.includes('lr no') || h.includes('lr #') || h === 'lr' ||
+      h.includes('docket') || h.includes('dkt') ||
+      h.includes('consignment') || h.includes('cn no')) return 'docketLR';
+
+  // Transporter
+  if (h.includes('transporter') || h.includes('courier') || h.includes('logistics') ||
+      h.includes('carrier') || h.includes('transport')) return 'transporter';
+
+  // Dispatch date (before generic dispatch)
+  if (h.includes('dispatch') && h.includes('date')) return 'dispatchDate';
+  if (h.includes('dispatch') && (h.includes('qty') || h.includes('quantity') || h.includes('q'))) return 'dispatchedQty';
+
+  // Order Type
+  if (h.includes('order') && h.includes('type')) return 'orderType';
+  if (h === 'type' || h === 'order type') return 'orderType';
+
+  // Order Number
+  if (h.includes('order') && (h.includes('no') || h.includes('num') || h.includes('id') || h.includes('#'))) return 'orderNumber';
+  if (h === 'order' || h === 'order no' || h === 'order number') return 'orderNumber';
+
+  // Order Date
+  if (h.includes('order') && h.includes('date')) return 'orderDate';
+  if (h === 'date' || h === 'order date') return 'orderDate';
+
+  // Part Number
+  if ((h.includes('part') || h.includes('item') || h.includes('material') || h.includes('sku') || h.includes('product')) &&
+      (h.includes('no') || h.includes('num') || h.includes('code') || h.includes('id') || h.includes('#'))) return 'partNumber';
+  if (h === 'part' || h === 'part no' || h === 'part number' || h === 'partno' || h === 'item code') return 'partNumber';
+
+  // Part Description
+  if (h.includes('part') && (h.includes('desc') || h.includes('name'))) return 'partDescription';
+  if (h.includes('description') || h.includes('item name') || h.includes('product name')) return 'partDescription';
+
+  // Dispatched Qty (generic)
+  if (h.includes('dispatch')) return 'dispatchedQty';
+
+  // Pending Qty
+  if ((h.includes('pending') || h.includes('balance') || h.includes('outstanding')) &&
+      (h.includes('qty') || h.includes('quantity'))) return 'pendingQty';
+
+  // Ordered Qty
+  if ((h.includes('order') || h.includes('qty') || h.includes('quantity')) &&
+      !h.includes('dispatch') && !h.includes('pending')) {
+    if (h.includes('qty') || h.includes('quantity')) return 'orderedQty';
+  }
+
+  // Stock
+  if (h.includes('stock') || h.includes('availability')) return 'stockAvailability';
+
+  // ETA
+  if (h.includes('eta') || h.includes('expected') || h.includes('tentative') ||
+      (h.includes('delivery') && h.includes('date')) || h.includes('exp date')) return 'eta';
+
+  // Hold Reason
+  if (h.includes('hold') || h.includes('reason') || h.includes('remark')) return 'holdReason';
+
+  // Dealer Code
+  if ((h.includes('dealer') || h.includes('party') || h.includes('customer')) &&
+      (h.includes('code') || h.includes('id') || h.includes('no') || h.includes('#'))) return 'dealerCode';
+  if (h === 'dealer' || h === 'dealer code' || h === 'party code') return 'dealerCode';
+
+  // Dealer Name
+  if ((h.includes('dealer') || h.includes('party') || h.includes('customer')) &&
+      (h.includes('name') || h === 'dealer name')) return 'dealerName';
+  if (h === 'dealer name' || h === 'party name') return 'dealerName';
+
+  // Last Updated
+  if (h.includes('last') && h.includes('update')) return 'lastUpdated';
+
+  // Ticket
+  if (h.includes('ticket') && (h.includes('no') || h.includes('num') || h.includes('#'))) return 'ticketNumber';
+  if (h.includes('ticket') && h.includes('status')) return 'ticketStatus';
+
+  return null;
+}
+
+function smartMapRow(rawRow) {
+  const obj = {};
+  const detected = {};
+  Object.keys(rawRow).forEach(colName => {
+    const mapped = detectColumnMapping(colName);
+    if (mapped) {
+      let val = rawRow[colName];
+      if (typeof val === 'string') val = val.trim();
+      obj[mapped] = val;
+      detected[colName] = mapped;
+    }
+  });
+  return { obj, detected };
 }
 
 /* ============================================================
@@ -380,7 +481,6 @@ document.getElementById('loginPass').addEventListener('keydown', e => { if (e.ke
 function doLogout() {
   sessionStorage.removeItem('mg_admin');
   if (allThreadsListener) allThreadsListener();
-  if (currentThreadListener) currentThreadListener();
   document.getElementById('loginWrap').style.display = 'flex';
   document.getElementById('dashWrap').classList.remove('show');
   document.getElementById('loginUser').value = '';
@@ -400,26 +500,19 @@ if (session) showDashboard(session);
    REAL-TIME LISTENERS
    ============================================================ */
 function setupListeners() {
-  // Orders listener
   db.collection('orders').onSnapshot(snap => {
     ORDERS = snap.docs.map(d => d.data());
     renderAll();
   });
-
-  // Tickets listener
   db.collection('tickets').onSnapshot(snap => {
     TICKETS = snap.docs.map(d => d.data());
     renderTickets();
     renderAnalytics();
   });
-
-  // Feedback listener
   db.collection('feedback').onSnapshot(snap => {
     FEEDBACK = snap.docs.map(d => d.data());
     renderAnalytics();
   });
-
-  // All threads listener — group messages by dealer
   if (allThreadsListener) allThreadsListener();
   allThreadsListener = db.collection('threads').orderBy('timestamp', 'asc').onSnapshot(snap => {
     THREADS = {};
@@ -436,9 +529,6 @@ function setupListeners() {
   });
 }
 
-/* ============================================================
-   TABS
-   ============================================================ */
 document.querySelectorAll('.nav-tab').forEach(tab => {
   tab.onclick = () => {
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
@@ -498,20 +588,16 @@ async function selectDealer(dealerCode) {
   selectedDealer = dealerCode;
   const t = THREADS[dealerCode];
   if (!t) return;
-
-  // Mark as read
   const unread = t.messages.filter(m => m.sender === 'dealer' && !m.readByAdmin);
   for (const m of unread) {
     try { await db.collection('threads').doc(m.id).update({ readByAdmin: true }); } catch(e){}
   }
-
   document.getElementById('chatHeader').innerHTML = `
     <div class="dot"></div>
     <div>
       <div class="ch-name">${t.dealerName || dealerCode}</div>
       <div class="ch-code">${dealerCode}</div>
     </div>`;
-
   const body = document.getElementById('chatBody');
   body.innerHTML = t.messages.length ? t.messages.map(m => {
     const cls = m.sender === 'dealer' ? 'dealer' : (m.sender === 'admin' ? 'admin' : 'bot');
@@ -522,7 +608,6 @@ async function selectDealer(dealerCode) {
     return `<div class="chat-msg ${cls}">${label}${m.message}<div class="m-time">${time}</div></div>`;
   }).join('') : '<div class="empty">No messages yet.</div>';
   body.scrollTop = body.scrollHeight;
-
   document.getElementById('adminReplyInput').disabled = false;
   document.getElementById('adminSendBtn').disabled = false;
   setTimeout(() => document.getElementById('adminReplyInput').focus(), 100);
@@ -545,33 +630,15 @@ async function sendAdminReply() {
       readByDealer: false
     });
     inp.value = '';
-  } catch (e) { console.error(e); alert('Failed to send: ' + e.message); }
+  } catch (e) { console.error(e); alert('Failed: ' + e.message); }
 }
 document.getElementById('adminReplyInput')?.addEventListener('keydown', e => {
   if (e.key === 'Enter') sendAdminReply();
 });
 
 /* ============================================================
-   UPLOAD
+   UPLOAD — SMART DETECTION
    ============================================================ */
-const COLUMN_MAP = {
-  'dealer code': 'dealerCode', 'dealer name': 'dealerName',
-  'order number': 'orderNumber', 'order type': 'orderType', 'order date': 'orderDate',
-  'part number': 'partNumber', 'part description': 'partDescription',
-  'ordered quantity': 'orderedQty', 'dispatched quantity': 'dispatchedQty',
-  'pending quantity': 'pendingQty', 'order status': 'orderStatus',
-  'stock availability': 'stockAvailability', 'tentative eta': 'eta',
-  'dispatch date': 'dispatchDate',
-  'docket / lr number': 'docketLR', 'docket/lr number': 'docketLR',
-  'lr number': 'docketLR', 'lr no': 'docketLR',
-  'docket number': 'docketLR', 'docket no': 'docketLR',
-  'transporter name': 'transporter', 'order hold reason': 'holdReason',
-  'last updated date & time': 'lastUpdated', 'last updated': 'lastUpdated',
-  'support ticket number': 'ticketNumber', 'ticket status': 'ticketStatus',
-  'invoice number': 'invoiceNumber', 'invoice no': 'invoiceNumber', 'invoice': 'invoiceNumber'
-};
-const REQUIRED = ['dealerCode', 'dealerName'];
-
 document.getElementById('uploadZone').onclick = () => document.getElementById('fileInput').click();
 const zone = document.getElementById('uploadZone');
 zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
@@ -597,46 +664,64 @@ function handleFile(file) {
   reader.readAsArrayBuffer(file);
 }
 
-function normalizeHeader(h) { return String(h).trim().toLowerCase(); }
-
 function validateRows(raw) {
   const rows = []; const errors = []; const seen = new Set();
+  const detectedMap = {};
+
   raw.forEach((r, i) => {
     const rowNum = i + 2;
-    const obj = {};
-    Object.keys(r).forEach(k => {
-      const mapped = COLUMN_MAP[normalizeHeader(k)];
-      if (mapped) obj[mapped] = typeof r[k] === 'string' ? r[k].trim() : r[k];
-    });
-    const missing = REQUIRED.filter(f => obj[f] === undefined || obj[f] === '');
-    if (missing.length) { errors.push({ row: rowNum, reason: 'Missing: ' + missing.join(', ') }); return; }
+    const { obj, detected } = smartMapRow(r);
+    Object.assign(detectedMap, detected);
+
+    if (!obj.dealerCode || !obj.dealerName) {
+      errors.push({ row: rowNum, reason: 'Missing Dealer Code or Dealer Name' });
+      return;
+    }
+
     if (obj.orderNumber) {
       const key = obj.orderNumber + '|' + (obj.partNumber || '');
-      if (seen.has(key)) { errors.push({ row: rowNum, reason: 'Duplicate' }); return; }
+      if (seen.has(key)) { errors.push({ row: rowNum, reason: 'Duplicate order+part' }); return; }
       seen.add(key);
     }
+
     obj.orderedQty = Number(obj.orderedQty) || 0;
     obj.dispatchedQty = Number(obj.dispatchedQty) || 0;
     obj.pendingQty = Number(obj.pendingQty) || (obj.orderedQty - obj.dispatchedQty);
     if (obj.dispatchedQty > obj.orderedQty) { errors.push({ row: rowNum, reason: 'Dispatched > Ordered' }); return; }
-    if (obj.dispatchedQty > 0 && (!obj.docketLR || !obj.transporter)) {
-      errors.push({ row: rowNum, reason: 'Docket/Transporter missing' }); return;
+    if (obj.dispatchedQty > 0 && !obj.docketLR && !obj.transporter) {
+      // Allow if either is present, only reject if both missing AND qty>0
+      errors.push({ row: rowNum, reason: 'Dispatched but no LR/Transporter' }); return;
     }
     if (obj.orderStatus === 'On Hold' && !obj.holdReason) {
-      errors.push({ row: rowNum, reason: 'Hold reason missing' }); return;
+      errors.push({ row: rowNum, reason: 'On Hold but no reason' }); return;
     }
     rows.push(obj);
   });
-  return { rows, errors };
+
+  return { rows, errors, detectedMap };
 }
 
 function renderPreview(result, fileName) {
-  const { rows, errors } = result;
+  const { rows, errors, detectedMap } = result;
   document.getElementById('previewCard').style.display = 'block';
   document.getElementById('statTotal').textContent = rows.length + errors.length;
   document.getElementById('statValid').textContent = rows.length;
   document.getElementById('statRejected').textContent = errors.length;
-  const cols = ['dealerCode','dealerName','orderNumber','partNumber','orderStatus','invoiceNumber','docketLR'];
+
+  // Show detected columns
+  const colEl = document.getElementById('detectedColumns');
+  if (Object.keys(detectedMap).length) {
+    const pairs = Object.entries(detectedMap).map(([orig, mapped]) =>
+      `<span style="display:inline-block;background:#fff;padding:2px 8px;border-radius:12px;margin:2px;border:1px solid #a7f3d0">
+        <strong>${orig}</strong> → ${mapped}
+      </span>`).join('');
+    colEl.innerHTML = `<div style="margin-bottom:6px"><strong>✅ Auto-detected columns:</strong></div>${pairs}`;
+    colEl.style.display = 'block';
+  } else {
+    colEl.style.display = 'none';
+  }
+
+  const cols = ['dealerCode','dealerName','orderNumber','partNumber','orderStatus','invoiceNumber','docketLR','eta'];
   let html = '<table><thead><tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
   rows.forEach(o => { html += '<tr>' + cols.map(c => `<td>${o[c] ?? ''}</td>`).join('') + '</tr>'; });
   errors.forEach(e => { html += `<tr class="bad"><td colspan="${cols.length}">Row ${e.row}: ${e.reason}</td></tr>`; });
@@ -653,27 +738,20 @@ async function publishData(rows, errors, fileName) {
   if (!rows.length) { alert('No valid rows.'); return; }
   const btn = document.getElementById('publishBtn');
   btn.disabled = true; btn.textContent = 'Publishing...';
-
   try {
-    // Delete all existing orders
     const existing = await db.collection('orders').get();
-    let batch = db.batch();
-    let count = 0;
+    let batch = db.batch(); let count = 0;
     for (const doc of existing.docs) {
-      batch.delete(doc.ref);
-      count++;
+      batch.delete(doc.ref); count++;
       if (count % 400 === 0) { await batch.commit(); batch = db.batch(); }
     }
     if (count % 400 !== 0) await batch.commit();
 
-    // Add new orders in batches
-    batch = db.batch();
-    count = 0;
+    batch = db.batch(); count = 0;
     for (const o of rows) {
       const ref = db.collection('orders').doc();
       const data = { ...o, lastUpdated: o.lastUpdated || todayStamp() };
-      batch.set(ref, data);
-      count++;
+      batch.set(ref, data); count++;
       if (count % 400 === 0) { await batch.commit(); batch = db.batch(); }
     }
     if (count % 400 !== 0) await batch.commit();
@@ -681,9 +759,7 @@ async function publishData(rows, errors, fileName) {
     alert(`✅ Published!\n\n${rows.length} records live.` + (errors.length ? `\n${errors.length} rejected.` : ''));
     document.getElementById('previewCard').style.display = 'none';
     document.getElementById('fileInput').value = '';
-  } catch (e) {
-    alert('❌ Failed: ' + e.message);
-  }
+  } catch (e) { alert('❌ Failed: ' + e.message); }
   btn.disabled = false; btn.textContent = '✅ Publish to Firestore';
 }
 
@@ -691,11 +767,9 @@ async function clearAllData() {
   if (!confirm('All orders will be deleted from Firestore. Continue?')) return;
   try {
     const existing = await db.collection('orders').get();
-    let batch = db.batch();
-    let count = 0;
+    let batch = db.batch(); let count = 0;
     for (const doc of existing.docs) {
-      batch.delete(doc.ref);
-      count++;
+      batch.delete(doc.ref); count++;
       if (count % 400 === 0) { await batch.commit(); batch = db.batch(); }
     }
     if (count % 400 !== 0) await batch.commit();
@@ -710,22 +784,10 @@ function downloadTemplate() {
       'Part Description':'Brake Pad Front','Ordered Quantity':5,'Dispatched Quantity':0,
       'Pending Quantity':5,'Order Status':'Pending Dispatch','Stock Availability':'Available',
       'Tentative ETA':'20-Oct-2026','Dispatch Date':'','Invoice Number':'INV-2026-001',
-      'Docket / LR Number':'','Transporter Name':'','Order Hold Reason':'',
-      'Last Updated Date & Time':'','Support Ticket Number':'','Ticket Status':'' },
-    { 'Dealer Code':'MGDL002','Dealer Name':'XYZ Auto Parts','Order Number':'ORD100002',
-      'Order Type':'Stock Order','Order Date':'10-Oct-2026','Part Number':'MG-P-22222',
-      'Part Description':'Air Filter','Ordered Quantity':20,'Dispatched Quantity':20,
-      'Pending Quantity':0,'Order Status':'Fully Dispatched','Stock Availability':'Available',
-      'Tentative ETA':'15-Oct-2026','Dispatch Date':'13-Oct-2026','Invoice Number':'INV-2026-002',
-      'Docket / LR Number':'LR555111','Transporter Name':'DTDC','Order Hold Reason':'',
-      'Last Updated Date & Time':'','Support Ticket Number':'','Ticket Status':'' }
+      'LR Number':'LR555111','Transporter Name':'DTDC','Order Hold Reason':'' }
   ];
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(sample);
-  ws['!cols'] = [
-    {wch:12},{wch:22},{wch:15},{wch:15},{wch:14},{wch:15},{wch:22},{wch:12},{wch:14},
-    {wch:12},{wch:18},{wch:14},{wch:14},{wch:14},{wch:16},{wch:18},{wch:18},{wch:18},{wch:22},{wch:18},{wch:14}
-  ];
   XLSX.utils.book_append_sheet(wb, ws, 'Orders');
   XLSX.writeFile(wb, 'MG_Template_' + new Date().toISOString().slice(0,10) + '.xlsx');
 }
@@ -803,7 +865,6 @@ function renderAnalytics() {
       <div class="stats">
         <div class="stat ok"><div class="val">${thumbsUp}</div><div class="lbl">👍 Helpful</div></div>
         <div class="stat err"><div class="val">${thumbsDown}</div><div class="lbl">👎 Not Helpful</div></div>
-        <div class="stat blue"><div class="val">${FEEDBACK.length}</div><div class="lbl">Total</div></div>
       </div>
     </div>
     <div class="card">
@@ -815,20 +876,19 @@ function renderAnalytics() {
     </div>`;
 }
 
-/* ============================================================
-   RECORDS
-   ============================================================ */
 function renderRecords() {
   const el = document.getElementById('recordsTable');
   const s = (document.getElementById('recSearch')?.value || '').toLowerCase().trim();
-  const st = document.getElementById('recStatusFilter')?.value || '';
+  const st = (document.getElementById('recStatusFilter')?.value || '');
   let filtered = ORDERS.filter(o => {
     if (st && o.orderStatus !== st) return false;
     if (!s) return true;
     return String(o.orderNumber || '').toLowerCase().includes(s) ||
       String(o.partNumber || '').toLowerCase().includes(s) ||
       String(o.dealerCode || '').toLowerCase().includes(s) ||
-      String(o.dealerName || '').toLowerCase().includes(s);
+      String(o.dealerName || '').toLowerCase().includes(s) ||
+      String(o.invoiceNumber || '').toLowerCase().includes(s) ||
+      String(o.docketLR || '').toLowerCase().includes(s);
   });
   if (!filtered.length) { el.innerHTML = '<div class="empty">No records.</div>'; return; }
   const cols = ['dealerCode','dealerName','orderNumber','orderType','partNumber','orderStatus','orderedQty','dispatchedQty','pendingQty','invoiceNumber','docketLR','eta'];
@@ -855,10 +915,7 @@ function renderTickets() {
   el.innerHTML = html;
 }
 
-function renderAll() {
-  renderRecords();
-  renderAnalytics();
-}
+function renderAll() { renderRecords(); renderAnalytics(); }
 </script>
 </body>
 </html>
