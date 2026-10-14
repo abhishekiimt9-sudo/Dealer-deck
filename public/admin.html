@@ -181,7 +181,6 @@
     font-size: 13px; outline: none; }
   .dealer-filter input:focus, .dealer-filter select:focus { border-color: #b3001b; }
 
-  /* ============ SUPPORT CHAT ============ */
   .support-wrap { display: grid; grid-template-columns: 300px 1fr; gap: 0;
     background: #fff; border-radius: 12px; overflow: hidden;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05); min-height: 550px; }
@@ -208,6 +207,10 @@
   .chat-header .dot { width: 10px; height: 10px; border-radius: 50%; background: #16a34a; }
   .chat-header .ch-name { font-size: 14px; font-weight: 700; color: #333; }
   .chat-header .ch-code { font-size: 11px; color: #888; }
+  .chat-refresh-btn { margin-left: auto; background: #f0f2f7; border: none;
+    padding: 6px 12px; border-radius: 6px; font-size: 11.5px; font-weight: 600;
+    color: #555; cursor: pointer; }
+  .chat-refresh-btn:hover { background: #e2e5ec; }
   .chat-body { flex: 1; overflow-y: auto; padding: 16px 18px;
     background: #f9fafc; display: flex; flex-direction: column; gap: 10px;
     min-height: 400px; max-height: 450px; }
@@ -229,6 +232,13 @@
     font-weight: 600; cursor: pointer; }
   .chat-input-bar button:hover { background: #7a0012; }
 
+  /* Toast */
+  .toast { position: fixed; top: 20px; right: 20px; background: #b3001b;
+    color: #fff; padding: 14px 20px; border-radius: 10px; font-size: 13px;
+    font-weight: 600; box-shadow: 0 8px 30px rgba(0,0,0,0.25); z-index: 9999;
+    animation: slideIn 0.3s ease; max-width: 320px; }
+  @keyframes slideIn { from { transform: translateX(120%); } to { transform: translateX(0); } }
+
   @media (max-width: 700px) {
     .support-wrap { grid-template-columns: 1fr; }
     .threads-list { max-height: 200px; }
@@ -239,7 +249,6 @@
 </head>
 <body>
 
-<!-- LOGIN -->
 <div class="login-wrap" id="loginWrap">
   <div class="login-box">
     <div class="logo-big">MG</div>
@@ -255,7 +264,6 @@
   </div>
 </div>
 
-<!-- DASHBOARD -->
 <div class="dash-wrap" id="dashWrap">
   <div class="topbar">
     <div class="logo">MG</div>
@@ -284,7 +292,6 @@
 
   <div class="content">
 
-    <!-- SUPPORT CHAT (default) -->
     <div class="tab-panel active" id="panel-support">
       <div class="card" style="padding:0;overflow:hidden">
         <div class="support-wrap">
@@ -312,19 +319,18 @@
       </div>
     </div>
 
-    <!-- UPLOAD -->
     <div class="tab-panel" id="panel-upload">
       <div class="card">
         <h3><span class="num">1</span> Upload Excel / CSV File</h3>
         <div class="upload-zone" id="uploadZone">
           <div class="icon">📤</div>
           <p><strong>Click to upload</strong> or drag file here</p>
-          <small>Supports .xlsx, .xls, .csv</small>
+          <small>Required columns: <strong>Dealer Code</strong> and <strong>Dealer Name</strong> only</small>
           <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" />
         </div>
         <div style="margin-top:14px;padding-top:14px;border-top:1px dashed #e5e7ef;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <button class="btn ghost" onclick="downloadTemplate()">⬇️ Download Excel Template</button>
-          <span style="font-size:12px;color:#888">Sample data ke saath ready-to-use template</span>
+          <span style="font-size:12px;color:#888">Ready-to-use template</span>
         </div>
       </div>
 
@@ -341,14 +347,27 @@
           <button class="btn ghost" id="cancelBtn">Cancel</button>
         </div>
       </div>
+
+      <div class="card">
+        <h3>💾 Data Backup & Restore</h3>
+        <p style="font-size:12.5px;color:#666;margin-bottom:14px">
+          Data browser me save hoti hai. Backup zaroor rakho — refresh ya dusre browser me data na dikhe toh restore kar sakte ho.
+        </p>
+        <div class="btn-row">
+          <button class="btn" onclick="exportData()">📥 Export Data (JSON)</button>
+          <button class="btn ghost" onclick="document.getElementById('importInput').click()">📤 Import Data</button>
+          <input type="file" id="importInput" accept=".json" style="display:none" onchange="importData(event)" />
+        </div>
+        <div id="storageInfo" style="margin-top:14px;padding:12px;background:#f4f6fb;border-radius:8px;font-size:12px;color:#555">
+          <strong>Storage:</strong> <span id="storageDetails">Checking...</span>
+        </div>
+      </div>
     </div>
 
-    <!-- ANALYTICS -->
     <div class="tab-panel" id="panel-analytics">
       <div id="analyticsBody"></div>
     </div>
 
-    <!-- RECORDS -->
     <div class="tab-panel" id="panel-records">
       <div class="card">
         <h3>📦 Orders Management</h3>
@@ -369,7 +388,6 @@
       </div>
     </div>
 
-    <!-- TICKETS -->
     <div class="tab-panel" id="panel-tickets">
       <div class="card">
         <h3>🎫 Support Tickets</h3>
@@ -382,7 +400,6 @@
       </div>
     </div>
 
-    <!-- HISTORY -->
     <div class="tab-panel" id="panel-history">
       <div class="card">
         <h3>📜 Upload History</h3>
@@ -409,25 +426,25 @@ const FEEDBACK_KEY = 'mg_feedback';
 const THREADS_KEY = 'mg_support_threads';
 
 const DEMO_ORDERS = [
-  { orderNumber:"ORD123456", dealerCode:"MGDL001", dealerName:"ABC Motors Pvt Ltd",
+  { dealerCode:"MGDL001", dealerName:"ABC Motors Pvt Ltd", orderNumber:"ORD123456",
     orderType:"VOR", orderDate:"01-Oct-2026", partNumber:"MG-P-45678",
     partDescription:"Brake Pad Front", orderedQty:2, dispatchedQty:0, pendingQty:2,
     orderStatus:"Pending Dispatch", stockAvailability:"Available", eta:"15-Oct-2026",
     dispatchDate:"", docketLR:"", transporter:"", holdReason:"",
     lastUpdated:"13-Oct-2026 14:30", ticketNumber:"TKT-2026-001", ticketStatus:"Open" },
-  { orderNumber:"ORD123457", dealerCode:"MGDL001", dealerName:"ABC Motors Pvt Ltd",
+  { dealerCode:"MGDL001", dealerName:"ABC Motors Pvt Ltd", orderNumber:"ORD123457",
     orderType:"Stock Order", orderDate:"05-Oct-2026", partNumber:"MG-P-99001",
     partDescription:"Air Filter", orderedQty:10, dispatchedQty:10, pendingQty:0,
     orderStatus:"Fully Dispatched", stockAvailability:"Available", eta:"12-Oct-2026",
     dispatchDate:"10-Oct-2026", docketLR:"LR987654", transporter:"BlueDart Logistics",
     holdReason:"", lastUpdated:"13-Oct-2026 14:30", ticketNumber:"", ticketStatus:"" },
-  { orderNumber:"ORD123458", dealerCode:"MGDL001", dealerName:"ABC Motors Pvt Ltd",
+  { dealerCode:"MGDL001", dealerName:"ABC Motors Pvt Ltd", orderNumber:"ORD123458",
     orderType:"Back Order", orderDate:"08-Oct-2026", partNumber:"MG-P-77777",
     partDescription:"Clutch Plate", orderedQty:3, dispatchedQty:0, pendingQty:3,
     orderStatus:"On Hold", stockAvailability:"Not Available", eta:"",
     dispatchDate:"", docketLR:"", transporter:"", holdReason:"Stock Unavailability",
     lastUpdated:"13-Oct-2026 14:30", ticketNumber:"", ticketStatus:"" },
-  { orderNumber:"ORD900001", dealerCode:"MGDL002", dealerName:"XYZ Auto Parts",
+  { dealerCode:"MGDL002", dealerName:"XYZ Auto Parts", orderNumber:"ORD900001",
     orderType:"VOR", orderDate:"02-Oct-2026", partNumber:"MG-P-11111",
     partDescription:"Headlight Assembly", orderedQty:1, dispatchedQty:1, pendingQty:0,
     orderStatus:"Fully Dispatched", stockAvailability:"Available", eta:"11-Oct-2026",
@@ -463,6 +480,17 @@ function todayStamp() {
     + ' ' + d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
 }
 function nowTime() { return new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }); }
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
 
 /* ============================================================
    LOGIN
@@ -516,14 +544,16 @@ document.querySelectorAll('.nav-tab').forEach(tab => {
 });
 
 /* ============================================================
-   SUPPORT CHAT  ⭐ NEW
+   SUPPORT CHAT
    ============================================================ */
 function renderThreads() {
   THREADS = JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
   const el = document.getElementById('threadsList');
-  const entries = Object.values(THREADS).sort((a, b) =>
-    new Date(b.lastUpdate.replace(' ', 'T')) - new Date(a.lastUpdate.replace(' ', 'T'))
-  );
+  const entries = Object.values(THREADS).sort((a, b) => {
+    const ta = a.messages.length ? a.messages[a.messages.length-1].timestamp : 0;
+    const tb = b.messages.length ? b.messages[b.messages.length-1].timestamp : 0;
+    return tb - ta;
+  });
   if (!entries.length) {
     el.innerHTML = '<div class="empty" style="padding:20px;font-size:12px">No dealer chats yet.</div>';
     return;
@@ -531,6 +561,7 @@ function renderThreads() {
   el.innerHTML = entries.map(t => {
     const lastMsg = t.messages.length ? t.messages[t.messages.length - 1] : null;
     const preview = lastMsg ? lastMsg.text.substring(0, 40) : 'No messages';
+    const time = lastMsg ? lastMsg.time : '';
     return `
       <div class="thread-item ${selectedDealer === t.dealerCode ? 'active' : ''}"
            onclick="selectDealer('${t.dealerCode}')">
@@ -538,7 +569,7 @@ function renderThreads() {
         <div class="t-code">${t.dealerCode}</div>
         <div class="t-preview">${preview}</div>
         <div class="t-meta">
-          <span>${t.lastUpdate.split(' ')[1] || ''}</span>
+          <span>${time}</span>
           ${t.unreadByAdmin ? `<span class="unread-badge">${t.unreadByAdmin}</span>` : ''}
         </div>
       </div>`;
@@ -564,15 +595,14 @@ function selectDealer(dealerCode) {
   t.unreadByAdmin = 0;
   saveThreads();
 
-  // Render header
   document.getElementById('chatHeader').innerHTML = `
     <div class="dot"></div>
     <div>
       <div class="ch-name">${t.dealerName || dealerCode}</div>
       <div class="ch-code">${dealerCode}</div>
-    </div>`;
+    </div>
+    <button class="chat-refresh-btn" onclick="selectDealer('${dealerCode}')">🔄 Refresh</button>`;
 
-  // Render messages
   const body = document.getElementById('chatBody');
   body.innerHTML = t.messages.length ? t.messages.map(m => `
     <div class="chat-msg ${m.from}">
@@ -581,12 +611,10 @@ function selectDealer(dealerCode) {
     </div>`).join('') : '<div class="empty">No messages yet.</div>';
   body.scrollTop = body.scrollHeight;
 
-  // Enable input
   document.getElementById('adminReplyInput').disabled = false;
   document.getElementById('adminSendBtn').disabled = false;
   setTimeout(() => document.getElementById('adminReplyInput').focus(), 100);
 
-  // Refresh thread list to clear active highlight
   renderThreads();
 }
 
@@ -604,7 +632,7 @@ function sendAdminReply() {
   saveThreads();
 
   inp.value = '';
-  selectDealer(selectedDealer);   // re-render
+  selectDealer(selectedDealer);
 }
 
 document.getElementById('adminReplyInput')?.addEventListener('keydown', e => {
@@ -612,7 +640,7 @@ document.getElementById('adminReplyInput')?.addEventListener('keydown', e => {
 });
 
 /* ============================================================
-   UPLOAD & VALIDATION
+   UPLOAD — ONLY Dealer Code + Dealer Name required
    ============================================================ */
 const COLUMN_MAP = {
   'dealer code': 'dealerCode', 'dealer name': 'dealerName',
@@ -627,7 +655,9 @@ const COLUMN_MAP = {
   'last updated': 'lastUpdated', 'support ticket number': 'ticketNumber',
   'ticket status': 'ticketStatus'
 };
-const REQUIRED = ['dealerCode','orderNumber','orderType','partNumber','orderedQty','orderStatus'];
+
+// ⭐ Only these 2 are required
+const REQUIRED = ['dealerCode', 'dealerName'];
 
 document.getElementById('uploadZone').onclick = () => document.getElementById('fileInput').click();
 const zone = document.getElementById('uploadZone');
@@ -666,20 +696,25 @@ function validateRows(raw) {
       const mapped = COLUMN_MAP[normalizeHeader(k)];
       if (mapped) obj[mapped] = typeof r[k] === 'string' ? r[k].trim() : r[k];
     });
+    // Only check Dealer Code & Dealer Name
     const missing = REQUIRED.filter(f => obj[f] === undefined || obj[f] === '');
     if (missing.length) { errors.push({ row: rowNum, reason: 'Missing: ' + missing.join(', ') }); return; }
-    const key = obj.orderNumber + '|' + obj.partNumber;
-    if (seen.has(key)) { errors.push({ row: rowNum, reason: 'Duplicate order+part' }); return; }
-    seen.add(key);
+
+    // Optional order checks (only if order fields exist)
+    if (obj.orderNumber) {
+      const key = obj.orderNumber + '|' + (obj.partNumber || '');
+      if (seen.has(key)) { errors.push({ row: rowNum, reason: 'Duplicate order+part' }); return; }
+      seen.add(key);
+    }
     obj.orderedQty = Number(obj.orderedQty) || 0;
     obj.dispatchedQty = Number(obj.dispatchedQty) || 0;
     obj.pendingQty = Number(obj.pendingQty) || (obj.orderedQty - obj.dispatchedQty);
     if (obj.dispatchedQty > obj.orderedQty) { errors.push({ row: rowNum, reason: 'Dispatched > Ordered' }); return; }
     if (obj.dispatchedQty > 0 && (!obj.docketLR || !obj.transporter)) {
-      errors.push({ row: rowNum, reason: 'Dispatched: docket/transporter missing' }); return;
+      errors.push({ row: rowNum, reason: 'Dispatched but docket/transporter missing' }); return;
     }
     if (obj.orderStatus === 'On Hold' && !obj.holdReason) {
-      errors.push({ row: rowNum, reason: 'On Hold: no reason' }); return;
+      errors.push({ row: rowNum, reason: 'On Hold but no reason' }); return;
     }
     rows.push(obj);
   });
@@ -692,7 +727,7 @@ function renderPreview(result, fileName) {
   document.getElementById('statTotal').textContent = rows.length + errors.length;
   document.getElementById('statValid').textContent = rows.length;
   document.getElementById('statRejected').textContent = errors.length;
-  const cols = ['orderNumber','dealerCode','orderType','partNumber','orderStatus','eta'];
+  const cols = ['dealerCode','dealerName','orderNumber','orderType','partNumber','orderStatus','eta'];
   let html = '<table><thead><tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
   rows.forEach(o => { html += '<tr>' + cols.map(c => `<td>${o[c] ?? ''}</td>`).join('') + '</tr>'; });
   errors.forEach(e => { html += `<tr class="bad"><td colspan="${cols.length}">Row ${e.row}: ${e.reason}</td></tr>`; });
@@ -707,18 +742,36 @@ function renderPreview(result, fileName) {
 
 function publishData(rows, errors, fileName) {
   if (!rows.length) { alert('No valid rows to publish.'); return; }
+
   rows.forEach(r => { r.lastUpdated = r.lastUpdated || todayStamp(); });
   ORDERS = rows;
+
   const status = errors.length === 0 ? 'success' : 'partial';
   UPLOAD_LOG.unshift({ fileName, status, total: rows.length + errors.length,
     valid: rows.length, rejected: errors.length, timestamp: todayStamp() });
   UPLOAD_LOG = UPLOAD_LOG.slice(0, 20);
-  saveData();
-  alert(`Published!\n\n${rows.length} records live.` +
-    (errors.length ? `\n${errors.length} rejected.` : ''));
+
+  try { saveData(); } catch (e) {
+    alert('❌ Failed to save data!\n\n' + e.message);
+    return;
+  }
+
+  // Verify
+  const verify = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+  if (!verify || verify.length !== rows.length) {
+    alert('⚠️ Data not saved properly!\nExpected: ' + rows.length + '\nFound: ' + (verify ? verify.length : 0));
+    return;
+  }
+
+  alert('✅ Published & Verified!\n\n' +
+    '• ' + rows.length + ' records now live\n' +
+    '• Stored: ' + (localStorage.getItem(STORAGE_KEY).length / 1024).toFixed(1) + ' KB' +
+    (errors.length ? '\n• ' + errors.length + ' rows rejected' : ''));
+
   document.getElementById('previewCard').style.display = 'none';
   document.getElementById('fileInput').value = '';
   renderAll();
+  updateStorageInfo();
 }
 
 /* ============================================================
@@ -733,33 +786,19 @@ function downloadTemplate() {
       'Tentative ETA':'20-Oct-2026','Dispatch Date':'','Docket / LR Number':'',
       'Transporter Name':'','Order Hold Reason':'','Last Updated Date & Time':'14-Oct-2026 10:00',
       'Support Ticket Number':'','Ticket Status':'' },
-    { 'Dealer Code':'MGDL001','Dealer Name':'ABC Motors Pvt Ltd','Order Number':'ORD100002',
+    { 'Dealer Code':'MGDL002','Dealer Name':'XYZ Auto Parts','Order Number':'ORD100002',
       'Order Type':'Stock Order','Order Date':'10-Oct-2026','Part Number':'MG-P-22222',
       'Part Description':'Air Filter','Ordered Quantity':20,'Dispatched Quantity':20,
       'Pending Quantity':0,'Order Status':'Fully Dispatched','Stock Availability':'Available',
       'Tentative ETA':'15-Oct-2026','Dispatch Date':'13-Oct-2026','Docket / LR Number':'LR555111',
       'Transporter Name':'DTDC','Order Hold Reason':'','Last Updated Date & Time':'14-Oct-2026 10:00',
       'Support Ticket Number':'','Ticket Status':'' },
-    { 'Dealer Code':'MGDL001','Dealer Name':'ABC Motors Pvt Ltd','Order Number':'ORD100003',
+    { 'Dealer Code':'SW04','Dealer Name':'South West Motors','Order Number':'ORD100003',
       'Order Type':'Back Order','Order Date':'11-Oct-2026','Part Number':'MG-P-33333',
       'Part Description':'Oil Filter','Ordered Quantity':10,'Dispatched Quantity':0,
       'Pending Quantity':10,'Order Status':'On Hold','Stock Availability':'Not Available',
       'Tentative ETA':'','Dispatch Date':'','Docket / LR Number':'','Transporter Name':'',
       'Order Hold Reason':'Procurement Block','Last Updated Date & Time':'14-Oct-2026 10:00',
-      'Support Ticket Number':'','Ticket Status':'' },
-    { 'Dealer Code':'MGDL002','Dealer Name':'XYZ Auto Parts','Order Number':'ORD100004',
-      'Order Type':'VOR','Order Date':'11-Oct-2026','Part Number':'MG-P-44444',
-      'Part Description':'Headlight Assembly','Ordered Quantity':2,'Dispatched Quantity':1,
-      'Pending Quantity':1,'Order Status':'Partially Dispatched','Stock Availability':'Partial',
-      'Tentative ETA':'18-Oct-2026','Dispatch Date':'13-Oct-2026','Docket / LR Number':'LR777888',
-      'Transporter Name':'BlueDart','Order Hold Reason':'','Last Updated Date & Time':'14-Oct-2026 10:00',
-      'Support Ticket Number':'TKT-2026-005','Ticket Status':'Open' },
-    { 'Dealer Code':'MGDL002','Dealer Name':'XYZ Auto Parts','Order Number':'ORD100005',
-      'Order Type':'Stock Order','Order Date':'12-Oct-2026','Part Number':'MG-P-55555',
-      'Part Description':'Spark Plug','Ordered Quantity':50,'Dispatched Quantity':0,
-      'Pending Quantity':50,'Order Status':'Processing','Stock Availability':'Available',
-      'Tentative ETA':'22-Oct-2026','Dispatch Date':'','Docket / LR Number':'','Transporter Name':'',
-      'Order Hold Reason':'','Last Updated Date & Time':'14-Oct-2026 10:00',
       'Support Ticket Number':'','Ticket Status':'' }
   ];
 
@@ -770,28 +809,27 @@ function downloadTemplate() {
     {wch:12},{wch:18},{wch:14},{wch:14},{wch:14},{wch:18},{wch:18},{wch:18},{wch:22},
     {wch:18},{wch:14}
   ];
-  XLSX.utils.book_append_sheet(wb, ws, 'Orders Template');
+  XLSX.utils.book_append_sheet(wb, ws, 'Orders');
 
   const instructions = [
     { 'Instructions': 'MG Parts & Order Management - Excel Template' },
     { 'Instructions': '' },
-    { 'Instructions': 'IMPORTANT: Do not change column names in the "Orders Template" sheet.' },
-    { 'Instructions': 'Fill data from Row 2 onwards. Date format: DD-MMM-YYYY' },
+    { 'Instructions': '🔴 REQUIRED COLUMNS (must have):' },
+    { 'Instructions': '  1. Dealer Code' },
+    { 'Instructions': '  2. Dealer Name' },
     { 'Instructions': '' },
-    { 'Instructions': 'REQUIRED COLUMNS: Dealer Code, Order Number, Order Type, Part Number, Ordered Quantity, Order Status' },
+    { 'Instructions': '🟢 ALL OTHER COLUMNS ARE OPTIONAL:' },
+    { 'Instructions': '  Order Number, Order Type, Order Date, Part Number, Part Description,' },
+    { 'Instructions': '  Ordered Quantity, Dispatched Quantity, Pending Quantity, Order Status,' },
+    { 'Instructions': '  Stock Availability, Tentative ETA, Dispatch Date, Docket/LR Number,' },
+    { 'Instructions': '  Transporter Name, Order Hold Reason, Last Updated, Ticket Number, Ticket Status' },
     { 'Instructions': '' },
-    { 'Instructions': 'ALLOWED VALUES:' },
-    { 'Instructions': 'Order Type: VOR | Stock Order | Back Order' },
-    { 'Instructions': 'Order Status: Order Received | Processing | Pending Dispatch | Partially Dispatched | Fully Dispatched | In Transit | Delivered | On Hold | Cancelled' },
-    { 'Instructions': 'Stock Availability: Available | Partial | Not Available' },
-    { 'Instructions': 'Order Hold Reason: Credit Block | Stock Unavailability | Procurement Block | Account Issue | Pending Approval' },
-    { 'Instructions': 'Ticket Status: Open | In Progress | Resolved | Closed' },
+    { 'Instructions': 'You can also add your OWN custom columns — they will be ignored by the chatbot.' },
     { 'Instructions': '' },
-    { 'Instructions': 'VALIDATION RULES:' },
+    { 'Instructions': 'CONDITIONAL RULES (only if order data present):' },
     { 'Instructions': '  - Dispatched Qty cannot exceed Ordered Qty' },
-    { 'Instructions': '  - If Dispatched Qty > 0, then Docket/LR + Transporter required' },
-    { 'Instructions': '  - If Status = "On Hold", then Hold Reason required' },
-    { 'Instructions': '  - Order + Part combination must be unique' }
+    { 'Instructions': '  - If Dispatched Qty > 0 → Docket/LR + Transporter required' },
+    { 'Instructions': '  - If Status = "On Hold" → Hold Reason required' }
   ];
   const ws2 = XLSX.utils.json_to_sheet(instructions);
   ws2['!cols'] = [{ wch: 100 }];
@@ -801,22 +839,93 @@ function downloadTemplate() {
 }
 
 /* ============================================================
+   BACKUP / RESTORE
+   ============================================================ */
+function updateStorageInfo() {
+  const el = document.getElementById('storageDetails');
+  if (!el) return;
+  try {
+    const size = (localStorage.getItem('mg_orders_data') || '').length;
+    const orders = JSON.parse(localStorage.getItem('mg_orders_data') || '[]');
+    const tickets = JSON.parse(localStorage.getItem('mg_support_tickets') || '[]');
+    const kb = (size / 1024).toFixed(1);
+    el.innerHTML = `<strong>${orders.length}</strong> orders • <strong>${tickets.length}</strong> tickets • 
+      <strong>${kb} KB</strong> used<br>
+      <span style="font-size:11px;color:#888">Status: ${orders.length > 0 ? '✅ Data saved' : '⚠️ No data'}</span>`;
+  } catch (e) { el.textContent = 'Error'; }
+}
+
+function exportData() {
+  const data = {
+    orders: JSON.parse(localStorage.getItem('mg_orders_data') || '[]'),
+    tickets: JSON.parse(localStorage.getItem('mg_support_tickets') || '[]'),
+    feedback: JSON.parse(localStorage.getItem('mg_feedback') || '[]'),
+    threads: JSON.parse(localStorage.getItem('mg_support_threads') || '{}'),
+    uploadLog: JSON.parse(localStorage.getItem('mg_upload_log') || '[]'),
+    exportedAt: todayStamp(), version: 1
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'MG_Backup_' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  alert('✅ Backup downloaded!\n\nFile ko safe rakho.');
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.orders || !Array.isArray(data.orders)) {
+        alert('❌ Invalid backup file.');
+        return;
+      }
+      if (!confirm('📦 Backup Details:\n\n• Orders: ' + data.orders.length +
+        '\n• Tickets: ' + (data.tickets?.length || 0) +
+        '\n• Exported: ' + (data.exportedAt || 'Unknown') +
+        '\n\n⚠️ Current data will be REPLACED. Continue?')) return;
+
+      localStorage.setItem('mg_orders_data', JSON.stringify(data.orders));
+      localStorage.setItem('mg_support_tickets', JSON.stringify(data.tickets || []));
+      localStorage.setItem('mg_feedback', JSON.stringify(data.feedback || []));
+      localStorage.setItem('mg_support_threads', JSON.stringify(data.threads || {}));
+      localStorage.setItem('mg_upload_log', JSON.stringify(data.uploadLog || []));
+
+      alert('✅ Data imported!\n\nRefreshing...');
+      setTimeout(() => location.reload(), 800);
+    } catch (err) { alert('❌ Failed: ' + err.message); }
+  };
+  reader.readAsText(file);
+}
+
+/* ============================================================
    ANALYTICS
    ============================================================ */
 function renderAnalytics() {
   const el = document.getElementById('analyticsBody');
-  const total = ORDERS.length;
+  const total = ORDERS.filter(o => o.orderNumber).length;
   const delivered = ORDERS.filter(o => o.orderStatus === 'Delivered').length;
   const pending = ORDERS.filter(o => o.pendingQty > 0).length;
   const onHold = ORDERS.filter(o => o.orderStatus === 'On Hold').length;
 
   const statuses = {};
-  ORDERS.forEach(o => { statuses[o.orderStatus] = (statuses[o.orderStatus] || 0) + 1; });
+  ORDERS.filter(o => o.orderStatus).forEach(o => {
+    statuses[o.orderStatus] = (statuses[o.orderStatus] || 0) + 1;
+  });
   const statusEntries = Object.entries(statuses).sort((a,b) => b[1] - a[1]);
   const maxStatus = Math.max(1, ...statusEntries.map(e => e[1]));
 
   const types = {};
-  ORDERS.forEach(o => { types[o.orderType] = (types[o.orderType] || 0) + 1; });
+  ORDERS.filter(o => o.orderType).forEach(o => {
+    types[o.orderType] = (types[o.orderType] || 0) + 1;
+  });
   const typeEntries = Object.entries(types).sort((a,b) => b[1] - a[1]);
   const maxType = Math.max(1, ...typeEntries.map(e => e[1]));
 
@@ -916,18 +1025,13 @@ function renderAnalytics() {
         <div class="stat err"><div class="val">${thumbsDown}</div><div class="lbl">👎 Not Helpful</div></div>
         <div class="stat blue"><div class="val">${FEEDBACK.length}</div><div class="lbl">Total</div></div>
       </div>
-      ${FEEDBACK.length ? `
-        <div style="margin-top:14px;height:16px;border-radius:8px;overflow:hidden;display:flex;background:#e5e7eb">
-          <div style="width:${(thumbsUp/totalFb)*100}%;background:#16a34a"></div>
-          <div style="width:${(thumbsDown/totalFb)*100}%;background:#dc2626"></div>
-        </div>` : ''}
     </div>
 
     <div class="card">
       <h3>🎫 Support Tickets Summary</h3>
       <div class="stats">
         <div class="stat warn"><div class="val">${openTickets}</div><div class="lbl">Open</div></div>
-        <div class="stat ok"><div class="val">${closedTickets}</div><div class="lbl">Closed / Resolved</div></div>
+        <div class="stat ok"><div class="val">${closedTickets}</div><div class="lbl">Closed</div></div>
       </div>
     </div>
   `;
@@ -943,19 +1047,19 @@ function renderRecords() {
   let filtered = ORDERS.filter(o => {
     if (st && o.orderStatus !== st) return false;
     if (!s) return true;
-    return String(o.orderNumber).toLowerCase().includes(s) ||
-      String(o.partNumber).toLowerCase().includes(s) ||
-      String(o.dealerCode).toLowerCase().includes(s) ||
+    return String(o.orderNumber || '').toLowerCase().includes(s) ||
+      String(o.partNumber || '').toLowerCase().includes(s) ||
+      String(o.dealerCode || '').toLowerCase().includes(s) ||
       String(o.dealerName || '').toLowerCase().includes(s);
   });
   if (!filtered.length) { el.innerHTML = '<div class="empty">No matching records.</div>'; return; }
-  const cols = ['orderNumber','dealerCode','orderType','partNumber','orderStatus','orderedQty','dispatchedQty','pendingQty','eta'];
+  const cols = ['dealerCode','dealerName','orderNumber','orderType','partNumber','orderStatus','orderedQty','dispatchedQty','pendingQty','eta'];
   let html = '<table><thead><tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
   filtered.slice(0, 100).forEach(o => {
     html += '<tr>' + cols.map(c => `<td>${o[c] ?? ''}</td>`).join('') + '</tr>';
   });
   html += '</tbody></table>';
-  el.innerHTML = html + (filtered.length > 100 ? `<div style="padding:8px;text-align:center;font-size:11px;color:#888">Showing first 100 of ${filtered.length}</div>` : '');
+  el.innerHTML = html;
 }
 document.getElementById('recSearch')?.addEventListener('input', renderRecords);
 document.getElementById('recStatusFilter')?.addEventListener('change', renderRecords);
@@ -992,7 +1096,7 @@ function renderHistory() {
       <span class="log-badge ${l.status}">${l.status.toUpperCase()}</span>
       <div>
         <div class="log-name">${l.fileName}</div>
-        <div style="font-size:11.5px;color:#777">${l.valid} valid &bull; ${l.rejected} rejected &bull; ${l.total} total</div>
+        <div style="font-size:11.5px;color:#777">${l.valid} valid &bull; ${l.rejected} rejected</div>
       </div>
       <div class="log-meta">${l.timestamp}</div>
     </div>`).join('');
@@ -1007,30 +1111,77 @@ function renderAll() {
   renderRecords();
   renderTickets();
   renderAnalytics();
+  updateStorageInfo();
 }
 
 /* ============================================================
-   POLL for new dealer messages  ⭐ NEW
+   LIVE POLLING FOR SUPPORT CHAT  ⭐ MAIN FIX
    ============================================================ */
+let lastThreadCounts = {};
+let lastMessageLengths = {};
+
 setInterval(() => {
-  THREADS = JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
-  const before = Object.values(THREADS).reduce((s, t) => s + (t.unreadByAdmin || 0), 0);
+  // Reload threads from storage
+  const freshThreads = JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
+
+  // Check for NEW messages (dealer sent)
+  let newMsgFromDealer = false;
+  Object.keys(freshThreads).forEach(code => {
+    const t = freshThreads[code];
+    const msgCount = t.messages ? t.messages.length : 0;
+    const lastSeen = lastMessageLengths[code] || 0;
+
+    if (msgCount > lastSeen) {
+      // New messages!
+      const newMsgs = t.messages.slice(lastSeen);
+      const hasDealerMsg = newMsgs.some(m => m.from === 'dealer');
+      if (hasDealerMsg && code !== selectedDealer) {
+        newMsgFromDealer = true;
+      }
+    }
+    lastMessageLengths[code] = msgCount;
+  });
+
+  // Only update if there are changes
+  THREADS = freshThreads;
   updateSupportBadge();
+
+  // Refresh thread list if on support tab
   if (document.getElementById('panel-support')?.classList.contains('active')) {
-    // Preserve selected
-    const prevSel = selectedDealer;
     renderThreads();
-    if (prevSel && THREADS[prevSel]) {
-      const t = THREADS[prevSel];
-      // Only re-render chat if there are new messages
-      const body = document.getElementById('chatBody');
-      const currentCount = body.querySelectorAll('.chat-msg').length;
-      if (t.messages.length !== currentCount) {
-        selectDealer(prevSel);
+  }
+
+  // Auto-refresh open chat
+  if (selectedDealer && THREADS[selectedDealer]) {
+    const t = THREADS[selectedDealer];
+    const currentMsgCount = t.messages ? t.messages.length : 0;
+    const bodyCount = document.querySelectorAll('#chatBody .chat-msg').length;
+
+    if (currentMsgCount !== bodyCount) {
+      // New message in open chat
+      selectDealer(selectedDealer);
+    }
+  }
+
+  // Toast notification
+  if (newMsgFromDealer) {
+    showToast('💬 New message from a dealer!');
+  }
+}, 1000);
+
+/* Also listen for storage events (fires across tabs) */
+window.addEventListener('storage', e => {
+  if (e.key === THREADS_KEY) {
+    THREADS = JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
+    updateSupportBadge();
+    if (document.getElementById('panel-support')?.classList.contains('active')) {
+      renderThreads();
+      if (selectedDealer && THREADS[selectedDealer]) {
+        selectDealer(selectedDealer);
       }
     }
   }
-}, 2000);
+});
 </script>
 </body>
 </html>
