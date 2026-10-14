@@ -38,6 +38,9 @@
     align-items: center; justify-content: center; }
   .topbar h1 { font-size: 16px; color: #111; font-weight: 700; }
   .topbar .sub { font-size: 11px; color: #888; }
+  .status-dot-admin { width: 10px; height: 10px; border-radius: 50%; background: #16a34a;
+    box-shadow: 0 0 8px #16a34a; margin-left: 8px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
   .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
   .admin-name { font-size: 12px; color: #555; }
   .logout-btn { background: #f0f2f7; border: none; padding: 8px 14px; border-radius: 8px;
@@ -236,7 +239,7 @@
   <div class="topbar">
     <div class="logo">MG</div>
     <div>
-      <h1>Admin Dashboard</h1>
+      <h1>Admin Dashboard <span class="status-dot-admin" title="You are online"></span></h1>
       <div class="sub">Parts & Order Management</div>
     </div>
     <div class="topbar-right">
@@ -476,6 +479,7 @@ let STOCK_DATA = [];
 let selectedDealer = null;
 let selectedTicketId = null;
 let allThreadsListener = null;
+let presenceInterval = null;
 
 function todayStamp() {
   const d = new Date();
@@ -487,6 +491,53 @@ function showToast(msg) {
   el.className = 'toast'; el.textContent = msg;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 4000);
+}
+
+/* ⭐ ADMIN PRESENCE */
+async function startAdminPresence(username) {
+  async function ping() {
+    try {
+      const update = {
+        isOnline: true,
+        adminName: username,
+        lastPing: Date.now()
+      };
+      if (selectedDealer) {
+        update.activeDealerCode = selectedDealer;
+        update.lastActiveAt = Date.now();
+      }
+      await db.collection('admin_status').doc('current').set(update, { merge: true });
+    } catch (e) { console.error('Ping error:', e); }
+  }
+  await ping();
+  if (presenceInterval) clearInterval(presenceInterval);
+  presenceInterval = setInterval(ping, 20000);
+
+  window.addEventListener('beforeunload', () => {
+    db.collection('admin_status').doc('current').set({
+      isOnline: false, activeDealerCode: null, lastPing: Date.now()
+    }, { merge: true });
+  });
+}
+
+async function setActiveDealer(dealerCode) {
+  try {
+    await db.collection('admin_status').doc('current').set({
+      isOnline: true,
+      activeDealerCode: dealerCode,
+      lastActiveAt: Date.now(),
+      lastPing: Date.now()
+    }, { merge: true });
+  } catch (e) { console.error(e); }
+}
+
+async function clearActiveDealer() {
+  try {
+    await db.collection('admin_status').doc('current').set({
+      activeDealerCode: null,
+      lastPing: Date.now()
+    }, { merge: true });
+  } catch (e) { console.error(e); }
 }
 
 /* ORDER COLUMN DETECTION */
@@ -514,18 +565,15 @@ function detectColumnMapping(headerName) {
   if (h.includes('part') && (h.includes('desc') || h.includes('name'))) return 'partDescription';
   if (h.includes('description') || h.includes('item name') || h.includes('product name')) return 'partDescription';
   if (h.includes('dispatch')) return 'dispatchedQty';
-  if ((h.includes('pending') || h.includes('balance') || h.includes('outstanding')) &&
-      (h.includes('qty') || h.includes('quantity'))) return 'pendingQty';
+  if ((h.includes('pending') || h.includes('balance') || h.includes('outstanding')) && (h.includes('qty') || h.includes('quantity'))) return 'pendingQty';
   if ((h.includes('ordered') || h.includes('order qty')) && (h.includes('qty') || h.includes('quantity'))) return 'orderedQty';
   if (h === 'qty' || h === 'quantity' || h.includes('ordered quantity')) return 'orderedQty';
   if (h.includes('stock') || h.includes('availability')) return 'stockAvailability';
   if (h.includes('eta') || h.includes('expected') || h.includes('tentative') || h.includes('exp date')) return 'eta';
   if (h.includes('hold') || h.includes('reason') || h.includes('remark')) return 'holdReason';
-  if ((h.includes('dealer') || h.includes('party') || h.includes('customer')) &&
-      (h.includes('code') || h.includes('id') || h.includes('no') || h.includes('#'))) return 'dealerCode';
+  if ((h.includes('dealer') || h.includes('party') || h.includes('customer')) && (h.includes('code') || h.includes('id') || h.includes('no') || h.includes('#'))) return 'dealerCode';
   if (h === 'dealer' || h === 'dealer code' || h === 'party code') return 'dealerCode';
-  if ((h.includes('dealer') || h.includes('party') || h.includes('customer')) &&
-      (h.includes('name') || h === 'dealer name')) return 'dealerName';
+  if ((h.includes('dealer') || h.includes('party') || h.includes('customer')) && (h.includes('name') || h === 'dealer name')) return 'dealerName';
   if (h === 'dealer name' || h === 'party name') return 'dealerName';
   if (h.includes('last') && h.includes('update')) return 'lastUpdated';
   if (h.includes('ticket') && (h.includes('no') || h.includes('num') || h.includes('#'))) return 'ticketNumber';
@@ -563,6 +611,10 @@ document.getElementById('loginPass').addEventListener('keydown', e => { if (e.ke
 function doLogout() {
   sessionStorage.removeItem('mg_admin');
   if (allThreadsListener) allThreadsListener();
+  if (presenceInterval) clearInterval(presenceInterval);
+  db.collection('admin_status').doc('current').set({
+    isOnline: false, activeDealerCode: null, lastPing: Date.now()
+  }, { merge: true }).catch(() => {});
   document.getElementById('loginWrap').style.display = 'flex';
   document.getElementById('dashWrap').classList.remove('show');
   document.getElementById('loginUser').value = '';
@@ -573,6 +625,7 @@ function showDashboard(username) {
   document.getElementById('dashWrap').classList.add('show');
   document.getElementById('adminName').textContent = username;
   setupListeners();
+  startAdminPresence(username);
 }
 const session = sessionStorage.getItem('mg_admin');
 if (session) showDashboard(session);
@@ -617,6 +670,10 @@ function setupListeners() {
 
 document.querySelectorAll('.nav-tab').forEach(tab => {
   tab.onclick = () => {
+    if (tab.dataset.tab !== 'support' && selectedDealer) {
+      clearActiveDealer();
+      selectedDealer = null;
+    }
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     tab.classList.add('active');
@@ -698,9 +755,10 @@ async function selectDealer(dealerCode) {
   selectedDealer = dealerCode;
   const t = THREADS[dealerCode];
   if (!t) return;
+  setActiveDealer(dealerCode);
   const unread = t.messages.filter(m => m.sender === 'dealer' && !m.readByAdmin);
   for (const m of unread) { try { await db.collection('threads').doc(m.id).update({ readByAdmin: true }); } catch(e){} }
-  document.getElementById('chatHeader').innerHTML = `<div class="dot"></div><div><div class="ch-name">${t.dealerName || dealerCode}</div><div class="ch-code">${dealerCode}</div></div>`;
+  document.getElementById('chatHeader').innerHTML = `<div class="dot"></div><div><div class="ch-name">${t.dealerName || dealerCode}</div><div class="ch-code">${dealerCode} • 🟢 You are online for this dealer</div></div>`;
   const body = document.getElementById('chatBody');
   body.innerHTML = t.messages.length ? t.messages.map(m => {
     const cls = m.sender === 'dealer' ? 'dealer' : (m.sender === 'admin' ? 'admin' : 'bot');
@@ -720,6 +778,7 @@ async function sendAdminReply() {
   const inp = document.getElementById('adminReplyInput');
   const text = inp.value.trim();
   if (!text || !selectedDealer) return;
+  setActiveDealer(selectedDealer);
   try {
     await db.collection('threads').add({
       dealerCode: selectedDealer, dealerName: THREADS[selectedDealer].dealerName,
@@ -968,7 +1027,7 @@ function downloadTemplate() {
 }
 
 /* STOCK */
-let STOCK_COLUMN_MAP = {
+const STOCK_COLUMN_MAP = {
   'part number': 'partNumber', 'part no': 'partNumber', 'partno': 'partNumber',
   'part code': 'partNumber', 'item code': 'partNumber', 'sku': 'partNumber',
   'part description': 'partDescription', 'description': 'partDescription',
@@ -1137,8 +1196,7 @@ function downloadSummaryExcel() {
   const totalPendingQty = ORDERS.reduce((s, o) => s + (Number(o.pendingQty) || 0), 0);
 
   const ws1 = XLSX.utils.json_to_sheet([
-    { 'Metric': 'Report Generated', 'Value': reportDate },
-    { 'Metric': '', 'Value': '' },
+    { 'Metric': 'Report Generated', 'Value': reportDate }, { 'Metric': '', 'Value': '' },
     { 'Metric': '— ORDER SUMMARY —', 'Value': '' },
     { 'Metric': 'Total Order Lines', 'Value': total },
     { 'Metric': 'Unique Order Numbers', 'Value': uniqueOrders },
