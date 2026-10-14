@@ -48,15 +48,15 @@
   .header h1 { font-size: 14.5px; font-weight: 600; line-height: 1.2; }
   .header p { font-size: 10.5px; opacity: 0.85; }
   .header-right { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+  .admin-live-dot { width: 10px; height: 10px; border-radius: 50%; background: #16a34a;
+    box-shadow: 0 0 8px #16a34a; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
   .lang-switch { display: flex; gap: 2px; background: rgba(0,0,0,0.25); padding: 2px; border-radius: 6px; }
   .lang-btn { font-size: 10.5px; padding: 5px 9px; border-radius: 4px; cursor: pointer;
     color: #fff; opacity: 0.7; transition: 0.15s; font-weight: 600; }
   .lang-btn.active { background: #fff; color: #b3001b; opacity: 1; }
   .logout-icon { background: rgba(0,0,0,0.25); color: #fff; border: none;
     border-radius: 6px; padding: 6px 10px; font-size: 12px; cursor: pointer; font-weight: 600; }
-  .hours-bar { background: #ecfdf5; color: #065f46; padding: 6px 12px; font-size: 10.5px;
-    text-align: center; border-bottom: 1px solid #a7f3d0; font-weight: 500; }
-  .hours-bar.closed { background: #fef3c7; color: #92400e; border-bottom-color: #fde68a; }
   .chat { flex: 1; overflow-y: auto; padding: 16px; background: #f4f6fb;
     display: flex; flex-direction: column; gap: 10px; }
   .msg { max-width: 88%; padding: 10px 14px; border-radius: 14px;
@@ -212,6 +212,7 @@
       <p id="hdrSub">MG Aftersales Assistant</p>
     </div>
     <div class="header-right">
+      <div id="adminLiveDot" class="admin-live-dot" style="display:none" title="Support Team Online"></div>
       <div class="lang-switch">
         <div class="lang-btn active" data-lang="en">EN</div>
         <div class="lang-btn" data-lang="hi">हिं</div>
@@ -220,7 +221,6 @@
     </div>
   </div>
 
-  <div class="hours-bar" id="hoursBar">Support Hours: 9:00 AM - 7:00 PM (Mon-Sat)</div>
   <div id="chat" class="chat"></div>
   <div id="chips" class="chips"></div>
   <div class="input-bar">
@@ -267,8 +267,6 @@ const SUPPORT_WORKING_DAYS = [1,2,3,4,5,6];
 const I18N = {
   en: {
     hdrTitle: 'Parts & Order Support', hdrSub: 'MG Aftersales Assistant',
-    hoursOpen: 'Support Team Available: 9:00 AM - 7:00 PM (Mon-Sat)',
-    hoursClosed: 'Support Team Offline. Bot available 24x7.',
     inputPlaceholder: 'Type order/part numbers...',
     verified: 'Verified', howCanHelp: 'How can I help you today?',
     chips: {
@@ -315,8 +313,6 @@ const I18N = {
   },
   hi: {
     hdrTitle: 'पार्ट्स और ऑर्डर सपोर्ट', hdrSub: 'MG आफ्टरसेल्स असिस्टेंट',
-    hoursOpen: 'सपोर्ट टीम उपलब्ध: सुबह 9:00 - शाम 7:00 (सोम-शनि)',
-    hoursClosed: 'सपोर्ट टीम ऑफलाइन है। बॉट 24x7 उपलब्ध।',
     inputPlaceholder: 'ऑर्डर/पार्ट नंबर लिखें...',
     verified: 'सत्यापित', howCanHelp: 'मैं आपकी कैसे सहायता कर सकता हूँ?',
     chips: {
@@ -395,16 +391,18 @@ function isWorkingHours() {
   const d = new Date();
   return SUPPORT_WORKING_DAYS.includes(d.getDay()) && d.getHours() >= SUPPORT_START_HOUR && d.getHours() < SUPPORT_END_HOUR;
 }
-function updateHoursBar() {
-  const bar = document.getElementById('hoursBar');
-  if (isWorkingHours()) { bar.textContent = t('hoursOpen'); bar.classList.remove('closed'); }
-  else { bar.textContent = t('hoursClosed'); bar.classList.add('closed'); }
+function updateAdminLiveDot() {
+  const dot = document.getElementById('adminLiveDot');
+  if (!dot) return;
+  const now = Date.now();
+  const adminOnline = adminStatus.isOnline && adminStatus.lastPing && (now - adminStatus.lastPing) < 60000;
+  dot.style.display = adminOnline ? 'block' : 'none';
 }
 function applyLanguage() {
   document.getElementById('hdrTitle').textContent = t('hdrTitle');
   document.getElementById('hdrSub').textContent = t('hdrSub');
   document.getElementById('userInput').placeholder = t('inputPlaceholder');
-  updateHoursBar();
+  updateAdminLiveDot();
   document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === LANG));
 }
 function formatDate(val) {
@@ -564,7 +562,7 @@ function setupStockListener() {
   }, err => console.error('Stock listener:', err));
 }
 
-/* ⭐ ADMIN STATUS LISTENER */
+/* ADMIN STATUS LISTENER */
 function setupAdminStatusListener() {
   if (adminStatusListener) adminStatusListener();
   adminStatusListener = db.collection('admin_status').doc('current')
@@ -574,11 +572,13 @@ function setupAdminStatusListener() {
       } else {
         adminStatus = { isOnline: false };
       }
+      updateAdminLiveDot();
       updateSupportStatusChip();
     }, err => console.error('Admin status listener:', err));
+  // Also update dot every 15 sec (in case of stale)
+  setInterval(() => { updateAdminLiveDot(); updateSupportStatusChip(); }, 15000);
 }
 
-/* ⭐ Check if admin is actively chatting with this dealer */
 function isAdminActiveOnMyChat() {
   if (!adminStatus.isOnline) return false;
   const now = Date.now();
@@ -588,34 +588,28 @@ function isAdminActiveOnMyChat() {
   return true;
 }
 
-/* ⭐ Update support chip color based on admin status */
 function updateSupportStatusChip() {
+  updateAdminLiveDot();
+
   const c_ = I18N[LANG].chips;
   const supportChip = Array.from(chips.children).find(ch => {
     const txt = ch.textContent || '';
-    return txt === c_.support || txt.includes('Support Online') || txt.includes('Support Offline') || txt.includes('Support Busy') || txt.includes('सपोर्ट');
+    return txt.includes('Support') || txt.includes('सपोर्ट');
   });
   if (!supportChip) return;
 
-  const now = Date.now();
-  const adminOnline = adminStatus.isOnline && adminStatus.lastPing && (now - adminStatus.lastPing) < 60000;
-  const isMyChat = adminStatus.activeDealerCode === authState.dealerCode;
+  const isMyChat = adminStatus.activeDealerCode === authState.dealerCode && isAdminActiveOnMyChat();
 
-  if (adminOnline && isMyChat) {
-    supportChip.textContent = LANG === 'hi' ? '🔴 सपोर्ट व्यस्त' : '🔴 Support Busy';
+  if (isMyChat) {
     supportChip.style.background = '#dc2626';
     supportChip.style.color = '#fff';
     supportChip.style.borderColor = '#dc2626';
-  } else if (adminOnline) {
-    supportChip.textContent = LANG === 'hi' ? '🟢 सपोर्ट ऑनलाइन' : '🟢 Support Online';
-    supportChip.style.background = '#16a34a';
-    supportChip.style.color = '#fff';
-    supportChip.style.borderColor = '#16a34a';
+    supportChip.textContent = LANG === 'hi' ? '🛡️ डीलर सपोर्ट (व्यस्त)' : '🛡️ Dealer Support (Busy)';
   } else {
-    supportChip.textContent = LANG === 'hi' ? '🟡 सपोर्ट ऑफलाइन' : '🟡 Support Offline';
-    supportChip.style.background = '#fef3c7';
-    supportChip.style.color = '#92400e';
-    supportChip.style.borderColor = '#fde68a';
+    supportChip.style.background = '#b3001b';
+    supportChip.style.color = '#fff';
+    supportChip.style.borderColor = '#b3001b';
+    supportChip.textContent = c_.support;
   }
 }
 
@@ -738,7 +732,6 @@ function addMsg(text, who = "bot", showTime = true, isAdmin = false, skipLog = f
   }
 }
 
-/* ⭐ botReply — silent if admin is actively chatting with this dealer */
 function botReply(html) {
   if (isAdminActiveOnMyChat()) return;
   addMsg(html, 'bot');
@@ -852,7 +845,6 @@ function attachOrderClickHandlers() {
   });
 }
 
-/* MULTI SEARCH */
 function splitInputNumbers(text) {
   return text.split(/[,\n;\t]+|\s{2,}/).map(s => s.trim()).filter(s => s.length > 0);
 }
@@ -1040,14 +1032,13 @@ function showHelpMenu() {
        Click buttons below or ask your question directly.`);
 }
 
-/* ⭐ MAIN HANDLE MESSAGE — Smart intent detection */
+/* MAIN HANDLE MESSAGE */
 async function handleMessage(text) {
   if (!authState.loggedIn) return;
   addMsg(text, 'user');
   const msg = text.toLowerCase().trim();
   const isHi = LANG === 'hi';
 
-  // ⭐ Support mode — bot silent
   if (authState.supportMode) {
     if (/^(back to bot|continue with bot|exit support|bot mode|bot chalu|बॉट|stop support|stop|end)$/i.test(msg)) {
       exitSupportMode();
@@ -1055,18 +1046,15 @@ async function handleMessage(text) {
     return;
   }
 
-  // 1. Check stock command
   if (/^(?:check\s+stock|stock\s+check|स्टॉक)/i.test(msg)) {
     const partMatch = text.match(/(?:check\s+stock|stock\s+check|स्टॉक)[\s:]*([A-Z0-9\-_]+)/i);
     if (partMatch) { showStockResult(partMatch[1]); return; }
   }
 
-  // 2. Talk to support team
   if (/talk to (agent|support|team|dealer support)|support.*team|सपोर्ट.*बात|agent.*se.*baat|team.*se.*baat/i.test(msg)) {
     requestSupportTeam(); return;
   }
 
-  // 3. Greeting
   if (/^(hi+|hello+|hey+|namaste|नमस्ते|good (morning|afternoon|evening))\b/i.test(msg)) {
     botReply(isHi
       ? `नमस्ते! 👋 मैं आपकी कैसे सहायता कर सकता हूँ?<br><br>आप कर सकते हैं:<br>&bull; ऑर्डर स्थिति देखें<br>&bull; पेंडिंग / हाल के ऑर्डर<br>&bull; स्टॉक चेक<br>&bull; टिकट बनाएं<br>&bull; सपोर्ट टीम से बात करें`
@@ -1074,22 +1062,18 @@ async function handleMessage(text) {
     return;
   }
 
-  // 4. Raise ticket / complaint
   if (/raise\s+(a\s+)?(query|ticket|complaint|issue|problem)|register.*(complaint|query)|complain|shikayat|problem (hai|raise)|issue raise|query raise|ticket raise|complaint (karni|karna) hai|problem (hai|bata)/i.test(msg)) {
     openModal('raise-ticket'); return;
   }
 
-  // 5. Connect / contact
   if (/\b(connect|contact)\b|how can i (reach|contact|talk)|support.*se.*baat|agent.*se.*baat|baat karni hai|baat krni hai|kisi se baat/i.test(msg)) {
     requestSupportTeam(); return;
   }
 
-  // 6. Help
   if (/^(help|guide|menu|options|madad|help me|help karo)$/i.test(msg) || /what can you do|kya kar sakte|kya kar sakta|how can you help|aap kya kar sakte|options dikhao|kya kya kar sakte/i.test(msg)) {
     showHelpMenu(); return;
   }
 
-  // 7. Thanks
   if (/^(thanks?|thank\s*you|thanku|shukriya|dhanyavad|thank u|thnx|thanx)\b/i.test(msg)) {
     botReply(isHi
       ? `आपका स्वागत है! 😊 और कुछ चाहिए तो बताइए।`
@@ -1097,7 +1081,6 @@ async function handleMessage(text) {
     return;
   }
 
-  // 8. Bye
   if (/^(bye|goodbye|good bye|alvida|chalta hu|ok bye|see you)/i.test(msg)) {
     botReply(isHi
       ? `अलविदा! 👋 कभी भी वापस आइए।`
@@ -1105,52 +1088,42 @@ async function handleMessage(text) {
     return;
   }
 
-  // 9. Track ticket
   if (/track.*ticket|ticket.*track|my ticket|mere ticket|ticket status|ticket dikhao|ticket check|mera ticket/i.test(msg)) {
     openModal('track-ticket'); return;
   }
 
-  // 10. FAQ
   if (/^(faq|frequently|common question|sawal|question|questions)/i.test(msg)) {
     openModal('faq'); return;
   }
 
-  // 11. Pending orders
   if (/pending\s*order|show pending|mere pending|pending dikhao|pending list|kya pending|pending check|pending batao/i.test(msg)) {
     showPendingOrders(); return;
   }
 
-  // 12. Recent orders
   if (/recent\s*order|order\s*history|last orders|mere recent|recent dikhao|history dikhao|purane order|last order/i.test(msg)) {
     showRecentOrders(); return;
   }
 
-  // 13. Stats
   if (/^(stats?|statistics|summary)$/i.test(msg) || /my stats|mere stats|mere aankde|summary dikhao|aankde|meri summary|my summary|stats dikhao/i.test(msg)) {
     showMyStats(); return;
   }
 
-  // 14. Stock check alone
   if (/^(stock|stock check|check stock|stock dekho|stock check karo|availability|available)/i.test(msg)) {
     openModal('stock-check'); return;
   }
 
-  // 15. Order status keywords
   if (/order status|mera order|meri order|order kaha|order ka status|order check karo|order batao|kab aayega|order kab/i.test(msg)) {
     openModal('order'); return;
   }
 
-  // 16. My orders
   if (/my orders?|mere orders?|saare order|all orders?/i.test(msg)) {
     openModal('my-orders'); return;
   }
 
-  // 17. Other query
   if (/other query|koi aur|other question|different query/i.test(msg)) {
     openModal('query'); return;
   }
 
-  // 18. Short acknowledgments
   if (/^(ok|okay|k|fine|achha|accha|hmm+|oh+|huh|yes|no|haan|nahi|yep|nope|kya|what|why|when|who|where|how|kaise|kab|kahan|kaun|cool|nice|good|bad|great|hmm ok|thik hai|theek hai)$/i.test(msg)) {
     botReply(isHi
       ? `समझ गया 👍 कुछ और पूछना हो तो बताइए, या नीचे बटन्स का उपयोग करें।`
@@ -1158,7 +1131,6 @@ async function handleMessage(text) {
     return;
   }
 
-  // 19. Question words without context
   if (/^(how|what|why|when|where|who|can you|could you|will you|is there|are there|kya|kaise|kab|kahan|kaun|kaisa)\b/i.test(msg) && msg.split(' ').length <= 4) {
     botReply(isHi
       ? `🤔 मैं ठीक से समझ नहीं पाया। कृपया साफ़ लिखें।<br><br>
@@ -1176,7 +1148,6 @@ async function handleMessage(text) {
     return;
   }
 
-  // 20. Order/Part number search
   const { results, notFound } = findOrdersMulti(text);
   if (!results.length && notFound.length) {
     botReply(isHi
@@ -1225,27 +1196,15 @@ async function requestSupportTeam() {
   authState.supportMode = true;
   await sendThreadMessage('dealer', 'REQUEST: Talk to Dealer Support Team');
 
-  if (isWorkingHours()) {
-    addMsg(isHi
-      ? `🛡️ <strong>आपका अनुरोध सपोर्ट टीम को भेज दिया गया है।</strong><br><br>
-         टीम कुछ ही देर में यहाँ आपसे संपर्क करेगी। नीचे अपना संदेश टाइप करें — <strong>अब बॉट जवाब नहीं देगा।</strong><br><br>
-         बॉट पर वापस आने के लिए नीचे <strong>"Continue with Bot"</strong> पर क्लिक करें।`
-      : `🛡️ <strong>Your request has been sent to the Support Team.</strong><br><br>
-         The team will connect with you here shortly. Type your message below — <strong>the bot will not reply now.</strong><br><br>
-         To return to the bot, click <strong>"Continue with Bot"</strong> below.`,
-      'bot', true);
-  } else {
-    addMsg(isHi
-      ? `🕐 <strong>सपोर्ट टीम अभी ऑफलाइन है।</strong><br><br>
-         सपोर्ट समय: <strong>सुबह 9:00 - शाम 7:00 (सोम-शनि)</strong><br><br>
-         आपका संदेश टीम के पास सुरक्षित है। <strong>अब बॉट जवाब नहीं देगा।</strong><br><br>
-         बॉट पर वापस आने के लिए नीचे <strong>"Continue with Bot"</strong> पर क्लिक करें।`
-      : `🕐 <strong>Support team is currently offline.</strong><br><br>
-         Support hours: <strong>9:00 AM - 7:00 PM (Mon-Sat)</strong><br><br>
-         Your message is saved with the team. <strong>The bot will not reply now.</strong><br><br>
-         To return to the bot, click <strong>"Continue with Bot"</strong> below.`,
-      'bot', true);
-  }
+  addMsg(isHi
+    ? `🛡️ <strong>आपका अनुरोध सपोर्ट टीम को भेज दिया गया है।</strong><br><br>
+       टीम कुछ ही देर में यहाँ आपसे संपर्क करेगी। नीचे अपना संदेश टाइप करें — <strong>अब बॉट जवाब नहीं देगा।</strong><br><br>
+       बॉट पर वापस आने के लिए नीचे <strong>"Continue with Bot"</strong> पर क्लिक करें।`
+    : `🛡️ <strong>Your request has been sent to the Support Team.</strong><br><br>
+       The team will connect with you here shortly. Type your message below — <strong>the bot will not reply now.</strong><br><br>
+       To return to the bot, click <strong>"Continue with Bot"</strong> below.`,
+    'bot', true);
+
   renderMainChips();
 }
 
@@ -1479,7 +1438,6 @@ document.querySelectorAll('.lang-btn').forEach(b => {
 });
 
 applyLanguage();
-setInterval(updateHoursBar, 60000);
 </script>
 </body>
 </html>
