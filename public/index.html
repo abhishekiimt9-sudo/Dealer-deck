@@ -99,7 +99,6 @@
     font-size: 11.5px; padding: 6px 10px; border-radius: 20px; cursor: pointer; transition: 0.15s; }
   .chip:hover { background: #b3001b; color: #fff; border-color: #b3001b; }
   .chip.support { background: #b3001b; color: #fff; border-color: #b3001b; font-weight: 600; }
-  .chip.support:hover { background: #7a0012; }
   .chip.faq { background: #f0f9ff; color: #0369a1; border-color: #bae6fd; }
   .input-bar { display: flex; padding: 10px 12px; background: #fff;
     border-top: 1px solid #e5e7ef; gap: 8px; }
@@ -161,6 +160,10 @@
     padding: 10px 12px; margin-bottom: 8px; cursor: pointer; background: #fafbff; }
   .order-list-item .order-num { font-size: 12.5px; font-weight: 700; color: #b3001b; margin-bottom: 3px; }
   .order-list-item .order-info { font-size: 11px; color: #666; }
+  .multi-result-header {
+    background: #fffbeb; padding: 8px 12px; border-radius: 10px; margin-bottom: 8px;
+    font-size: 12px; font-weight: 700; color: #92400e; border-left: 4px solid #f59e0b;
+  }
 </style>
 </head>
 <body>
@@ -203,7 +206,7 @@
   </div>
   <div id="chips" class="chips"></div>
   <div class="input-bar">
-    <input id="userInput" type="text" placeholder="Type your message..." autocomplete="off" />
+    <input id="userInput" type="text" placeholder="Type order/part numbers (comma separated)..." autocomplete="off" />
     <button class="send-btn" id="sendBtn">&#10148;</button>
   </div>
 
@@ -211,10 +214,10 @@
     <div class="modal" id="modalBox">
       <div class="modal-icon" id="modalIcon">&#128269;</div>
       <h3 id="modalTitle">Enter Order Number</h3>
-      <p id="modalSubtitle">Please provide your order number to check status.</p>
+      <p id="modalSubtitle">You can enter multiple numbers (comma separated).</p>
       <div id="modalInputWrap">
-        <label id="modalLabel" for="modalInput">Order Number</label>
-        <input id="modalInput" type="text" placeholder="e.g. 7400076472" autocomplete="off" />
+        <label id="modalLabel" for="modalInput">Order / Part Number</label>
+        <input id="modalInput" type="text" placeholder="e.g. 7400076472, 7400075116" autocomplete="off" />
         <textarea id="modalTextarea" style="display:none" placeholder="Type your query here..."></textarea>
         <div id="modalDynamic" style="display:none"></div>
       </div>
@@ -249,20 +252,19 @@ const I18N = {
     hdrTitle: 'Parts & Order Support', hdrSub: 'MG Aftersales Assistant',
     hoursOpen: 'Support Team Available: 9:00 AM - 7:00 PM (Mon-Sat)',
     hoursClosed: 'Support Team Offline. Bot available 24x7.',
-    inputPlaceholder: 'Type your message...',
+    inputPlaceholder: 'Type order/part numbers (comma separated)...',
     silentText: 'Your request has been sent to the Dealer Support Team.',
-    welcome: 'Welcome to MG Parts & Order Support.',
     verified: 'Verified', howCanHelp: 'How can I help you today?',
     notFound: 'Dealer code not found. Please verify and try again.',
-    loggedOut: 'Logged out successfully.',
     chips: {
       myOrders: 'My Orders', orderStatus: 'Order Status', raiseTicket: 'Raise Ticket',
       trackTicket: 'Track Ticket', faq: 'FAQ', otherQuery: 'Other Query',
       support: 'Talk to Dealer Support Team', dispatch: 'Dispatch Details', eta: 'Check ETA'
     },
     modal: {
-      orderTitle: 'Enter Order Number', orderSub: 'Please provide your order number to check status.',
-      orderLabel: 'Order Number',
+      orderTitle: 'Enter Order / Part Number',
+      orderSub: 'Enter one or more numbers separated by comma. Example: 7400076472, 7400075116',
+      orderLabel: 'Order / Part Number',
       queryTitle: 'Type Your Query', querySub: 'Write your question or concern below.',
       queryLabel: 'Your Query',
       ticketTitle: 'Raise Support Ticket', ticketSub: 'Fill the details. You will receive a ticket number.',
@@ -276,7 +278,7 @@ const I18N = {
       orderType: 'Order Type', partNumber: 'Part Number', partDesc: 'Part Description',
       orderedQty: 'Ordered Qty', dispatchedQty: 'Dispatched Qty', pendingQty: 'Pending Qty',
       stock: 'Stock Availability', eta: 'Tentative ETA', dispatchDate: 'Dispatch Date',
-      invoiceNumber: 'Invoice Number', docket: 'Docket / LR Number', transporter: 'Transporter',
+      invoiceNumber: 'Invoice Number', docket: 'LR / Docket Number', transporter: 'Transporter',
       holdReason: 'Hold Reason', lastUpdated: 'Last Updated', notAvailable: 'Currently not available',
       wasHelpful: 'Was this helpful?'
     },
@@ -286,27 +288,26 @@ const I18N = {
       { q: 'When will my order be dispatched?', a: 'Orders are dispatched within 24-48 hours once stock is available.' },
       { q: 'How do I raise a support ticket?', a: 'Click "Raise Ticket" button. Provide order, part, and issue details.' },
       { q: 'What are the support hours?', a: 'Support is available Mon-Sat, 9:00 AM to 7:00 PM. Bot available 24x7.' },
-      { q: 'How to check back order status?', a: 'Back orders show in "My Orders" with Not Available stock and ETA.' }
+      { q: 'How to check multiple orders at once?', a: 'Type multiple order numbers separated by comma. Example: 7400076472, 7400075116' }
     ]
   },
   hi: {
     hdrTitle: 'पार्ट्स और ऑर्डर सपोर्ट', hdrSub: 'MG आफ्टरसेल्स असिस्टेंट',
     hoursOpen: 'सपोर्ट टीम उपलब्ध: सुबह 9:00 - शाम 7:00 (सोम-शनि)',
     hoursClosed: 'सपोर्ट टीम ऑफलाइन है। बॉट 24x7 उपलब्ध।',
-    inputPlaceholder: 'अपना संदेश लिखें...',
+    inputPlaceholder: 'ऑर्डर/पार्ट नंबर लिखें (कॉमा से अलग)...',
     silentText: 'आपका अनुरोध डीलर सपोर्ट टीम को भेज दिया गया है।',
-    welcome: 'MG पार्ट्स और ऑर्डर सपोर्ट में आपका स्वागत है।',
     verified: 'सत्यापित', howCanHelp: 'मैं आपकी कैसे सहायता कर सकता हूँ?',
     notFound: 'डीलर कोड नहीं मिला। कृपया जाँचें।',
-    loggedOut: 'सफलतापूर्वक लॉग आउट।',
     chips: {
       myOrders: 'मेरे ऑर्डर', orderStatus: 'ऑर्डर स्थिति', raiseTicket: 'टिकट बनाएं',
       trackTicket: 'टिकट ट्रैक करें', faq: 'सामान्य प्रश्न', otherQuery: 'अन्य प्रश्न',
       support: 'डीलर सपोर्ट टीम से बात करें', dispatch: 'डिस्पैच विवरण', eta: 'ETA देखें'
     },
     modal: {
-      orderTitle: 'ऑर्डर नंबर दर्ज करें', orderSub: 'स्थिति देखने के लिए ऑर्डर नंबर दें।',
-      orderLabel: 'ऑर्डर नंबर',
+      orderTitle: 'ऑर्डर / पार्ट नंबर दर्ज करें',
+      orderSub: 'एक या अधिक नंबर कॉमा से अलग करके दें। उदाहरण: 7400076472, 7400075116',
+      orderLabel: 'ऑर्डर / पार्ट नंबर',
       queryTitle: 'अपना प्रश्न लिखें', querySub: 'नीचे अपना प्रश्न या चिंता लिखें।',
       queryLabel: 'आपका प्रश्न',
       ticketTitle: 'सपोर्ट टिकट बनाएं', ticketSub: 'विवरण भरें। आपको टिकट नंबर मिलेगा।',
@@ -320,7 +321,7 @@ const I18N = {
       orderType: 'ऑर्डर प्रकार', partNumber: 'पार्ट नंबर', partDesc: 'पार्ट विवरण',
       orderedQty: 'ऑर्डर मात्रा', dispatchedQty: 'डिस्पैच मात्रा', pendingQty: 'बाकी मात्रा',
       stock: 'स्टॉक', eta: 'अनुमानित ETA', dispatchDate: 'डिस्पैच दिनांक',
-      invoiceNumber: 'इनवॉइस नंबर', docket: 'डॉकेट / LR', transporter: 'ट्रांसपोर्टर',
+      invoiceNumber: 'इनवॉइस नंबर', docket: 'LR / डॉकेट नंबर', transporter: 'ट्रांसपोर्टर',
       holdReason: 'होल्ड कारण', lastUpdated: 'अंतिम अपडेट', notAvailable: 'अभी उपलब्ध नहीं',
       wasHelpful: 'क्या यह सहायक था?'
     },
@@ -330,7 +331,7 @@ const I18N = {
       { q: 'मेरा ऑर्डर कब डिस्पैच होगा?', a: 'स्टॉक उपलब्ध होने पर 24-48 घंटे में।' },
       { q: 'सपोर्ट टिकट कैसे बनाएं?', a: '"टिकट बनाएं" बटन पर क्लिक करें।' },
       { q: 'सपोर्ट के घंटे क्या हैं?', a: 'सोम-शनि, सुबह 9:00 से शाम 7:00 तक।' },
-      { q: 'बैक ऑर्डर स्थिति कैसे देखें?', a: 'बैक ऑर्डर "मेरे ऑर्डर" में दिखेंगे।' }
+      { q: 'एक साथ कई ऑर्डर कैसे देखें?', a: 'कई ऑर्डर नंबर कॉमा से अलग करके लिखें। उदाहरण: 7400076472, 7400075116' }
     ]
   }
 };
@@ -346,8 +347,8 @@ function t(key) {
 /* ============================================================
    STATE
    ============================================================ */
-let ORDERS = [];       // Loaded from Firestore
-let TICKETS = [];      // Loaded from Firestore
+let ORDERS = [];
+let TICKETS = [];
 let authState = {
   dealerCode: null, dealerName: null, lastOrderContext: null,
   silentMode: false, supportRequested: false, loggedIn: false
@@ -411,7 +412,6 @@ async function attemptLogin() {
     authState.dealerCode = dealerData.dealerCode;
     authState.dealerName = dealerData.dealerName;
 
-    // Load all orders for this dealer
     const allSnap = await db.collection('orders').where('dealerCode', '==', code).get();
     ORDERS = allSnap.docs.map(d => d.data());
 
@@ -422,6 +422,7 @@ async function attemptLogin() {
 
     loginDealer(dealerData.dealerCode, dealerData.dealerName);
     setupThreadListener();
+    loadDealerTickets();
 
   } catch (e) {
     console.error(e);
@@ -462,18 +463,20 @@ function loginDealer(dealerCode, dealerName) {
     wmsg += `आपके <strong>${uniqueOrders.size}</strong> ऑर्डर और <strong>${myO.length}</strong> पार्ट्स हैं।<br>`;
     if (pend) wmsg += `&bull; <strong>${pend}</strong> डिस्पैच बाकी<br>`;
     if (hold) wmsg += `&bull; <strong>${hold}</strong> होल्ड पर<br>`;
+    wmsg += `<br><em>Tip: एक साथ कई ऑर्डर देखने के लिए कॉमा से अलग करें</em>`;
   } else {
     wmsg += `You have <strong>${uniqueOrders.size}</strong> order(s) with <strong>${myO.length}</strong> part(s).<br>`;
     if (pend) wmsg += `&bull; <strong>${pend}</strong> pending dispatch<br>`;
     if (hold) wmsg += `&bull; <strong>${hold}</strong> on hold<br>`;
+    wmsg += `<br><em>Tip: Check multiple orders at once — separate with comma</em>`;
   }
-  wmsg += `<br>${t('howCanHelp')}`;
+  wmsg += `<br><br>${t('howCanHelp')}`;
   addMsg(wmsg, 'bot');
   renderMainChips();
 }
 
 /* ============================================================
-   SUPPORT CHAT (Firestore real-time)
+   SUPPORT CHAT
    ============================================================ */
 function setupThreadListener() {
   if (threadListener) threadListener();
@@ -633,16 +636,113 @@ function attachFeedbackHandlers() {
 }
 
 /* ============================================================
-   FIND ORDERS (dealer's own only)
+   MULTIPLE ORDER SEARCH — SPLITS INPUT
    ============================================================ */
-function findOrders(q) {
-  const s = q.trim().toUpperCase().replace(/\s+/g, '');
+function splitInputNumbers(text) {
+  // Split on: comma, semicolon, newline, tab, slash, space (only between alphanumeric tokens)
+  // But keep "MG-P-123" type tokens intact — so split only on these separators
+  return text
+    .split(/[,\n;\t]+|\s{2,}/)   // comma, newline, tab, or 2+ spaces
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+}
+
+function findOrdersForSingle(s) {
+  const q = s.trim().toUpperCase().replace(/\s+/g, '');
   return ORDERS.filter(o => {
     if (!o.orderNumber) return false;
     const oNum = String(o.orderNumber).toUpperCase().replace(/\s+/g, '');
     const pNum = String(o.partNumber || '').toUpperCase().replace(/\s+/g, '');
-    return oNum === s || pNum === s;
+    return oNum === q || pNum === q;
   });
+}
+
+function findOrdersMulti(text) {
+  const tokens = splitInputNumbers(text);
+  const results = [];   // [{ query, matches: [...] }]
+  const notFound = [];
+
+  tokens.forEach(tok => {
+    const matches = findOrdersForSingle(tok);
+    if (matches.length) {
+      results.push({ query: tok, matches });
+    } else {
+      notFound.push(tok);
+    }
+  });
+
+  return { results, notFound };
+}
+
+/* ============================================================
+   HANDLE MESSAGE
+   ============================================================ */
+async function handleMessage(text) {
+  if (!authState.loggedIn) return;
+  addMsg(text, 'user');
+  if (authState.silentMode) return;
+
+  const msg = text.toLowerCase().trim();
+  const isHi = LANG === 'hi';
+
+  if (/talk to (agent|support|team|dealer support)|connect.*support|support.*team|सपोर्ट.*बात/.test(msg)) {
+    requestSupportTeam(); return;
+  }
+
+  // ⭐ MULTI ORDER SEARCH
+  const { results, notFound } = findOrdersMulti(text);
+
+  // Case 1: Nothing found
+  if (!results.length && notFound.length) {
+    botReply(isHi
+      ? `"<strong>${notFound.join(', ')}</strong>" से मेल खाता कोई ऑर्डर या पार्ट नहीं मिला।<br><br>कृपया सही ऑर्डर / पार्ट नंबर जाँचें।`
+      : `Could not find any order or part matching: <strong>${notFound.join(', ')}</strong><br><br>Please verify the Order / Part Number.`);
+    return;
+  }
+
+  // Case 2: Only 1 query, 1 match → classic single card
+  if (results.length === 1 && results[0].matches.length === 1 && notFound.length === 0) {
+    const o = results[0].matches[0];
+    authState.lastOrderContext = o;
+    botReply((isHi ? 'उपलब्ध विवरण:' : 'Here are the available details:') + '<br><br>' + orderCard(o));
+    setTimeout(attachFeedbackHandlers, 300);
+    return;
+  }
+
+  // Case 3: Multiple queries / multiple matches → show all
+  const totalParts = results.reduce((sum, r) => sum + r.matches.length, 0);
+  let header = isHi
+    ? `<div class="multi-result-header">🔍 ${results.length} ऑर्डर/पार्ट मिले — कुल <strong>${totalParts}</strong> परिणाम</div>`
+    : `<div class="multi-result-header">🔍 Found results for ${results.length} search term(s) — <strong>${totalParts}</strong> total result(s)</div>`;
+
+  botReply(header);
+
+  setTimeout(() => {
+    results.forEach((r, idx) => {
+      // If this query matched multiple parts of the same order, add sub-header
+      if (r.matches.length > 1) {
+        addMsg(`<div style="font-size:12px;color:#555;font-weight:600;margin-top:4px">
+          <strong>${isHi ? 'खोज' : 'Search'}:</strong> ${r.query} (${r.matches.length} ${isHi ? 'पार्ट्स' : 'parts'})
+        </div>`, 'bot');
+      }
+      r.matches.forEach(o => {
+        addMsg(orderCard(o), 'bot');
+      });
+    });
+
+    if (notFound.length) {
+      addMsg(`<div style="background:#fee2e2;padding:8px 12px;border-radius:8px;font-size:12px;color:#991b1b">
+        <strong>❌ ${isHi ? 'नहीं मिला' : 'Not found'}:</strong> ${notFound.join(', ')}
+      </div>`, 'bot');
+    }
+
+    setTimeout(attachFeedbackHandlers, 500);
+  }, 500);
+
+  // Set context to first match
+  if (results[0] && results[0].matches[0]) {
+    authState.lastOrderContext = results[0].matches[0];
+  }
 }
 
 /* ============================================================
@@ -664,84 +764,6 @@ function requestSupportTeam() {
   }
   silentBanner.style.display = 'block';
   chips.innerHTML = '';
-}
-
-/* ============================================================
-   HANDLE MESSAGE
-   ============================================================ */
-function handleMessage(text) {
-  if (!authState.loggedIn) return;
-  addMsg(text, 'user');
-  if (authState.silentMode) return;
-
-  const msg = text.toLowerCase().trim();
-  const isHi = LANG === 'hi';
-
-  if (/talk to (agent|support|team|dealer support)|connect.*support|support.*team|सपोर्ट.*बात/.test(msg)) {
-    requestSupportTeam(); return;
-  }
-
-  const found = findOrders(text);
-  if (found.length === 1) {
-    authState.lastOrderContext = found[0];
-    botReply((isHi ? 'उपलब्ध विवरण:' : 'Here are the available details:') + '<br><br>' + orderCard(found[0]));
-    setTimeout(attachFeedbackHandlers, 300); return;
-  }
-  if (found.length > 1) {
-    authState.lastOrderContext = found[0];
-    botReply(isHi ? `इस ऑर्डर नंबर के <strong>${found.length}</strong> पार्ट्स मिले:`
-                  : `Found <strong>${found.length}</strong> parts for this order number:`);
-    setTimeout(() => {
-      found.forEach(o => addMsg(orderCard(o), 'bot'));
-      setTimeout(attachFeedbackHandlers, 500);
-    }, 500);
-    return;
-  }
-
-  if (/delay|late|why.*not|pending|देरी|क्यों/.test(msg)) {
-    const o = authState.lastOrderContext;
-    if (!o) { botReply(isHi ? 'कृपया ऑर्डर नंबर दें।' : 'Please share the Order Number.'); return; }
-    if (o.holdReason) {
-      botReply(`${isHi ? 'ऑर्डर' : 'Order'} <strong>${o.orderNumber}</strong> ${isHi ? 'होल्ड पर है।' : 'is on hold.'}<br><br>
-        <strong>${isHi ? 'कारण' : 'Reason'}:</strong> ${o.holdReason}
-        <div class="updated">${isHi ? 'अंतिम अपडेट' : 'Last Updated'}: ${o.lastUpdated || '-'}</div>`);
-    } else {
-      botReply(`${isHi ? 'ऑर्डर' : 'Order'} <strong>${o.orderNumber}</strong> ${isHi ? 'की स्थिति' : 'is'} <strong>${o.orderStatus || 'N/A'}</strong>.`);
-    }
-    return;
-  }
-
-  if (/dispatch|docket|transporter|lr number|invoice|डिस्पैच/.test(msg)) {
-    const o = authState.lastOrderContext;
-    if (!o) { botReply(isHi ? 'कृपया ऑर्डर नंबर दें।' : 'Please share the Order Number.'); return; }
-    let d = '';
-    if (o.invoiceNumber) d += `&bull; ${isHi ? 'इनवॉइस' : 'Invoice'}: ${o.invoiceNumber}<br>`;
-    if ((o.dispatchedQty || 0) > 0) {
-      d += `&bull; Qty: ${o.dispatchedQty}<br>`;
-      if (o.dispatchDate) d += `&bull; Date: ${o.dispatchDate}<br>`;
-      if (o.docketLR) d += `&bull; Docket/LR: ${o.docketLR}<br>`;
-      if (o.transporter) d += `&bull; Transporter: ${o.transporter}<br>`;
-      botReply(`<strong>${o.orderNumber}</strong><br>${d}`);
-    } else {
-      botReply(`${isHi ? 'डिस्पैच नहीं हुआ।' : 'Not dispatched yet.'}<br>${d}
-        Status: <strong>${o.orderStatus || 'N/A'}</strong><br>
-        ETA: ${o.eta || (isHi ? 'अभी उपलब्ध नहीं' : 'Currently not available')}`);
-    }
-    return;
-  }
-
-  if (/eta|availability|available|उपलब्ध/.test(msg)) {
-    const o = authState.lastOrderContext;
-    if (!o) { botReply(isHi ? 'कृपया ऑर्डर नंबर दें।' : 'Please share Order Number.'); return; }
-    botReply(`<strong>${o.partNumber || '-'}</strong>:<br>
-      Stock: <strong>${o.stockAvailability || '-'}</strong><br>
-      ETA: <strong>${o.eta || (isHi ? 'अभी उपलब्ध नहीं' : 'Currently not available')}</strong>`);
-    return;
-  }
-
-  botReply(isHi
-    ? `"<strong>${text}</strong>" से मेल खाता कुछ नहीं मिला। कृपया ऑर्डर या पार्ट नंबर जाँचें।`
-    : `Could not find a match for "<strong>${text}</strong>". Please verify the Order or Part Number.`);
 }
 
 /* ============================================================
@@ -815,7 +837,7 @@ function openModal(type) {
     modalTitle.textContent = m.orderTitle; modalSubtitle.textContent = m.orderSub;
     modalLabel.textContent = m.orderLabel;
     modalInput.style.display = 'block'; modalInput.value = '';
-    modalInput.placeholder = 'e.g. 7400076472';
+    modalInput.placeholder = 'e.g. 7400076472, 7400075116';
     setTimeout(() => modalInput.focus(), 100);
   } else if (type === 'query') {
     modalIcon.textContent = '\uD83D\uDCAC';
@@ -921,7 +943,6 @@ modalSubmit.onclick = async () => {
   }
 };
 
-/* Load tickets for this dealer when logged in */
 async function loadDealerTickets() {
   if (!authState.dealerCode) return;
   try {
@@ -930,7 +951,6 @@ async function loadDealerTickets() {
   } catch (e) { console.error(e); }
 }
 
-/* Language switch */
 document.querySelectorAll('.lang-btn').forEach(b => {
   b.onclick = () => {
     LANG = b.dataset.lang;
@@ -940,16 +960,8 @@ document.querySelectorAll('.lang-btn').forEach(b => {
   };
 });
 
-/* BOOT */
 applyLanguage();
 setInterval(updateHoursBar, 60000);
-
-/* Reload tickets after login */
-const _origLoginDealer = loginDealer;
-loginDealer = function(code, name) {
-  _origLoginDealer(code, name);
-  loadDealerTickets();
-};
 </script>
 </body>
 </html>
