@@ -517,6 +517,7 @@ function setupBroadcastListener() {
           if (!isFirstLoad) {
             addMsg(`<div style="background:#eff6ff;border-left:4px solid #2563eb;padding:10px 12px;border-radius:8px;font-size:12.5px">
               <strong style="color:#1e40af">📢 ${LANG==='hi'?'घोषणा':'Announcement'}</strong><br><br>
+              ${b.title ? `<strong>${b.title}</strong><br>` : ''}
               ${b.message}
             </div>`, 'bot', true);
           }
@@ -812,33 +813,50 @@ function showRecentOrders() {
   addMsg(html, 'bot');
 }
 
-/* 3. MY STATS */
+/* 3. MY STATS — FIXED */
 function showMyStats() {
   const isHi = LANG === 'hi';
-  const total = ORDERS.filter(o => o.orderNumber).length;
-  const delivered = ORDERS.filter(o => String(o.orderStatus||'').toLowerCase().includes('deliver')).length;
-  const pending = ORDERS.filter(o => Number(o.pendingQty) > 0).length;
-  const onHold = ORDERS.filter(o => String(o.orderStatus||'').toLowerCase().includes('hold')).length;
-  const parts = ORDERS.filter(o => o.partNumber).length;
 
-  let html = `<strong>📊 ${isHi?'आपके आँकड़े':'Your Stats'}</strong><br><br>
+  // Unique order numbers
+  const uniqueOrders = new Set(ORDERS.filter(o => o.orderNumber).map(o => String(o.orderNumber)));
+  const totalOrders = uniqueOrders.size;
+
+  // Total parts (each row = 1 part)
+  const totalParts = ORDERS.filter(o => o.partNumber).length;
+
+  // Status-based counts
+  const dispatched = ORDERS.filter(o => {
+    const s = String(o.orderStatus || '').toLowerCase();
+    if (s.includes('pending')) return false;
+    return s.includes('dispatch') || s.includes('deliver') || s.includes('transit');
+  }).length;
+
+  const backOrder = ORDERS.filter(o => String(o.orderStatus || '').toLowerCase().includes('back')).length;
+  const onHold = ORDERS.filter(o => String(o.orderStatus || '').toLowerCase().includes('hold')).length;
+  const pendingDispatch = ORDERS.filter(o => String(o.orderStatus || '').toLowerCase().includes('pending')).length;
+
+  const html = `<strong>📊 ${isHi?'आपके आँकड़े':'Your Stats'}</strong><br><br>
     <div class="stat-card">
-      <div class="sc-val">${total}</div>
+      <div class="sc-val">${totalOrders}</div>
       <div class="sc-lbl">${isHi?'कुल ऑर्डर':'Total Orders'}</div>
     </div>
     <div class="stat-card">
-      <div class="sc-val">${parts}</div>
+      <div class="sc-val">${totalParts}</div>
       <div class="sc-lbl">${isHi?'कुल पार्ट्स':'Total Parts'}</div>
     </div>
     <div class="stat-card green">
-      <div class="sc-val">${delivered}</div>
-      <div class="sc-lbl">✅ ${isHi?'डिलीवर':'Delivered'}</div>
+      <div class="sc-val">${dispatched}</div>
+      <div class="sc-lbl">🚚 ${isHi?'डिस्पैच':'Dispatched'}</div>
     </div>
     <div class="stat-card yellow">
-      <div class="sc-val">${pending}</div>
-      <div class="sc-lbl">⏳ ${isHi?'पेंडिंग':'Pending'}</div>
+      <div class="sc-val">${pendingDispatch}</div>
+      <div class="sc-lbl">⏳ ${isHi?'पेंडिंग डिस्पैच':'Pending Dispatch'}</div>
     </div>
     <div class="stat-card red">
+      <div class="sc-val">${backOrder}</div>
+      <div class="sc-lbl">🔴 ${isHi?'बैक ऑर्डर':'Back Order'}</div>
+    </div>
+    <div class="stat-card red" style="background:linear-gradient(135deg,#fef2f2,#fee2e2)">
       <div class="sc-val">${onHold}</div>
       <div class="sc-lbl">⚠️ ${isHi?'होल्ड पर':'On Hold'}</div>
     </div>`;
@@ -879,7 +897,6 @@ async function handleMessage(text) {
   const msg = text.toLowerCase().trim();
   const isHi = LANG === 'hi';
 
-  // Part availability check
   if (checkPartAvailability(text)) return;
 
   if (/talk to (agent|support|team|dealer support)|connect.*support|support.*team|सपोर्ट.*बात/.test(msg)) {
