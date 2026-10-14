@@ -278,8 +278,9 @@ const I18N = {
       orderType: 'Order Type', partNumber: 'Part Number', partDesc: 'Part Description',
       orderedQty: 'Ordered Qty', dispatchedQty: 'Dispatched Qty', pendingQty: 'Pending Qty',
       stock: 'Stock Availability', eta: 'Tentative ETA', dispatchDate: 'Dispatch Date',
-      invoiceNumber: 'Invoice Number', docket: 'LR / Docket Number', transporter: 'Transporter',
-      holdReason: 'Hold Reason', lastUpdated: 'Last Updated', notAvailable: 'Currently not available',
+      invoiceNumber: 'GST Invoice Number', docket: 'LR / Docket Number', lrDate: 'LR Date',
+      lrMode: 'LR Mode', transporter: 'Transporter', holdReason: 'Hold Reason',
+      lastUpdated: 'Last Updated', notAvailable: 'Currently not available',
       wasHelpful: 'Was this helpful?'
     },
     faq: [
@@ -321,8 +322,9 @@ const I18N = {
       orderType: 'ऑर्डर प्रकार', partNumber: 'पार्ट नंबर', partDesc: 'पार्ट विवरण',
       orderedQty: 'ऑर्डर मात्रा', dispatchedQty: 'डिस्पैच मात्रा', pendingQty: 'बाकी मात्रा',
       stock: 'स्टॉक', eta: 'अनुमानित ETA', dispatchDate: 'डिस्पैच दिनांक',
-      invoiceNumber: 'इनवॉइस नंबर', docket: 'LR / डॉकेट नंबर', transporter: 'ट्रांसपोर्टर',
-      holdReason: 'होल्ड कारण', lastUpdated: 'अंतिम अपडेट', notAvailable: 'अभी उपलब्ध नहीं',
+      invoiceNumber: 'GST इनवॉइस नंबर', docket: 'LR / डॉकेट नंबर', lrDate: 'LR दिनांक',
+      lrMode: 'LR मोड', transporter: 'ट्रांसपोर्टर', holdReason: 'होल्ड कारण',
+      lastUpdated: 'अंतिम अपडेट', notAvailable: 'अभी उपलब्ध नहीं',
       wasHelpful: 'क्या यह सहायक था?'
     },
     faq: [
@@ -381,6 +383,39 @@ function applyLanguage() {
   document.getElementById('silentText').textContent = t('silentText');
   updateHoursBar();
   document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === LANG));
+}
+
+/* Excel date serial number to readable format */
+function formatDate(val) {
+  if (!val && val !== 0) return '';
+  const s = String(val).trim();
+  if (!s) return '';
+  // If pure number 4-6 digits → Excel serial date
+  if (/^\d{4,6}$/.test(s)) {
+    const n = parseInt(s);
+    if (n > 20000 && n < 60000) {
+      const d = new Date((n - 25569) * 86400 * 1000);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      }
+    }
+  }
+  return s;
+}
+
+/* Group order status into logical buckets */
+function getStatusGroup(status) {
+  const s = String(status || '').toLowerCase().trim();
+  if (s.includes('back')) return 'backorder';
+  if (s.includes('hold')) return 'hold';
+  if (s.includes('cancel')) return 'cancel';
+  if (s.includes('deliver')) return 'delivered';
+  if (s.includes('transit')) return 'transit';
+  if (s.includes('dispatch') && s.includes('partial')) return 'partial';
+  if (s.includes('dispatch') && (s.includes('fully') || s === 'dispatched' || s.includes('complete'))) return 'dispatched';
+  if (s.includes('dispatch')) return 'dispatched';
+  if (s.includes('processing') || s.includes('pending') || s.includes('received') || s.includes('booked')) return 'pending';
+  return 'pending';
 }
 
 /* ============================================================
@@ -553,9 +588,11 @@ function getStatusColor(status) {
   const s = status.toLowerCase();
   if (s.includes('deliver')) return 'green';
   if (s.includes('dispatch') && s.includes('fully')) return 'green';
+  if (s === 'dispatched' || s.includes('complete dispatch')) return 'green';
   if (s.includes('dispatch')) return 'blue';
   if (s.includes('transit')) return 'purple';
   if (s.includes('hold')) return 'red';
+  if (s.includes('back')) return 'red';
   if (s.includes('pending') || s.includes('processing')) return 'yellow';
   if (s.includes('cancel')) return 'red';
   return 'gray';
@@ -563,43 +600,88 @@ function getStatusColor(status) {
 
 function getProgressBar(status) {
   const stages = ['Received','Processing','Dispatched','In Transit','Delivered'];
-  const map = { 'Order Received':0, 'Processing':1, 'Pending Dispatch':1, 'Partially Dispatched':2,
-    'Fully Dispatched':2, 'In Transit':3, 'Delivered':4, 'On Hold':1, 'Cancelled':0 };
-  const active = map[status] !== undefined ? map[status] : 1;
+  const s = String(status || '').toLowerCase().trim();
+  let active = 1;
+
+  if (s.includes('deliver')) active = 4;
+  else if (s.includes('transit')) active = 3;
+  else if (s.includes('dispatch') && (s.includes('fully') || s === 'dispatched' || s.includes('complete'))) active = 2;
+  else if (s.includes('dispatch') && s.includes('partial')) active = 2;
+  else if (s.includes('dispatch')) active = 2;
+  else if (s.includes('processing') || s.includes('pending')) active = 1;
+  else if (s.includes('received') || s.includes('booked')) active = 0;
+  else if (s.includes('hold') || s.includes('back')) active = 1;
+  else if (s.includes('cancel')) active = 0;
+
   return `<div class="progress-track">${stages.map((_, i) =>
-    `<div class="progress-step ${i < active ? 'done' : i === active ? 'active' : ''}"></div>`).join('')}</div>
+    `<div class="progress-step ${i <= active ? 'done' : ''}"></div>`).join('')}</div>
     <div class="progress-labels"><span>Received</span><span>Processing</span><span>Dispatched</span><span>In Transit</span><span>Delivered</span></div>`;
 }
 
 function orderCard(o) {
   const oc = I18N[LANG].orderCard;
+  const L = (en, hi) => LANG === 'hi' ? hi : en;
   const statusClass = getStatusColor(o.orderStatus);
+  const group = getStatusGroup(o.orderStatus);
   const rows = [];
+
+  // ── Always: basic info ──
   rows.push([oc.orderType, o.orderType || '-']);
   if (o.partNumber) rows.push([oc.partNumber, o.partNumber]);
   if (o.partDescription) rows.push([oc.partDesc, o.partDescription]);
   rows.push([oc.orderedQty, o.orderedQty || 0]);
-  rows.push([oc.dispatchedQty, o.dispatchedQty || 0]);
-  rows.push([oc.pendingQty, o.pendingQty || 0]);
-  if (o.stockAvailability) rows.push([oc.stock, o.stockAvailability]);
-  rows.push([oc.eta, o.eta || oc.notAvailable, !o.eta]);
-  if (o.dispatchDate) rows.push([oc.dispatchDate, o.dispatchDate]);
-  if (o.invoiceNumber) rows.push([oc.invoiceNumber, o.invoiceNumber]);
-  if (o.docketLR) rows.push([oc.docket, o.docketLR]);
-  if (o.transporter) rows.push([oc.transporter, o.transporter]);
-  if (o.holdReason) rows.push([oc.holdReason, o.holdReason, true]);
+
+  // ── Back Order / On Hold / Cancel ── minimal, no qty, with ETA
+  if (group === 'backorder' || group === 'hold' || group === 'cancel') {
+    rows.push([oc.eta, o.eta ? formatDate(o.eta) : oc.notAvailable, !o.eta]);
+    if (o.holdReason) rows.push([oc.holdReason, o.holdReason, true]);
+    if (o.stockAvailability) rows.push([oc.stock, o.stockAvailability]);
+  }
+  // ── Pending / Processing ── qty + stock + ETA
+  else if (group === 'pending') {
+    rows.push([oc.dispatchedQty, o.dispatchedQty || 0]);
+    rows.push([oc.pendingQty, o.pendingQty || 0]);
+    if (o.stockAvailability) rows.push([oc.stock, o.stockAvailability]);
+    rows.push([oc.eta, o.eta ? formatDate(o.eta) : oc.notAvailable, !o.eta]);
+    if (o.holdReason) rows.push([oc.holdReason, o.holdReason, true]);
+  }
+  // ── Partial Dispatched ── everything (dispatch + ETA)
+  else if (group === 'partial') {
+    rows.push([oc.dispatchedQty, o.dispatchedQty || 0]);
+    rows.push([oc.pendingQty, o.pendingQty || 0]);
+    if (o.stockAvailability) rows.push([oc.stock, o.stockAvailability]);
+    if (o.dispatchDate) rows.push([oc.dispatchDate, formatDate(o.dispatchDate)]);
+    if (o.invoiceNumber) rows.push([oc.invoiceNumber, o.invoiceNumber]);
+    if (o.docketLR) rows.push([oc.docket, o.docketLR]);
+    if (o.lrDate) rows.push([oc.lrDate, formatDate(o.lrDate)]);
+    if (o.lrMode) rows.push([oc.lrMode, o.lrMode]);
+    if (o.transporter) rows.push([oc.transporter, o.transporter]);
+    rows.push([oc.eta, o.eta ? formatDate(o.eta) : oc.notAvailable, !o.eta]);
+  }
+  // ── Fully Dispatched / In Transit / Delivered ── NO ETA
+  else {
+    rows.push([oc.dispatchedQty, o.dispatchedQty || 0]);
+    rows.push([oc.pendingQty, o.pendingQty || 0]);
+    if (o.dispatchDate) rows.push([oc.dispatchDate, formatDate(o.dispatchDate)]);
+    if (o.invoiceNumber) rows.push([oc.invoiceNumber, o.invoiceNumber]);
+    if (o.docketLR) rows.push([oc.docket, o.docketLR]);
+    if (o.lrDate) rows.push([oc.lrDate, formatDate(o.lrDate)]);
+    if (o.lrMode) rows.push([oc.lrMode, o.lrMode]);
+    if (o.transporter) rows.push([oc.transporter, o.transporter]);
+  }
 
   const tableRows = rows.map(([label, val, hl]) =>
     `<tr${hl ? ' class="highlight"' : ''}><td>${label}</td><td>${val}</td></tr>`).join('');
 
   const thanksText = LANG === 'hi' ? 'फीडबैक के लिए धन्यवाद!' : 'Thank you for your feedback!';
+  const showProgress = !['backorder','hold','cancel'].includes(group);
 
   return `
     <div class="order-card-header">
       <div class="order-num">${o.orderNumber}</div>
       <span class="status-badge ${statusClass}">${o.orderStatus || 'N/A'}</span>
     </div>
-    ${getProgressBar(o.orderStatus)}
+    ${showProgress ? getProgressBar(o.orderStatus) : ''}
     <table>${tableRows}</table>
     <div class="updated">${oc.lastUpdated}: ${o.lastUpdated || '-'}</div>
     <div class="feedback-row" data-feedback="${o.orderNumber}" data-thanks="${thanksText}">
@@ -636,13 +718,11 @@ function attachFeedbackHandlers() {
 }
 
 /* ============================================================
-   MULTIPLE ORDER SEARCH — SPLITS INPUT
+   MULTIPLE ORDER SEARCH
    ============================================================ */
 function splitInputNumbers(text) {
-  // Split on: comma, semicolon, newline, tab, slash, space (only between alphanumeric tokens)
-  // But keep "MG-P-123" type tokens intact — so split only on these separators
   return text
-    .split(/[,\n;\t]+|\s{2,}/)   // comma, newline, tab, or 2+ spaces
+    .split(/[,\n;\t]+|\s{2,}/)
     .map(s => s.trim())
     .filter(s => s.length > 0);
 }
@@ -659,18 +739,13 @@ function findOrdersForSingle(s) {
 
 function findOrdersMulti(text) {
   const tokens = splitInputNumbers(text);
-  const results = [];   // [{ query, matches: [...] }]
+  const results = [];
   const notFound = [];
-
   tokens.forEach(tok => {
     const matches = findOrdersForSingle(tok);
-    if (matches.length) {
-      results.push({ query: tok, matches });
-    } else {
-      notFound.push(tok);
-    }
+    if (matches.length) results.push({ query: tok, matches });
+    else notFound.push(tok);
   });
-
   return { results, notFound };
 }
 
@@ -689,10 +764,8 @@ async function handleMessage(text) {
     requestSupportTeam(); return;
   }
 
-  // ⭐ MULTI ORDER SEARCH
   const { results, notFound } = findOrdersMulti(text);
 
-  // Case 1: Nothing found
   if (!results.length && notFound.length) {
     botReply(isHi
       ? `"<strong>${notFound.join(', ')}</strong>" से मेल खाता कोई ऑर्डर या पार्ट नहीं मिला।<br><br>कृपया सही ऑर्डर / पार्ट नंबर जाँचें।`
@@ -700,7 +773,6 @@ async function handleMessage(text) {
     return;
   }
 
-  // Case 2: Only 1 query, 1 match → classic single card
   if (results.length === 1 && results[0].matches.length === 1 && notFound.length === 0) {
     const o = results[0].matches[0];
     authState.lastOrderContext = o;
@@ -709,7 +781,6 @@ async function handleMessage(text) {
     return;
   }
 
-  // Case 3: Multiple queries / multiple matches → show all
   const totalParts = results.reduce((sum, r) => sum + r.matches.length, 0);
   let header = isHi
     ? `<div class="multi-result-header">🔍 ${results.length} ऑर्डर/पार्ट मिले — कुल <strong>${totalParts}</strong> परिणाम</div>`
@@ -718,16 +789,13 @@ async function handleMessage(text) {
   botReply(header);
 
   setTimeout(() => {
-    results.forEach((r, idx) => {
-      // If this query matched multiple parts of the same order, add sub-header
+    results.forEach((r) => {
       if (r.matches.length > 1) {
         addMsg(`<div style="font-size:12px;color:#555;font-weight:600;margin-top:4px">
           <strong>${isHi ? 'खोज' : 'Search'}:</strong> ${r.query} (${r.matches.length} ${isHi ? 'पार्ट्स' : 'parts'})
         </div>`, 'bot');
       }
-      r.matches.forEach(o => {
-        addMsg(orderCard(o), 'bot');
-      });
+      r.matches.forEach(o => { addMsg(orderCard(o), 'bot'); });
     });
 
     if (notFound.length) {
@@ -735,11 +803,9 @@ async function handleMessage(text) {
         <strong>❌ ${isHi ? 'नहीं मिला' : 'Not found'}:</strong> ${notFound.join(', ')}
       </div>`, 'bot');
     }
-
     setTimeout(attachFeedbackHandlers, 500);
   }, 500);
 
-  // Set context to first match
   if (results[0] && results[0].matches[0]) {
     authState.lastOrderContext = results[0].matches[0];
   }
