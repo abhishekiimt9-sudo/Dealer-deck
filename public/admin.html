@@ -181,9 +181,6 @@
     padding: 10px 12px; font-size: 13.5px; outline: none; margin-bottom: 12px;
     font-family: inherit; }
   .modal-box textarea { resize: vertical; min-height: 80px; }
-  .modal-box .info-row { display: flex; justify-content: space-between;
-    padding: 6px 0; border-bottom: 1px solid #f0f2f7; font-size: 12.5px; }
-  .modal-box .info-row:last-child { border-bottom: none; }
   .modal-btns { display: flex; gap: 10px; margin-top: 8px; }
   .modal-btns button { flex: 1; padding: 12px; border-radius: 10px; font-size: 13px;
     font-weight: 600; cursor: pointer; border: none; }
@@ -195,7 +192,6 @@
   .badge-status.in-progress { background: #dbeafe; color: #1e40af; }
   .badge-status.resolved { background: #d1fae5; color: #065f46; }
   .badge-status.closed { background: #e5e7eb; color: #4b5563; }
-  /* Broadcast styling */
   .broadcast-form { background: #f9fafc; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
   .broadcast-form label { display: block; font-size: 11.5px; color: #555;
     font-weight: 600; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px; }
@@ -370,10 +366,8 @@
         <div class="broadcast-form">
           <label>Title (Optional)</label>
           <input id="bcTitle" type="text" placeholder="e.g. Diwali Offer / Holiday Notice" />
-
           <label>Message *</label>
           <textarea id="bcMessage" placeholder="Type your announcement here..."></textarea>
-
           <button class="btn" onclick="sendBroadcast()">📢 Send to All Dealers</button>
         </div>
       </div>
@@ -385,6 +379,17 @@
     </div>
 
     <div class="tab-panel" id="panel-analytics">
+      <div class="card">
+        <h3>📥 Download Reports</h3>
+        <p style="font-size:12.5px;color:#666;margin-bottom:14px">
+          Management ko present karne ke liye Excel file download karo (Orders + Tickets + Dealers).
+        </p>
+        <div class="btn-row">
+          <button class="btn" onclick="downloadSummaryExcel()">📊 Download Summary (Excel)</button>
+          <button class="btn ghost" onclick="downloadFullDataExcel()">📋 Download Full Orders Data</button>
+        </div>
+      </div>
+      <div id="ticketSummaryBody"></div>
       <div id="analyticsBody"></div>
     </div>
 
@@ -465,7 +470,6 @@ function todayStamp() {
   return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
     + ' ' + d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
 }
-function nowTime() { return new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }); }
 function showToast(msg) {
   const el = document.createElement('div');
   el.className = 'toast'; el.textContent = msg;
@@ -579,6 +583,7 @@ function setupListeners() {
     renderTickets();
     updateTicketBadge();
     renderAnalytics();
+    renderTicketSummary();
   });
   db.collection('feedback').onSnapshot(snap => {
     FEEDBACK = snap.docs.map(d => d.data());
@@ -610,7 +615,7 @@ document.querySelectorAll('.nav-tab').forEach(tab => {
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     tab.classList.add('active');
     document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
-    if (tab.dataset.tab === 'analytics') renderAnalytics();
+    if (tab.dataset.tab === 'analytics') { renderAnalytics(); renderTicketSummary(); }
     if (tab.dataset.tab === 'records') renderRecords();
     if (tab.dataset.tab === 'tickets') renderTickets();
     if (tab.dataset.tab === 'broadcast') renderBroadcasts();
@@ -623,11 +628,9 @@ async function sendBroadcast() {
   const message = document.getElementById('bcMessage').value.trim();
   if (!message) { alert('Please enter a message.'); return; }
   if (!confirm('Send this broadcast to ALL dealers?')) return;
-
   try {
     await db.collection('broadcasts').add({
-      title: title,
-      message: message,
+      title: title, message: message,
       sentBy: sessionStorage.getItem('mg_admin') || 'admin',
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       timestamp: Date.now()
@@ -635,19 +638,15 @@ async function sendBroadcast() {
     document.getElementById('bcTitle').value = '';
     document.getElementById('bcMessage').value = '';
     showToast('✅ Broadcast sent to all dealers!');
-  } catch (e) {
-    alert('❌ Failed: ' + e.message);
-  }
+  } catch (e) { alert('❌ Failed: ' + e.message); }
 }
-
 async function deleteBroadcast(id) {
-  if (!confirm('Delete this broadcast? It will be removed for all dealers.')) return;
+  if (!confirm('Delete this broadcast?')) return;
   try {
     await db.collection('broadcasts').doc(id).delete();
     showToast('🗑️ Broadcast deleted.');
   } catch (e) { alert('Failed: ' + e.message); }
 }
-
 function renderBroadcasts() {
   const el = document.getElementById('broadcastList');
   if (!BROADCASTS.length) {
@@ -663,9 +662,7 @@ function renderBroadcasts() {
         </div>
         <button class="bi-del" onclick="deleteBroadcast('${b._id}')">🗑️ Delete</button>
       </div>
-      <div class="bi-meta">
-        Sent by: ${b.sentBy || 'admin'} • ${b.timestamp ? new Date(b.timestamp).toLocaleString('en-IN') : '-'}
-      </div>
+      <div class="bi-meta">Sent by: ${b.sentBy || 'admin'} • ${b.timestamp ? new Date(b.timestamp).toLocaleString('en-IN') : '-'}</div>
     </div>
   `).join('');
 }
@@ -776,7 +773,7 @@ function updateTicketBadge() {
   else { badge.style.display = 'none'; }
 }
 function renderTickets() {
-  const open = TICKETS.filter(t => String(t.ticketStatus || '').toLowerCase().includes('open')).length;
+  const open = TICKETS.filter(t => String(t.ticketStatus || '').toLowerCase() === 'open').length;
   const inProgress = TICKETS.filter(t => String(t.ticketStatus || '').toLowerCase().includes('progress')).length;
   const closed = TICKETS.filter(t => {
     const s = String(t.ticketStatus || '').toLowerCase();
@@ -835,9 +832,9 @@ function openTicketModal(id) {
   document.getElementById('tkModalSub').textContent = 'Raised on ' + (t.raisedDate || '-');
   const info = document.getElementById('tkModalInfo');
   info.innerHTML = `
-    <div class="info-row"><span style="color:#666">Dealer Code</span><span style="font-weight:700">${t.dealerCode || '-'}</span></div>
-    <div class="info-row"><span style="color:#666">Order Number</span><span style="font-weight:700">${t.orderNumber || '-'}</span></div>
-    <div class="info-row"><span style="color:#666">Part Number</span><span style="font-weight:700">${t.partNumber || '-'}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f2f7;font-size:12.5px"><span style="color:#666">Dealer Code</span><span style="font-weight:700">${t.dealerCode || '-'}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f2f7;font-size:12.5px"><span style="color:#666">Order Number</span><span style="font-weight:700">${t.orderNumber || '-'}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f2f7;font-size:12.5px"><span style="color:#666">Part Number</span><span style="font-weight:700">${t.partNumber || '-'}</span></div>
     <div style="margin-top:10px">
       <div style="font-size:11.5px;color:#555;font-weight:600;margin-bottom:6px">ISSUE DESCRIPTION</div>
       <div style="background:#f9fafc;padding:10px;border-radius:8px;font-size:12.5px;line-height:1.5">${t.issueDescription || '-'}</div>
@@ -874,6 +871,73 @@ async function saveTicketChanges() {
     closeTicketModal();
     renderTickets();
   } catch (e) { alert('❌ Failed: ' + e.message); }
+}
+
+/* TICKET SUMMARY */
+function renderTicketSummary() {
+  const el = document.getElementById('ticketSummaryBody');
+  if (!el) return;
+  if (!TICKETS.length) {
+    el.innerHTML = `<div class="card"><h3>🎫 Ticket Summary</h3><div class="empty">No tickets yet.</div></div>`;
+    return;
+  }
+  const total = TICKETS.length;
+  const open = TICKETS.filter(t => String(t.ticketStatus||'').toLowerCase() === 'open').length;
+  const inProgress = TICKETS.filter(t => String(t.ticketStatus||'').toLowerCase().includes('progress')).length;
+  const resolved = TICKETS.filter(t => String(t.ticketStatus||'').toLowerCase().includes('resolv')).length;
+  const closed = TICKETS.filter(t => String(t.ticketStatus||'').toLowerCase().includes('clos')).length;
+
+  const dealerMap = {};
+  TICKETS.forEach(t => {
+    const code = t.dealerCode || 'Unknown';
+    if (!dealerMap[code]) dealerMap[code] = { code, name: code, open: 0, inProgress: 0, resolved: 0, closed: 0, total: 0 };
+    const status = String(t.ticketStatus || '').toLowerCase();
+    dealerMap[code].total++;
+    if (status === 'open') dealerMap[code].open++;
+    else if (status.includes('progress')) dealerMap[code].inProgress++;
+    else if (status.includes('resolv')) dealerMap[code].resolved++;
+    else if (status.includes('clos')) dealerMap[code].closed++;
+  });
+  Object.values(dealerMap).forEach(d => {
+    const found = ORDERS.find(o => String(o.dealerCode||'').toUpperCase() === d.code.toUpperCase());
+    if (found && found.dealerName) d.name = found.dealerName;
+  });
+  const dealerRows = Object.values(dealerMap).sort((a,b) => b.total - a.total);
+
+  const rowsHtml = dealerRows.map(d => `
+    <tr>
+      <td><strong>${d.code}</strong></td>
+      <td>${d.name}</td>
+      <td>${d.open}</td>
+      <td>${d.inProgress}</td>
+      <td>${d.resolved}</td>
+      <td>${d.closed}</td>
+      <td><strong>${d.total}</strong></td>
+    </tr>
+  `).join('');
+
+  el.innerHTML = `
+    <div class="card">
+      <h3>🎫 Ticket Summary</h3>
+      <div class="stats">
+        <div class="stat warn"><div class="val">${open}</div><div class="lbl">Open</div></div>
+        <div class="stat blue"><div class="val">${inProgress}</div><div class="lbl">In Progress</div></div>
+        <div class="stat ok"><div class="val">${resolved}</div><div class="lbl">Resolved</div></div>
+        <div class="stat"><div class="val">${closed}</div><div class="lbl">Closed</div></div>
+        <div class="stat"><div class="val">${total}</div><div class="lbl">Total</div></div>
+      </div>
+      <h3 style="margin-top:24px">👥 Dealer-wise Ticket Summary</h3>
+      <div class="preview-table">
+        <table>
+          <thead><tr>
+            <th>Dealer Code</th><th>Dealer Name</th><th>Open</th>
+            <th>In Progress</th><th>Resolved</th><th>Closed</th><th>Total</th>
+          </tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
 }
 
 /* UPLOAD */
@@ -1010,6 +1074,242 @@ function downloadTemplate() {
   XLSX.writeFile(wb, 'MG_Template_' + new Date().toISOString().slice(0,10) + '.xlsx');
 }
 
+/* ============================================================
+   EXCEL SUMMARY EXPORT
+   ============================================================ */
+function downloadSummaryExcel() {
+  if (!ORDERS.length) { alert('No orders data available.'); return; }
+  const wb = XLSX.utils.book_new();
+  const now = new Date();
+  const reportDate = now.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
+    + ' ' + now.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+
+  /* SHEET 1: OVERVIEW */
+  const total = ORDERS.length;
+  const delivered = ORDERS.filter(o => (o.orderStatus||'').toLowerCase().includes('deliver')).length;
+  const dispatched = ORDERS.filter(o => {
+    const s = (o.orderStatus||'').toLowerCase();
+    if (s.includes('pending')) return false;
+    return s.includes('dispatch') || s.includes('deliver') || s.includes('transit');
+  }).length;
+  const pending = ORDERS.filter(o => Number(o.pendingQty) > 0).length;
+  const onHold = ORDERS.filter(o => (o.orderStatus||'').toLowerCase().includes('hold')).length;
+  const backOrder = ORDERS.filter(o => (o.orderStatus||'').toLowerCase().includes('back')).length;
+  const cancelled = ORDERS.filter(o => (o.orderStatus||'').toLowerCase().includes('cancel')).length;
+  const uniqueDealers = new Set(ORDERS.map(o => o.dealerCode).filter(Boolean)).size;
+  const uniqueOrders = new Set(ORDERS.map(o => o.orderNumber).filter(Boolean)).size;
+  const totalOrderedQty = ORDERS.reduce((s, o) => s + (Number(o.orderedQty) || 0), 0);
+  const totalDispatchedQty = ORDERS.reduce((s, o) => s + (Number(o.dispatchedQty) || 0), 0);
+  const totalPendingQty = ORDERS.reduce((s, o) => s + (Number(o.pendingQty) || 0), 0);
+
+  const overviewData = [
+    { 'Metric': 'Report Generated', 'Value': reportDate },
+    { 'Metric': '', 'Value': '' },
+    { 'Metric': '— ORDER SUMMARY —', 'Value': '' },
+    { 'Metric': 'Total Order Lines', 'Value': total },
+    { 'Metric': 'Unique Order Numbers', 'Value': uniqueOrders },
+    { 'Metric': 'Total Dealers', 'Value': uniqueDealers },
+    { 'Metric': '', 'Value': '' },
+    { 'Metric': '— STATUS BREAKDOWN —', 'Value': '' },
+    { 'Metric': 'Delivered', 'Value': delivered },
+    { 'Metric': 'Dispatched', 'Value': dispatched },
+    { 'Metric': 'Pending', 'Value': pending },
+    { 'Metric': 'On Hold', 'Value': onHold },
+    { 'Metric': 'Back Order', 'Value': backOrder },
+    { 'Metric': 'Cancelled', 'Value': cancelled },
+    { 'Metric': '', 'Value': '' },
+    { 'Metric': '— QUANTITY SUMMARY —', 'Value': '' },
+    { 'Metric': 'Total Ordered Qty', 'Value': totalOrderedQty },
+    { 'Metric': 'Total Dispatched Qty', 'Value': totalDispatchedQty },
+    { 'Metric': 'Total Pending Qty', 'Value': totalPendingQty },
+    { 'Metric': 'Dispatch %', 'Value': totalOrderedQty > 0 ? Math.round((totalDispatchedQty / totalOrderedQty) * 100) + '%' : '0%' }
+  ];
+  const ws1 = XLSX.utils.json_to_sheet(overviewData);
+  ws1['!cols'] = [{ wch: 28 }, { wch: 30 }];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Overview');
+
+  /* SHEET 2: DEALER SUMMARY */
+  const dealerMap = {};
+  ORDERS.forEach(o => {
+    const code = o.dealerCode || 'Unknown';
+    if (!dealerMap[code]) {
+      dealerMap[code] = {
+        code, name: o.dealerName || code, orders: new Set(), parts: 0,
+        orderedQty: 0, dispatchedQty: 0, pendingQty: 0, dispatched: 0, backOrder: 0, onHold: 0
+      };
+    }
+    const d = dealerMap[code];
+    if (o.orderNumber) d.orders.add(o.orderNumber);
+    d.parts++;
+    d.orderedQty += Number(o.orderedQty) || 0;
+    d.dispatchedQty += Number(o.dispatchedQty) || 0;
+    d.pendingQty += Number(o.pendingQty) || 0;
+    const s = (o.orderStatus||'').toLowerCase();
+    if (s.includes('back')) d.backOrder++;
+    if (s.includes('hold')) d.onHold++;
+    if (!s.includes('pending') && (s.includes('dispatch') || s.includes('deliver') || s.includes('transit'))) d.dispatched++;
+  });
+  const dealerData = Object.values(dealerMap).map(d => ({
+    'Dealer Code': d.code,
+    'Dealer Name': d.name,
+    'Total Orders': d.orders.size,
+    'Total Parts': d.parts,
+    'Ordered Qty': d.orderedQty,
+    'Dispatched Qty': d.dispatchedQty,
+    'Pending Qty': d.pendingQty,
+    'Dispatched': d.dispatched,
+    'Back Order': d.backOrder,
+    'On Hold': d.onHold
+  })).sort((a, b) => b['Total Parts'] - a['Total Parts']);
+  const ws2 = XLSX.utils.json_to_sheet(dealerData);
+  ws2['!cols'] = [{ wch:14 },{ wch:28 },{ wch:12 },{ wch:12 },{ wch:12 },{ wch:14 },{ wch:12 },{ wch:12 },{ wch:12 },{ wch:10 }];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Dealer Summary');
+
+  /* SHEET 3: STATUS REPORT */
+  const statusMap = {};
+  ORDERS.forEach(o => {
+    const s = o.orderStatus || 'Unknown';
+    if (!statusMap[s]) statusMap[s] = { count: 0, qty: 0 };
+    statusMap[s].count++;
+    statusMap[s].qty += Number(o.orderedQty) || 0;
+  });
+  const statusData = Object.entries(statusMap)
+    .map(([status, info]) => ({
+      'Order Status': status,
+      'Number of Orders': info.count,
+      'Total Quantity': info.qty,
+      'Percentage': total > 0 ? Math.round((info.count / total) * 100) + '%' : '0%'
+    })).sort((a, b) => b['Number of Orders'] - a['Number of Orders']);
+  const ws3 = XLSX.utils.json_to_sheet(statusData);
+  ws3['!cols'] = [{ wch:22 },{ wch:16 },{ wch:14 },{ wch:12 }];
+  XLSX.utils.book_append_sheet(wb, ws3, 'Status Report');
+
+  /* SHEET 4: TOP 10 DEALERS */
+  const topDealerData = dealerData.slice(0, 10).map((d, i) => ({
+    'Rank': i + 1,
+    'Dealer Code': d['Dealer Code'],
+    'Dealer Name': d['Dealer Name'],
+    'Total Parts': d['Total Parts'],
+    'Ordered Qty': d['Ordered Qty'],
+    'Pending Qty': d['Pending Qty']
+  }));
+  const ws4 = XLSX.utils.json_to_sheet(topDealerData);
+  ws4['!cols'] = [{ wch:6 },{ wch:14 },{ wch:28 },{ wch:12 },{ wch:12 },{ wch:12 }];
+  XLSX.utils.book_append_sheet(wb, ws4, 'Top 10 Dealers');
+
+  /* SHEET 5: TICKET SUMMARY */
+  if (TICKETS.length) {
+    const tOpen = TICKETS.filter(t => String(t.ticketStatus||'').toLowerCase() === 'open').length;
+    const tInProgress = TICKETS.filter(t => String(t.ticketStatus||'').toLowerCase().includes('progress')).length;
+    const tResolved = TICKETS.filter(t => String(t.ticketStatus||'').toLowerCase().includes('resolv')).length;
+    const tClosed = TICKETS.filter(t => String(t.ticketStatus||'').toLowerCase().includes('clos')).length;
+
+    const ticketOverview = [
+      { 'Metric': '— TICKET SUMMARY —', 'Value': '' },
+      { 'Metric': 'Total Tickets', 'Value': TICKETS.length },
+      { 'Metric': 'Open', 'Value': tOpen },
+      { 'Metric': 'In Progress', 'Value': tInProgress },
+      { 'Metric': 'Resolved', 'Value': tResolved },
+      { 'Metric': 'Closed', 'Value': tClosed }
+    ];
+    const ws5a = XLSX.utils.json_to_sheet(ticketOverview);
+    ws5a['!cols'] = [{ wch: 28 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(wb, ws5a, 'Ticket Summary');
+
+    /* SHEET 6: DEALER-WISE TICKETS */
+    const ticketDealerMap = {};
+    TICKETS.forEach(t => {
+      const code = t.dealerCode || 'Unknown';
+      if (!ticketDealerMap[code]) {
+        ticketDealerMap[code] = { code, name: code, open: 0, inProgress: 0, resolved: 0, closed: 0, total: 0 };
+      }
+      const s = String(t.ticketStatus||'').toLowerCase();
+      ticketDealerMap[code].total++;
+      if (s === 'open') ticketDealerMap[code].open++;
+      else if (s.includes('progress')) ticketDealerMap[code].inProgress++;
+      else if (s.includes('resolv')) ticketDealerMap[code].resolved++;
+      else if (s.includes('clos')) ticketDealerMap[code].closed++;
+    });
+    Object.values(ticketDealerMap).forEach(d => {
+      const found = ORDERS.find(o => String(o.dealerCode||'').toUpperCase() === d.code.toUpperCase());
+      if (found && found.dealerName) d.name = found.dealerName;
+    });
+    const ticketDealerData = Object.values(ticketDealerMap)
+      .sort((a,b) => b.total - a.total)
+      .map(d => ({
+        'Dealer Code': d.code,
+        'Dealer Name': d.name,
+        'Open': d.open,
+        'In Progress': d.inProgress,
+        'Resolved': d.resolved,
+        'Closed': d.closed,
+        'Total Tickets': d.total
+      }));
+    const ws5b = XLSX.utils.json_to_sheet(ticketDealerData);
+    ws5b['!cols'] = [{ wch:14 },{ wch:28 },{ wch:8 },{ wch:12 },{ wch:10 },{ wch:8 },{ wch:14 }];
+    XLSX.utils.book_append_sheet(wb, ws5b, 'Dealer-wise Tickets');
+
+    /* SHEET 7: ALL TICKETS */
+    const ticketDetail = TICKETS.map(t => ({
+      'Ticket Number': t.ticketNumber || '',
+      'Dealer Code': t.dealerCode || '',
+      'Order Number': t.orderNumber || '',
+      'Part Number': t.partNumber || '',
+      'Issue Description': t.issueDescription || '',
+      'Status': t.ticketStatus || '',
+      'Raised Date': t.raisedDate || '',
+      'Closed Date': t.closedDate || '',
+      'Resolution Remarks': t.resolutionRemarks || ''
+    }));
+    const ws5c = XLSX.utils.json_to_sheet(ticketDetail);
+    ws5c['!cols'] = [{ wch:14 },{ wch:12 },{ wch:14 },{ wch:14 },{ wch:30 },{ wch:12 },{ wch:14 },{ wch:14 },{ wch:40 }];
+    XLSX.utils.book_append_sheet(wb, ws5c, 'All Tickets');
+  }
+
+  const fileName = 'MG_Summary_Report_' + now.toISOString().slice(0, 10) + '.xlsx';
+  XLSX.writeFile(wb, fileName);
+  showToast('📊 Summary report downloaded!');
+}
+
+function downloadFullDataExcel() {
+  if (!ORDERS.length) { alert('No orders data available.'); return; }
+  const exportData = ORDERS.map(o => ({
+    'Dealer Code': o.dealerCode || '',
+    'Dealer Name': o.dealerName || '',
+    'Order Number': o.orderNumber || '',
+    'Order Type': o.orderType || '',
+    'Order Date': o.orderDate || '',
+    'Part Number': o.partNumber || '',
+    'Part Description': o.partDescription || '',
+    'Ordered Qty': o.orderedQty || 0,
+    'Dispatched Qty': o.dispatchedQty || 0,
+    'Pending Qty': o.pendingQty || 0,
+    'Order Status': o.orderStatus || '',
+    'Stock Availability': o.stockAvailability || '',
+    'Tentative ETA': o.eta || '',
+    'Dispatch Date': o.dispatchDate || '',
+    'GST Invoice Number': o.invoiceNumber || '',
+    'LR / Docket Number': o.docketLR || '',
+    'LR Date': o.lrDate || '',
+    'LR Mode': o.lrMode || '',
+    'Transporter': o.transporter || '',
+    'Order Hold Reason': o.holdReason || '',
+    'Last Updated': o.lastUpdated || ''
+  }));
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(exportData);
+  ws['!cols'] = [
+    { wch:12 },{ wch:22 },{ wch:14 },{ wch:12 },{ wch:12 },
+    { wch:14 },{ wch:24 },{ wch:10 },{ wch:12 },{ wch:10 },
+    { wch:16 },{ wch:14 },{ wch:12 },{ wch:12 },{ wch:16 },
+    { wch:16 },{ wch:12 },{ wch:10 },{ wch:18 },{ wch:16 },{ wch:18 }
+  ];
+  XLSX.utils.book_append_sheet(wb, ws, 'All Orders');
+  const fileName = 'MG_Full_Orders_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+  XLSX.writeFile(wb, fileName);
+  showToast('📋 Full data downloaded!');
+}
+
 /* ANALYTICS */
 function renderAnalytics() {
   const el = document.getElementById('analyticsBody');
@@ -1119,7 +1419,11 @@ function renderRecords() {
 document.getElementById('recSearch')?.addEventListener('input', renderRecords);
 document.getElementById('recStatusFilter')?.addEventListener('change', renderRecords);
 
-function renderAll() { renderRecords(); renderAnalytics(); }
+function renderAll() {
+  renderRecords();
+  renderAnalytics();
+  renderTicketSummary();
+}
 </script>
 </body>
 </html>
