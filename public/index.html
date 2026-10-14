@@ -4,6 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>MG Parts & Order Support</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
   body { background: linear-gradient(135deg, #0b1b3a 0%, #1e3c72 100%);
@@ -11,10 +13,8 @@
   .app { width: 100%; max-width: 480px; height: 92vh; max-height: 820px;
     background: #fff; border-radius: 18px; overflow: hidden;
     box-shadow: 0 20px 60px rgba(0,0,0,0.35); display: flex; flex-direction: column; position: relative; }
-
   .login-screen { position: absolute; inset: 0; background: #fff; z-index: 200;
-    display: flex; flex-direction: column; justify-content: center; align-items: center;
-    padding: 30px 24px; }
+    display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 30px 24px; }
   .login-screen.hidden { display: none; }
   .login-logo { width: 70px; height: 70px; border-radius: 50%; background: #b3001b;
     color: #fff; font-weight: 800; font-size: 24px; display: flex;
@@ -31,6 +31,7 @@
     border: none; border-radius: 10px; padding: 14px; font-size: 15px;
     font-weight: 600; cursor: pointer; transition: 0.15s; margin-top: 6px; }
   .login-btn:hover { background: #7a0012; }
+  .login-btn:disabled { background: #ccc; cursor: wait; }
   .login-error { background: #fee2e2; color: #991b1b; padding: 10px 14px;
     border-radius: 8px; font-size: 12.5px; margin-bottom: 16px; max-width: 320px;
     width: 100%; text-align: center; display: none; }
@@ -39,7 +40,6 @@
     text-align: center; max-width: 320px; line-height: 1.6; }
   .login-hint code { background: #f4f6fb; padding: 2px 6px; border-radius: 4px;
     color: #b3001b; font-weight: 600; font-size: 11px; }
-
   .header { background: linear-gradient(90deg, #b3001b, #7a0012);
     color: #fff; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
   .logo { width: 36px; height: 36px; border-radius: 50%; background: #fff;
@@ -54,12 +54,9 @@
   .lang-btn.active { background: #fff; color: #b3001b; opacity: 1; }
   .logout-icon { background: rgba(0,0,0,0.25); color: #fff; border: none;
     border-radius: 6px; padding: 6px 10px; font-size: 12px; cursor: pointer; font-weight: 600; }
-  .logout-icon:hover { background: rgba(0,0,0,0.4); }
-
   .hours-bar { background: #ecfdf5; color: #065f46; padding: 6px 12px; font-size: 10.5px;
     text-align: center; border-bottom: 1px solid #a7f3d0; font-weight: 500; }
   .hours-bar.closed { background: #fef3c7; color: #92400e; border-bottom-color: #fde68a; }
-
   .chat { flex: 1; overflow-y: auto; padding: 16px; background: #f4f6fb;
     display: flex; flex-direction: column; gap: 10px; }
   .msg { max-width: 88%; padding: 10px 14px; border-radius: 14px;
@@ -71,12 +68,8 @@
   .bot strong { color: #b3001b; }
   .admin-msg { background: #ecfdf5 !important; border-left: 4px solid #16a34a !important;
     box-shadow: 0 2px 8px rgba(22,163,74,0.15) !important; }
-
-  .order-card-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding-bottom: 8px; margin-bottom: 8px; border-bottom: 2px solid #f0f2f7;
-    gap: 8px; flex-wrap: wrap;
-  }
+  .order-card-header { display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: 8px; margin-bottom: 8px; border-bottom: 2px solid #f0f2f7; gap: 8px; flex-wrap: wrap; }
   .order-card-header .order-num { font-size: 13.5px; font-weight: 800; color: #b3001b; }
   .status-badge { display: inline-block; padding: 4px 10px; border-radius: 20px;
     font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
@@ -86,7 +79,6 @@
   .status-badge.red { background: #fee2e2; color: #991b1b; }
   .status-badge.purple { background: #ede9fe; color: #5b21b6; }
   .status-badge.gray { background: #f1f5f9; color: #475569; }
-
   .bot table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 12.5px; }
   .bot table td { padding: 6px 6px; border-bottom: 1px solid #f0f2f7; vertical-align: top; }
   .bot table td:first-child { color: #666; width: 48%; font-weight: 500; }
@@ -96,14 +88,12 @@
   .updated { font-size: 11px; color: #888; margin-top: 8px; font-style: italic; }
   .ts { font-size: 10px; color: #999; margin-top: 4px; text-align: right; }
   .user .ts { color: rgba(255,255,255,0.75); }
-
   .progress-track { display: flex; align-items: center; margin: 10px 0 6px; gap: 3px; }
   .progress-step { flex: 1; height: 8px; background: #e5e7eb; border-radius: 4px; }
   .progress-step.done { background: #16a34a; }
   .progress-step.active { background: #f59e0b; }
   .progress-labels { display: flex; justify-content: space-between; font-size: 9px;
     color: #888; margin-top: 2px; }
-
   .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px 4px; background: #f4f6fb; }
   .chip { background: #fff; border: 1px solid #d7dbe6; color: #b3001b;
     font-size: 11.5px; padding: 6px 10px; border-radius: 20px; cursor: pointer; transition: 0.15s; }
@@ -111,8 +101,6 @@
   .chip.support { background: #b3001b; color: #fff; border-color: #b3001b; font-weight: 600; }
   .chip.support:hover { background: #7a0012; }
   .chip.faq { background: #f0f9ff; color: #0369a1; border-color: #bae6fd; }
-  .chip.faq:hover { background: #0369a1; color: #fff; border-color: #0369a1; }
-
   .input-bar { display: flex; padding: 10px 12px; background: #fff;
     border-top: 1px solid #e5e7ef; gap: 8px; }
   .input-bar input { flex: 1; border: 1px solid #d7dbe6; border-radius: 22px;
@@ -121,8 +109,6 @@
   .send-btn { background: #b3001b; color: #fff; border: none; border-radius: 50%;
     width: 42px; height: 42px; cursor: pointer; font-size: 16px;
     display: flex; align-items: center; justify-content: center; }
-  .send-btn:hover { background: #7a0012; }
-
   .typing { display: flex; gap: 4px; padding: 12px 16px; background: #fff;
     border-radius: 14px; align-self: flex-start; width: fit-content; }
   .typing span { width: 7px; height: 7px; background: #b3001b; border-radius: 50%;
@@ -131,27 +117,22 @@
   .typing span:nth-child(3) { animation-delay: 0.3s; }
   @keyframes bounce { 0%,60%,100% { transform: none; opacity: 0.4; }
     30% { transform: translateY(-5px); opacity: 1; } }
-
   .feedback-row { display: flex; gap: 8px; margin-top: 10px; padding-top: 10px;
     border-top: 1px dashed #ddd; align-items: center; flex-wrap: wrap; }
   .feedback-row span { font-size: 11px; color: #666; margin-right: 4px; }
   .fb-btn { background: #f4f6fb; border: 1px solid #d7dbe6; border-radius: 20px;
     padding: 4px 10px; font-size: 13px; cursor: pointer; transition: 0.15s; }
-  .fb-btn:hover { background: #e5e7ef; }
   .fb-btn.active { background: #16a34a; color: #fff; border-color: #16a34a; }
   .fb-thanks { font-size: 11px; color: #16a34a; font-weight: 600; }
-
   .silent-banner { background: #fff7ed; color: #9a3412; padding: 8px 12px; font-size: 11.5px;
     text-align: center; border-top: 1px solid #fed7aa; font-weight: 500; }
-
   .modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.5);
     display: none; align-items: center; justify-content: center;
-    z-index: 100; padding: 20px; animation: fadeIn 0.2s ease; }
+    z-index: 100; padding: 20px; }
   .modal-overlay.show { display: flex; }
   .modal { background: #fff; border-radius: 16px; width: 100%; max-width: 380px;
     padding: 22px 20px 18px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-    animation: popIn 0.25s ease; max-height: 80vh; overflow-y: auto; }
-  @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    max-height: 80vh; overflow-y: auto; }
   .modal .modal-icon { width: 48px; height: 48px; border-radius: 50%; background: #fff5f6;
     color: #b3001b; display: flex; align-items: center; justify-content: center;
     font-size: 22px; margin: 0 auto 12px; }
@@ -162,18 +143,13 @@
   .modal input, .modal textarea { width: 100%; border: 1.5px solid #d7dbe6; border-radius: 10px;
     padding: 11px 14px; font-size: 13.5px; outline: none; font-family: inherit;
     transition: 0.15s; margin-bottom: 10px; }
-  .modal input:focus, .modal textarea:focus { border-color: #b3001b; box-shadow: 0 0 0 3px rgba(179,0,27,0.1); }
   .modal textarea { resize: vertical; min-height: 70px; }
   .modal .modal-btns { display: flex; gap: 10px; margin-top: 16px; }
   .modal .modal-btns button { flex: 1; padding: 11px; border-radius: 10px; font-size: 13px;
-    font-weight: 600; cursor: pointer; border: none; transition: 0.15s; }
+    font-weight: 600; cursor: pointer; border: none; }
   .modal .cancel-btn { background: #f0f2f7; color: #555; }
-  .modal .cancel-btn:hover { background: #e2e5ec; }
   .modal .submit-btn { background: #b3001b; color: #fff; }
-  .modal .submit-btn:hover { background: #7a0012; }
-
   .faq-item { border-bottom: 1px solid #eee; padding: 10px 0; cursor: pointer; }
-  .faq-item:last-child { border-bottom: none; }
   .faq-q { font-size: 12.5px; font-weight: 600; color: #b3001b;
     display: flex; justify-content: space-between; align-items: center; }
   .faq-q::after { content: '+'; font-size: 16px; color: #999; }
@@ -181,32 +157,24 @@
   .faq-a { font-size: 12px; color: #555; line-height: 1.5; max-height: 0;
     overflow: hidden; transition: max-height 0.3s ease; }
   .faq-item.open .faq-a { max-height: 200px; margin-top: 6px; }
-
   .order-list-item { border: 1px solid #e5e7ef; border-radius: 10px;
-    padding: 10px 12px; margin-bottom: 8px; cursor: pointer;
-    transition: 0.15s; background: #fafbff; }
-  .order-list-item:hover { border-color: #b3001b; background: #fff5f6; }
+    padding: 10px 12px; margin-bottom: 8px; cursor: pointer; background: #fafbff; }
   .order-list-item .order-num { font-size: 12.5px; font-weight: 700; color: #b3001b; margin-bottom: 3px; }
   .order-list-item .order-info { font-size: 11px; color: #666; }
 </style>
 </head>
 <body>
 <div class="app">
-
   <div class="login-screen" id="loginScreen">
     <div class="login-logo">MG</div>
     <div class="login-title">Parts & Order Support</div>
     <div class="login-sub">MG Aftersales Assistant</div>
-
     <div class="login-error" id="loginError">Invalid Dealer Code.</div>
-
     <div class="login-field">
       <label for="loginInput">Dealer Code</label>
       <input id="loginInput" type="text" placeholder="e.g. MGDL001" autocomplete="off" />
     </div>
-
-    <button class="login-btn" onclick="attemptLogin()">Login</button>
-
+    <button class="login-btn" id="loginBtn" onclick="attemptLogin()">Login</button>
     <div class="login-hint">
       Don't know your code? Contact your<br>Dealer Support Team.<br><br>
       <span style="font-size:10.5px;color:#bbb">Demo: <code>MGDL001</code> or <code>MGDL002</code></span>
@@ -246,7 +214,7 @@
       <p id="modalSubtitle">Please provide your order number to check status.</p>
       <div id="modalInputWrap">
         <label id="modalLabel" for="modalInput">Order Number</label>
-        <input id="modalInput" type="text" placeholder="e.g. ORD123456" autocomplete="off" />
+        <input id="modalInput" type="text" placeholder="e.g. 7400076472" autocomplete="off" />
         <textarea id="modalTextarea" style="display:none" placeholder="Type your query here..."></textarea>
         <div id="modalDynamic" style="display:none"></div>
       </div>
@@ -260,6 +228,20 @@
 
 <script>
 /* ============================================================
+   FIREBASE INIT
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyA6QL0wWLb_l9uyofgYrsgc6CiCRUufHdM",
+  authDomain: "mg-parts-chatbot.firebaseapp.com",
+  projectId: "mg-parts-chatbot",
+  storageBucket: "mg-parts-chatbot.firebasestorage.app",
+  messagingSenderId: "182710880849",
+  appId: "1:182710880849:web:9f60c63b9f468611fd8670"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+/* ============================================================
    TRANSLATIONS
    ============================================================ */
 const I18N = {
@@ -270,7 +252,6 @@ const I18N = {
     inputPlaceholder: 'Type your message...',
     silentText: 'Your request has been sent to the Dealer Support Team.',
     welcome: 'Welcome to MG Parts & Order Support.',
-    enterCode: 'Please enter your Dealer Code to continue.',
     verified: 'Verified', howCanHelp: 'How can I help you today?',
     notFound: 'Dealer code not found. Please verify and try again.',
     loggedOut: 'Logged out successfully.',
@@ -295,9 +276,8 @@ const I18N = {
       orderType: 'Order Type', partNumber: 'Part Number', partDesc: 'Part Description',
       orderedQty: 'Ordered Qty', dispatchedQty: 'Dispatched Qty', pendingQty: 'Pending Qty',
       stock: 'Stock Availability', eta: 'Tentative ETA', dispatchDate: 'Dispatch Date',
-      invoiceNumber: 'Invoice Number',
-      docket: 'Docket / LR Number', transporter: 'Transporter', holdReason: 'Hold Reason',
-      lastUpdated: 'Last Updated', notAvailable: 'Currently not available',
+      invoiceNumber: 'Invoice Number', docket: 'Docket / LR Number', transporter: 'Transporter',
+      holdReason: 'Hold Reason', lastUpdated: 'Last Updated', notAvailable: 'Currently not available',
       wasHelpful: 'Was this helpful?'
     },
     faq: [
@@ -316,7 +296,6 @@ const I18N = {
     inputPlaceholder: 'अपना संदेश लिखें...',
     silentText: 'आपका अनुरोध डीलर सपोर्ट टीम को भेज दिया गया है।',
     welcome: 'MG पार्ट्स और ऑर्डर सपोर्ट में आपका स्वागत है।',
-    enterCode: 'कृपया अपना डीलर कोड दर्ज करें।',
     verified: 'सत्यापित', howCanHelp: 'मैं आपकी कैसे सहायता कर सकता हूँ?',
     notFound: 'डीलर कोड नहीं मिला। कृपया जाँचें।',
     loggedOut: 'सफलतापूर्वक लॉग आउट।',
@@ -341,14 +320,13 @@ const I18N = {
       orderType: 'ऑर्डर प्रकार', partNumber: 'पार्ट नंबर', partDesc: 'पार्ट विवरण',
       orderedQty: 'ऑर्डर मात्रा', dispatchedQty: 'डिस्पैच मात्रा', pendingQty: 'बाकी मात्रा',
       stock: 'स्टॉक', eta: 'अनुमानित ETA', dispatchDate: 'डिस्पैच दिनांक',
-      invoiceNumber: 'इनवॉइस नंबर',
-      docket: 'डॉकेट / LR', transporter: 'ट्रांसपोर्टर', holdReason: 'होल्ड कारण',
-      lastUpdated: 'अंतिम अपडेट', notAvailable: 'अभी उपलब्ध नहीं',
+      invoiceNumber: 'इनवॉइस नंबर', docket: 'डॉकेट / LR', transporter: 'ट्रांसपोर्टर',
+      holdReason: 'होल्ड कारण', lastUpdated: 'अंतिम अपडेट', notAvailable: 'अभी उपलब्ध नहीं',
       wasHelpful: 'क्या यह सहायक था?'
     },
     faq: [
       { q: 'मैं अपने VOR ऑर्डर को कैसे ट्रैक करूँ?', a: 'चैट में VOR ऑर्डर नंबर दर्ज करें।' },
-      { q: '"होल्ड पर" का क्या मतलब है?', a: 'ऑर्डर अस्थायी रूप से रोका गया है। कारण: क्रेडिट ब्लॉक, स्टॉक अनुपलब्धता।' },
+      { q: '"होल्ड पर" का क्या मतलब है?', a: 'ऑर्डर अस्थायी रूप से रोका गया है।' },
       { q: 'मेरा ऑर्डर कब डिस्पैच होगा?', a: 'स्टॉक उपलब्ध होने पर 24-48 घंटे में।' },
       { q: 'सपोर्ट टिकट कैसे बनाएं?', a: '"टिकट बनाएं" बटन पर क्लिक करें।' },
       { q: 'सपोर्ट के घंटे क्या हैं?', a: 'सोम-शनि, सुबह 9:00 से शाम 7:00 तक।' },
@@ -366,46 +344,16 @@ function t(key) {
 }
 
 /* ============================================================
-   DATA STORE
+   STATE
    ============================================================ */
-const STORAGE_KEY = 'mg_orders_data';
-const TICKETS_KEY = 'mg_support_tickets';
-const FEEDBACK_KEY = 'mg_feedback';
-const THREADS_KEY = 'mg_support_threads';
-
-let ORDERS = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') || [];
-let TICKETS = JSON.parse(localStorage.getItem(TICKETS_KEY) || 'null') || [];
-let FEEDBACK = JSON.parse(localStorage.getItem(FEEDBACK_KEY) || '[]');
-
-function saveData() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(ORDERS));
-  localStorage.setItem(TICKETS_KEY, JSON.stringify(TICKETS));
-  localStorage.setItem(FEEDBACK_KEY, JSON.stringify(FEEDBACK));
-}
-
-/* ============================================================
-   THREAD HELPERS
-   ============================================================ */
-function getThreads() { return JSON.parse(localStorage.getItem(THREADS_KEY) || '{}'); }
-function saveThreads(threads) { localStorage.setItem(THREADS_KEY, JSON.stringify(threads)); }
-
-function addThreadMessage(dealerCode, from, text, dealerName) {
-  if (!dealerCode) return;
-  const threads = getThreads();
-  if (!threads[dealerCode]) {
-    threads[dealerCode] = {
-      dealerCode, dealerName: dealerName || dealerCode,
-      messages: [], status: 'open', lastUpdate: todayStamp(),
-      unreadByAdmin: 0, unreadByDealer: 0
-    };
-  }
-  threads[dealerCode].messages.push({ from, text, time: nowTime(), timestamp: Date.now() });
-  threads[dealerCode].lastUpdate = todayStamp();
-  threads[dealerCode].status = 'open';
-  if (from === 'dealer') threads[dealerCode].unreadByAdmin = (threads[dealerCode].unreadByAdmin || 0) + 1;
-  if (from === 'admin') threads[dealerCode].unreadByDealer = (threads[dealerCode].unreadByDealer || 0) + 1;
-  saveThreads(threads);
-}
+let ORDERS = [];       // Loaded from Firestore
+let TICKETS = [];      // Loaded from Firestore
+let authState = {
+  dealerCode: null, dealerName: null, lastOrderContext: null,
+  silentMode: false, supportRequested: false, loggedIn: false
+};
+let threadListener = null;
+let seenMessageIds = new Set();
 
 /* ============================================================
    UTILITIES
@@ -435,49 +383,65 @@ function applyLanguage() {
 }
 
 /* ============================================================
-   AUTH
+   LOGIN
    ============================================================ */
-let authState = {
-  dealerCode: null, dealerName: null, lastOrderContext: null,
-  silentMode: false, supportRequested: false, loggedIn: false
-};
-let adminMsgSeen = {};
-
-function attemptLogin() {
+async function attemptLogin() {
   const inp = document.getElementById('loginInput');
+  const btn = document.getElementById('loginBtn');
   const code = inp.value.trim().toUpperCase();
   const err = document.getElementById('loginError');
 
   if (!code) { err.textContent = 'Please enter your Dealer Code.'; err.classList.add('show'); return; }
 
-  // Match dealer from ORDERS data
-  const dealer = ORDERS.find(o => String(o.dealerCode).toUpperCase() === code);
-  if (!dealer) {
-    err.textContent = 'Dealer Code "' + code + '" not found. Please verify.';
-    err.classList.add('show');
-    return;
-  }
-
+  btn.disabled = true;
+  btn.textContent = 'Checking...';
   err.classList.remove('show');
-  document.getElementById('loginScreen').classList.add('hidden');
-  authState.loggedIn = true;
-  authState.dealerCode = dealer.dealerCode;
-  authState.dealerName = dealer.dealerName;
-  authState.lastOrderContext = null;
-  authState.silentMode = false;
-  authState.supportRequested = false;
 
-  document.getElementById('chat').innerHTML = '';
-  document.getElementById('chips').innerHTML = '';
-  document.getElementById('silentBanner').style.display = 'none';
+  try {
+    const snap = await db.collection('orders').where('dealerCode', '==', code).limit(1).get();
+    if (snap.empty) {
+      err.textContent = 'Dealer Code "' + code + '" not found. Please verify.';
+      err.classList.add('show');
+      btn.disabled = false;
+      btn.textContent = 'Login';
+      return;
+    }
+    const dealerData = snap.docs[0].data();
+    authState.loggedIn = true;
+    authState.dealerCode = dealerData.dealerCode;
+    authState.dealerName = dealerData.dealerName;
 
-  loginDealer(dealer.dealerCode, dealer.dealerName);
+    // Load all orders for this dealer
+    const allSnap = await db.collection('orders').where('dealerCode', '==', code).get();
+    ORDERS = allSnap.docs.map(d => d.data());
+
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('chat').innerHTML = '';
+    document.getElementById('chips').innerHTML = '';
+    document.getElementById('silentBanner').style.display = 'none';
+
+    loginDealer(dealerData.dealerCode, dealerData.dealerName);
+    setupThreadListener();
+
+  } catch (e) {
+    console.error(e);
+    err.textContent = 'Error: ' + e.message;
+    err.classList.add('show');
+  }
+  btn.disabled = false;
+  btn.textContent = 'Login';
 }
+
+document.getElementById('loginInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') attemptLogin();
+});
 
 function doLogout() {
   if (!confirm('Are you sure you want to logout?')) return;
+  if (threadListener) { threadListener(); threadListener = null; }
   authState = { dealerCode: null, dealerName: null, lastOrderContext: null,
     silentMode: false, supportRequested: false, loggedIn: false };
+  seenMessageIds.clear();
   document.getElementById('chat').innerHTML = '';
   document.getElementById('chips').innerHTML = '';
   document.getElementById('silentBanner').style.display = 'none';
@@ -486,31 +450,338 @@ function doLogout() {
   document.getElementById('loginScreen').classList.remove('hidden');
 }
 
-document.getElementById('loginInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') attemptLogin();
-});
-
 function loginDealer(dealerCode, dealerName) {
-  const myO = ORDERS.filter(o => String(o.dealerCode).toUpperCase() === dealerCode.toUpperCase() && o.orderNumber);
-  const uniqueOrderNumbers = new Set(myO.map(o => o.orderNumber));
+  const myO = ORDERS.filter(o => o.orderNumber);
+  const uniqueOrders = new Set(myO.map(o => o.orderNumber));
   const pend = myO.filter(o => o.pendingQty > 0).length;
   const hold = myO.filter(o => o.orderStatus === 'On Hold').length;
 
   const isHi = LANG === 'hi';
   let wmsg = `✅ ${t('verified')}: <strong>${dealerName}</strong> (${dealerCode}).<br><br>`;
   if (isHi) {
-    wmsg += `आपके <strong>${uniqueOrderNumbers.size}</strong> ऑर्डर और <strong>${myO.length}</strong> पार्ट्स हैं।<br>`;
+    wmsg += `आपके <strong>${uniqueOrders.size}</strong> ऑर्डर और <strong>${myO.length}</strong> पार्ट्स हैं।<br>`;
     if (pend) wmsg += `&bull; <strong>${pend}</strong> डिस्पैच बाकी<br>`;
     if (hold) wmsg += `&bull; <strong>${hold}</strong> होल्ड पर<br>`;
   } else {
-    wmsg += `You have <strong>${uniqueOrderNumbers.size}</strong> order(s) with <strong>${myO.length}</strong> part(s).<br>`;
+    wmsg += `You have <strong>${uniqueOrders.size}</strong> order(s) with <strong>${myO.length}</strong> part(s).<br>`;
     if (pend) wmsg += `&bull; <strong>${pend}</strong> pending dispatch<br>`;
     if (hold) wmsg += `&bull; <strong>${hold}</strong> on hold<br>`;
   }
   wmsg += `<br>${t('howCanHelp')}`;
-  botReply(wmsg);
+  addMsg(wmsg, 'bot');
   renderMainChips();
 }
+
+/* ============================================================
+   SUPPORT CHAT (Firestore real-time)
+   ============================================================ */
+function setupThreadListener() {
+  if (threadListener) threadListener();
+  threadListener = db.collection('threads')
+    .where('dealerCode', '==', authState.dealerCode)
+    .orderBy('timestamp', 'asc')
+    .onSnapshot(snap => {
+      snap.docChanges().forEach(change => {
+        if (change.type === 'added') {
+          const msg = change.doc.data();
+          if (msg.sender === 'admin' && !seenMessageIds.has(change.doc.id)) {
+            seenMessageIds.add(change.doc.id);
+            addMsg(`<strong style="color:#16a34a">🛡️ Dealer Support Team:</strong><br>${msg.message}`,
+              'bot', true, true, true);
+          }
+        }
+      });
+    }, err => console.error('Thread listener error:', err));
+}
+
+async function sendThreadMessage(sender, text) {
+  if (!authState.dealerCode) return;
+  try {
+    await db.collection('threads').add({
+      dealerCode: authState.dealerCode,
+      dealerName: authState.dealerName,
+      sender: sender,
+      message: text,
+      timestamp: Date.now(),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      readByAdmin: false,
+      readByDealer: true
+    });
+  } catch (e) { console.error('Send thread error:', e); }
+}
+
+/* ============================================================
+   CHAT UI
+   ============================================================ */
+const chat = document.getElementById('chat');
+const input = document.getElementById('userInput');
+const sendBtn = document.getElementById('sendBtn');
+const chips = document.getElementById('chips');
+const silentBanner = document.getElementById('silentBanner');
+
+function addMsg(text, who = "bot", showTime = true, isAdmin = false, skipLog = false) {
+  const w = document.createElement('div');
+  w.className = 'msg ' + who + (isAdmin ? ' admin-msg' : '');
+  let html = text;
+  if (showTime) html += `<div class="ts">${nowTime()}</div>`;
+  w.innerHTML = html;
+  chat.appendChild(w);
+  chat.scrollTop = chat.scrollHeight;
+
+  if (authState.loggedIn && authState.dealerCode && !isAdmin && !skipLog) {
+    if (who === 'user' || who === 'bot') {
+      const plainText = text.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      if (plainText && plainText.length > 1) {
+        sendThreadMessage(who === 'user' ? 'dealer' : 'bot', plainText.substring(0, 500));
+      }
+    }
+  }
+}
+function botReply(html, delay = 500) {
+  if (authState.silentMode) return;
+  addMsg(html, 'bot');
+}
+
+/* ============================================================
+   ORDER CARD
+   ============================================================ */
+function getStatusColor(status) {
+  if (!status) return 'gray';
+  const s = status.toLowerCase();
+  if (s.includes('deliver')) return 'green';
+  if (s.includes('dispatch') && s.includes('fully')) return 'green';
+  if (s.includes('dispatch')) return 'blue';
+  if (s.includes('transit')) return 'purple';
+  if (s.includes('hold')) return 'red';
+  if (s.includes('pending') || s.includes('processing')) return 'yellow';
+  if (s.includes('cancel')) return 'red';
+  return 'gray';
+}
+
+function getProgressBar(status) {
+  const stages = ['Received','Processing','Dispatched','In Transit','Delivered'];
+  const map = { 'Order Received':0, 'Processing':1, 'Pending Dispatch':1, 'Partially Dispatched':2,
+    'Fully Dispatched':2, 'In Transit':3, 'Delivered':4, 'On Hold':1, 'Cancelled':0 };
+  const active = map[status] !== undefined ? map[status] : 1;
+  return `<div class="progress-track">${stages.map((_, i) =>
+    `<div class="progress-step ${i < active ? 'done' : i === active ? 'active' : ''}"></div>`).join('')}</div>
+    <div class="progress-labels"><span>Received</span><span>Processing</span><span>Dispatched</span><span>In Transit</span><span>Delivered</span></div>`;
+}
+
+function orderCard(o) {
+  const oc = I18N[LANG].orderCard;
+  const statusClass = getStatusColor(o.orderStatus);
+  const rows = [];
+  rows.push([oc.orderType, o.orderType || '-']);
+  if (o.partNumber) rows.push([oc.partNumber, o.partNumber]);
+  if (o.partDescription) rows.push([oc.partDesc, o.partDescription]);
+  rows.push([oc.orderedQty, o.orderedQty || 0]);
+  rows.push([oc.dispatchedQty, o.dispatchedQty || 0]);
+  rows.push([oc.pendingQty, o.pendingQty || 0]);
+  if (o.stockAvailability) rows.push([oc.stock, o.stockAvailability]);
+  rows.push([oc.eta, o.eta || oc.notAvailable, !o.eta]);
+  if (o.dispatchDate) rows.push([oc.dispatchDate, o.dispatchDate]);
+  if (o.invoiceNumber) rows.push([oc.invoiceNumber, o.invoiceNumber]);
+  if (o.docketLR) rows.push([oc.docket, o.docketLR]);
+  if (o.transporter) rows.push([oc.transporter, o.transporter]);
+  if (o.holdReason) rows.push([oc.holdReason, o.holdReason, true]);
+
+  const tableRows = rows.map(([label, val, hl]) =>
+    `<tr${hl ? ' class="highlight"' : ''}><td>${label}</td><td>${val}</td></tr>`).join('');
+
+  const thanksText = LANG === 'hi' ? 'फीडबैक के लिए धन्यवाद!' : 'Thank you for your feedback!';
+
+  return `
+    <div class="order-card-header">
+      <div class="order-num">${o.orderNumber}</div>
+      <span class="status-badge ${statusClass}">${o.orderStatus || 'N/A'}</span>
+    </div>
+    ${getProgressBar(o.orderStatus)}
+    <table>${tableRows}</table>
+    <div class="updated">${oc.lastUpdated}: ${o.lastUpdated || '-'}</div>
+    <div class="feedback-row" data-feedback="${o.orderNumber}" data-thanks="${thanksText}">
+      <span>${oc.wasHelpful}</span>
+      <button class="fb-btn" data-fb="up">&#128077;</button>
+      <button class="fb-btn" data-fb="down">&#128078;</button>
+    </div>`;
+}
+
+function attachFeedbackHandlers() {
+  document.querySelectorAll('.feedback-row').forEach(row => {
+    if (row.dataset.bound) return;
+    row.dataset.bound = '1';
+    row.querySelectorAll('.fb-btn').forEach(btn => {
+      btn.onclick = async () => {
+        if (row.querySelector('.fb-thanks')) return;
+        btn.classList.add('active');
+        row.querySelectorAll('.fb-btn').forEach(b => b.disabled = true);
+        try {
+          await db.collection('feedback').add({
+            orderNumber: row.dataset.feedback,
+            dealerCode: authState.dealerCode,
+            rating: btn.dataset.fb,
+            timestamp: todayStamp(),
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        } catch (e) { console.error(e); }
+        const th = document.createElement('span');
+        th.className = 'fb-thanks'; th.textContent = row.dataset.thanks;
+        row.appendChild(th);
+      };
+    });
+  });
+}
+
+/* ============================================================
+   FIND ORDERS (dealer's own only)
+   ============================================================ */
+function findOrders(q) {
+  const s = q.trim().toUpperCase().replace(/\s+/g, '');
+  return ORDERS.filter(o => {
+    if (!o.orderNumber) return false;
+    const oNum = String(o.orderNumber).toUpperCase().replace(/\s+/g, '');
+    const pNum = String(o.partNumber || '').toUpperCase().replace(/\s+/g, '');
+    return oNum === s || pNum === s;
+  });
+}
+
+/* ============================================================
+   SUPPORT TEAM
+   ============================================================ */
+function requestSupportTeam() {
+  if (authState.supportRequested) return;
+  authState.supportRequested = true;
+  authState.silentMode = true;
+  const isHi = LANG === 'hi';
+  if (isWorkingHours()) {
+    addMsg(isHi
+      ? `<strong>डीलर सपोर्ट टीम</strong> को अनुरोध भेजा गया।<br><br>टीम जल्द संपर्क करेगी। नीचे अपना संदेश टाइप कर सकते हैं।`
+      : `Request sent to <strong>Dealer Support Team</strong>.<br><br>Our team will connect with you shortly. You can continue typing your message below.`, 'bot');
+  } else {
+    addMsg(isHi
+      ? `<strong>डीलर सपोर्ट टीम</strong> के लिए अनुरोध दर्ज।<br><br>टीम ऑफलाइन है। सपोर्ट: 9AM-7PM (सोम-शनि)। संदेश छोड़ें।`
+      : `Request recorded for <strong>Dealer Support Team</strong>.<br><br>Team offline. Support: 9AM-7PM (Mon-Sat). Leave your message below.`, 'bot');
+  }
+  silentBanner.style.display = 'block';
+  chips.innerHTML = '';
+}
+
+/* ============================================================
+   HANDLE MESSAGE
+   ============================================================ */
+function handleMessage(text) {
+  if (!authState.loggedIn) return;
+  addMsg(text, 'user');
+  if (authState.silentMode) return;
+
+  const msg = text.toLowerCase().trim();
+  const isHi = LANG === 'hi';
+
+  if (/talk to (agent|support|team|dealer support)|connect.*support|support.*team|सपोर्ट.*बात/.test(msg)) {
+    requestSupportTeam(); return;
+  }
+
+  const found = findOrders(text);
+  if (found.length === 1) {
+    authState.lastOrderContext = found[0];
+    botReply((isHi ? 'उपलब्ध विवरण:' : 'Here are the available details:') + '<br><br>' + orderCard(found[0]));
+    setTimeout(attachFeedbackHandlers, 300); return;
+  }
+  if (found.length > 1) {
+    authState.lastOrderContext = found[0];
+    botReply(isHi ? `इस ऑर्डर नंबर के <strong>${found.length}</strong> पार्ट्स मिले:`
+                  : `Found <strong>${found.length}</strong> parts for this order number:`);
+    setTimeout(() => {
+      found.forEach(o => addMsg(orderCard(o), 'bot'));
+      setTimeout(attachFeedbackHandlers, 500);
+    }, 500);
+    return;
+  }
+
+  if (/delay|late|why.*not|pending|देरी|क्यों/.test(msg)) {
+    const o = authState.lastOrderContext;
+    if (!o) { botReply(isHi ? 'कृपया ऑर्डर नंबर दें।' : 'Please share the Order Number.'); return; }
+    if (o.holdReason) {
+      botReply(`${isHi ? 'ऑर्डर' : 'Order'} <strong>${o.orderNumber}</strong> ${isHi ? 'होल्ड पर है।' : 'is on hold.'}<br><br>
+        <strong>${isHi ? 'कारण' : 'Reason'}:</strong> ${o.holdReason}
+        <div class="updated">${isHi ? 'अंतिम अपडेट' : 'Last Updated'}: ${o.lastUpdated || '-'}</div>`);
+    } else {
+      botReply(`${isHi ? 'ऑर्डर' : 'Order'} <strong>${o.orderNumber}</strong> ${isHi ? 'की स्थिति' : 'is'} <strong>${o.orderStatus || 'N/A'}</strong>.`);
+    }
+    return;
+  }
+
+  if (/dispatch|docket|transporter|lr number|invoice|डिस्पैच/.test(msg)) {
+    const o = authState.lastOrderContext;
+    if (!o) { botReply(isHi ? 'कृपया ऑर्डर नंबर दें।' : 'Please share the Order Number.'); return; }
+    let d = '';
+    if (o.invoiceNumber) d += `&bull; ${isHi ? 'इनवॉइस' : 'Invoice'}: ${o.invoiceNumber}<br>`;
+    if ((o.dispatchedQty || 0) > 0) {
+      d += `&bull; Qty: ${o.dispatchedQty}<br>`;
+      if (o.dispatchDate) d += `&bull; Date: ${o.dispatchDate}<br>`;
+      if (o.docketLR) d += `&bull; Docket/LR: ${o.docketLR}<br>`;
+      if (o.transporter) d += `&bull; Transporter: ${o.transporter}<br>`;
+      botReply(`<strong>${o.orderNumber}</strong><br>${d}`);
+    } else {
+      botReply(`${isHi ? 'डिस्पैच नहीं हुआ।' : 'Not dispatched yet.'}<br>${d}
+        Status: <strong>${o.orderStatus || 'N/A'}</strong><br>
+        ETA: ${o.eta || (isHi ? 'अभी उपलब्ध नहीं' : 'Currently not available')}`);
+    }
+    return;
+  }
+
+  if (/eta|availability|available|उपलब्ध/.test(msg)) {
+    const o = authState.lastOrderContext;
+    if (!o) { botReply(isHi ? 'कृपया ऑर्डर नंबर दें।' : 'Please share Order Number.'); return; }
+    botReply(`<strong>${o.partNumber || '-'}</strong>:<br>
+      Stock: <strong>${o.stockAvailability || '-'}</strong><br>
+      ETA: <strong>${o.eta || (isHi ? 'अभी उपलब्ध नहीं' : 'Currently not available')}</strong>`);
+    return;
+  }
+
+  botReply(isHi
+    ? `"<strong>${text}</strong>" से मेल खाता कुछ नहीं मिला। कृपया ऑर्डर या पार्ट नंबर जाँचें।`
+    : `Could not find a match for "<strong>${text}</strong>". Please verify the Order or Part Number.`);
+}
+
+/* ============================================================
+   CHIPS
+   ============================================================ */
+function renderMainChips() {
+  const c = I18N[LANG].chips;
+  renderChips([c.myOrders, c.orderStatus, c.raiseTicket, c.trackTicket, c.faq, c.otherQuery, c.support]);
+}
+
+function renderChips(list) {
+  chips.innerHTML = '';
+  list.forEach(c => {
+    const b = document.createElement('div');
+    b.className = 'chip';
+    const c_ = I18N[LANG].chips;
+    if (c === c_.support) b.classList.add('support');
+    if (c === c_.faq) b.classList.add('faq');
+    b.textContent = c;
+    b.onclick = () => {
+      const cc = I18N[LANG].chips;
+      if (c === cc.orderStatus) openModal('order');
+      else if (c === cc.otherQuery) openModal('query');
+      else if (c === cc.myOrders) openModal('my-orders');
+      else if (c === cc.raiseTicket) openModal('raise-ticket');
+      else if (c === cc.trackTicket) openModal('track-ticket');
+      else if (c === cc.faq) openModal('faq');
+      else if (c === cc.support) requestSupportTeam();
+      else { input.value = c; send(); }
+    };
+    chips.appendChild(b);
+  });
+}
+
+function send() {
+  const v = input.value.trim(); if (!v) return;
+  input.value = ''; handleMessage(v);
+}
+sendBtn.onclick = send;
+input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
 
 /* ============================================================
    MODAL
@@ -557,8 +828,8 @@ function openModal(type) {
     modalTitle.textContent = m.ticketTitle; modalSubtitle.textContent = m.ticketSub;
     modalDynamic.style.display = 'block';
     modalDynamic.innerHTML = `
-      <label>${m.ticketOrder}</label><input id="tktOrder" type="text" placeholder="ORD123456" />
-      <label>${m.ticketPart}</label><input id="tktPart" type="text" placeholder="MG-P-45678" />
+      <label>${m.ticketOrder}</label><input id="tktOrder" type="text" />
+      <label>${m.ticketPart}</label><input id="tktPart" type="text" />
       <label>${m.ticketIssue}</label><textarea id="tktIssue"></textarea>`;
     modalLabel.style.display = 'none';
     setTimeout(() => document.getElementById('tktIssue').focus(), 100);
@@ -566,15 +837,13 @@ function openModal(type) {
     modalIcon.textContent = '\uD83D\uDCCB';
     modalTitle.textContent = m.trackTitle; modalSubtitle.textContent = m.trackSub;
     modalDynamic.style.display = 'block';
-    const myT = TICKETS.filter(x => String(x.dealerCode).toUpperCase() === String(authState.dealerCode).toUpperCase());
+    const myT = TICKETS;
     modalDynamic.innerHTML = myT.length ? myT.map(x => `
       <div style="border:1px solid #e5e7ef;border-radius:10px;padding:10px;margin-bottom:8px">
         <div style="font-size:12.5px;font-weight:700;color:#b3001b">${x.ticketNumber}</div>
         <div style="font-size:11px;color:#666;margin-top:3px">${x.issueDescription}</div>
-        <div style="margin-top:6px">
-          <span class="status-badge ${x.ticketStatus === 'Closed' || x.ticketStatus === 'Resolved' ? 'green' : 'yellow'}">${x.ticketStatus}</span>
-          <span style="font-size:10px;color:#888;margin-left:6px">${x.raisedDate}</span>
-        </div>
+        <div style="margin-top:6px"><span class="status-badge ${x.ticketStatus === 'Closed' || x.ticketStatus === 'Resolved' ? 'green' : 'yellow'}">${x.ticketStatus}</span>
+        <span style="font-size:10px;color:#888;margin-left:6px">${x.raisedDate}</span></div>
       </div>`).join('') : '<div style="text-align:center;color:#999;padding:20px;font-size:12.5px">-</div>';
     modalLabel.style.display = 'none'; modalBtns.style.display = 'none';
   } else if (type === 'faq') {
@@ -591,28 +860,21 @@ function openModal(type) {
     modalIcon.textContent = '\uD83D\uDCE6';
     modalTitle.textContent = m.myOrdersTitle; modalSubtitle.textContent = m.myOrdersSub;
     modalDynamic.style.display = 'block';
-    const myO = ORDERS.filter(o => String(o.dealerCode).toUpperCase() === String(authState.dealerCode).toUpperCase() && o.orderNumber);
+    const myO = ORDERS.filter(o => o.orderNumber);
     if (!myO.length) {
       modalDynamic.innerHTML = '<div style="text-align:center;color:#999;padding:20px;font-size:12.5px">No orders found.</div>';
     } else {
-      // Group by order number
       const groups = {};
-      myO.forEach(o => {
-        if (!groups[o.orderNumber]) groups[o.orderNumber] = [];
-        groups[o.orderNumber].push(o);
-      });
+      myO.forEach(o => { if (!groups[o.orderNumber]) groups[o.orderNumber] = []; groups[o.orderNumber].push(o); });
       modalDynamic.innerHTML = Object.keys(groups).map(on => {
         const items = groups[on];
         const first = items[0];
         const partsList = items.map(i => `${i.partNumber || '-'} (${i.partDescription || '-'})`).join(' • ');
-        return `
-          <div class="order-list-item" data-order="${on}">
-            <div class="order-num">${on}
-              <span class="status-badge ${getStatusColor(first.orderStatus)}">${first.orderStatus || 'N/A'}</span>
-            </div>
-            <div class="order-info">${items.length} part(s): ${partsList}</div>
-            <div class="order-info">Type: ${first.orderType || '-'}</div>
-          </div>`;
+        return `<div class="order-list-item" data-order="${on}">
+          <div class="order-num">${on} <span class="status-badge ${getStatusColor(first.orderStatus)}">${first.orderStatus || 'N/A'}</span></div>
+          <div class="order-info">${items.length} part(s): ${partsList}</div>
+          <div class="order-info">Type: ${first.orderType || '-'}</div>
+        </div>`;
       }).join('');
     }
     modalLabel.style.display = 'none'; modalBtns.style.display = 'none';
@@ -620,19 +882,6 @@ function openModal(type) {
       e.onclick = () => { closeModal(); handleMessage(e.dataset.order); }), 50);
   }
   modalOverlay.classList.add('show');
-}
-
-function getStatusColor(status) {
-  if (!status) return 'gray';
-  const s = status.toLowerCase();
-  if (s.includes('deliver')) return 'green';
-  if (s.includes('dispatch') && s.includes('fully')) return 'green';
-  if (s.includes('dispatch')) return 'blue';
-  if (s.includes('transit')) return 'purple';
-  if (s.includes('hold')) return 'red';
-  if (s.includes('pending') || s.includes('processing')) return 'yellow';
-  if (s.includes('cancel')) return 'red';
-  return 'gray';
 }
 
 function closeModal() {
@@ -644,7 +893,7 @@ modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) clo
 modalInput.addEventListener('keydown', e => { if (e.key === 'Enter') modalSubmit.click(); });
 modalTextarea.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); modalSubmit.click(); } });
 
-modalSubmit.onclick = () => {
+modalSubmit.onclick = async () => {
   const type = currentModalType;
   if (type === 'order') {
     const v = modalInput.value.trim(); if (!v) { modalInput.focus(); return; }
@@ -657,295 +906,31 @@ modalSubmit.onclick = () => {
     const p = (document.getElementById('tktPart')?.value || '').trim();
     const iss = (document.getElementById('tktIssue')?.value || '').trim();
     if (!iss) { document.getElementById('tktIssue').focus(); return; }
-    const tn = 'TKT-' + new Date().getFullYear() + '-' + String(TICKETS.length + 1).padStart(4, '0');
-    TICKETS.push({ ticketNumber: tn, dealerCode: authState.dealerCode, orderNumber: o,
-      partNumber: p, issueDescription: iss, ticketStatus: 'Open',
-      raisedDate: todayStamp(), closedDate: '', resolutionRemarks: '' });
-    saveData(); closeModal();
-    botReply(`${LANG === 'hi' ? 'सपोर्ट टिकट बनाया गया!' : 'Support ticket created!'}<br><br>
-      <strong>${LANG === 'hi' ? 'टिकट नंबर' : 'Ticket Number'}:</strong> ${tn}<br>
-      <strong>Status:</strong> Open<br>
-      <strong>${LANG === 'hi' ? 'दिनांक' : 'Raised On'}:</strong> ${todayStamp()}`);
+    const tn = 'TKT-' + Date.now().toString().slice(-6);
+    try {
+      await db.collection('tickets').add({
+        ticketNumber: tn, dealerCode: authState.dealerCode,
+        orderNumber: o, partNumber: p, issueDescription: iss,
+        ticketStatus: 'Open', raisedDate: todayStamp(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      TICKETS.push({ ticketNumber: tn, dealerCode: authState.dealerCode, orderNumber: o, partNumber: p, issueDescription: iss, ticketStatus: 'Open', raisedDate: todayStamp() });
+    } catch (e) { console.error(e); }
+    closeModal();
+    botReply(`Support ticket created!<br><br><strong>Ticket Number:</strong> ${tn}<br><strong>Status:</strong> Open`);
   }
 };
 
-/* ============================================================
-   CHAT
-   ============================================================ */
-const chat = document.getElementById('chat');
-const input = document.getElementById('userInput');
-const sendBtn = document.getElementById('sendBtn');
-const chips = document.getElementById('chips');
-const silentBanner = document.getElementById('silentBanner');
-
-function addMsg(text, who = "bot", showTime = true, isAdmin = false, skipLog = false) {
-  const w = document.createElement('div');
-  w.className = 'msg ' + who + (isAdmin ? ' admin-msg' : '');
-  let html = text;
-  if (showTime) html += `<div class="ts">${nowTime()}</div>`;
-  w.innerHTML = html;
-  chat.appendChild(w); chat.scrollTop = chat.scrollHeight;
-
-  if (authState.loggedIn && authState.dealerCode && !isAdmin && !skipLog) {
-    if (who === 'user' || who === 'bot') {
-      const plainText = text
-        .replace(/<br\s*\/?>/gi, ' ')
-        .replace(/<[^>]*>/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-      if (plainText && plainText.length > 1) {
-        addThreadMessage(
-          authState.dealerCode,
-          who === 'user' ? 'dealer' : 'bot',
-          plainText.substring(0, 500),
-          authState.dealerName
-        );
-      }
-    }
-  }
-}
-function showTyping() {
-  const el = document.createElement('div');
-  el.className = 'typing'; el.id = 'typing';
-  el.innerHTML = '<span></span><span></span><span></span>';
-  chat.appendChild(el); chat.scrollTop = chat.scrollHeight;
-}
-function hideTyping() { const x = document.getElementById('typing'); if (x) x.remove(); }
-function botReply(html, delay = 700) {
-  if (authState.silentMode) return;
-  showTyping();
-  setTimeout(() => { hideTyping(); addMsg(html, 'bot'); }, delay);
+/* Load tickets for this dealer when logged in */
+async function loadDealerTickets() {
+  if (!authState.dealerCode) return;
+  try {
+    const snap = await db.collection('tickets').where('dealerCode', '==', authState.dealerCode).get();
+    TICKETS = snap.docs.map(d => d.data());
+  } catch (e) { console.error(e); }
 }
 
-function getProgressBar(status) {
-  const stages = ['Received','Processing','Dispatched','In Transit','Delivered'];
-  const map = { 'Order Received':0, 'Processing':1, 'Pending Dispatch':1, 'Partially Dispatched':2,
-    'Fully Dispatched':2, 'In Transit':3, 'Delivered':4, 'On Hold':1, 'Cancelled':0 };
-  const active = map[status] !== undefined ? map[status] : 1;
-  return `
-    <div class="progress-track">${stages.map((_, i) =>
-      `<div class="progress-step ${i < active ? 'done' : i === active ? 'active' : ''}"></div>`).join('')}</div>
-    <div class="progress-labels">
-      <span>Received</span><span>Processing</span><span>Dispatched</span><span>In Transit</span><span>Delivered</span>
-    </div>`;
-}
-
-function orderCard(o) {
-  const oc = I18N[LANG].orderCard;
-  const statusClass = getStatusColor(o.orderStatus);
-  const rows = [];
-
-  rows.push([oc.orderType, o.orderType || '-']);
-  if (o.partNumber) rows.push([oc.partNumber, o.partNumber]);
-  if (o.partDescription) rows.push([oc.partDesc, o.partDescription]);
-  rows.push([oc.orderedQty, o.orderedQty || 0]);
-  rows.push([oc.dispatchedQty, o.dispatchedQty || 0]);
-  rows.push([oc.pendingQty, o.pendingQty || 0]);
-  if (o.stockAvailability) rows.push([oc.stock, o.stockAvailability]);
-  rows.push([oc.eta, o.eta || oc.notAvailable, !o.eta]);
-  if (o.dispatchDate) rows.push([oc.dispatchDate, o.dispatchDate]);
-  if (o.invoiceNumber) rows.push([oc.invoiceNumber, o.invoiceNumber]);
-  if (o.docketLR) rows.push([oc.docket, o.docketLR]);
-  if (o.transporter) rows.push([oc.transporter, o.transporter]);
-  if (o.holdReason) rows.push([oc.holdReason, o.holdReason, true]);
-
-  const tableRows = rows.map(([label, val, highlight]) =>
-    `<tr${highlight ? ' class="highlight"' : ''}><td>${label}</td><td>${val}</td></tr>`
-  ).join('');
-
-  const thanksText = LANG === 'hi' ? 'फीडबैक के लिए धन्यवाद!' : 'Thank you for your feedback!';
-
-  return `
-    <div class="order-card-header">
-      <div class="order-num">${o.orderNumber}</div>
-      <span class="status-badge ${statusClass}">${o.orderStatus || 'N/A'}</span>
-    </div>
-    ${getProgressBar(o.orderStatus)}
-    <table>${tableRows}</table>
-    <div class="updated">${oc.lastUpdated}: ${o.lastUpdated || '-'}</div>
-    <div class="feedback-row" data-feedback="${o.orderNumber}" data-thanks="${thanksText}">
-      <span>${oc.wasHelpful}</span>
-      <button class="fb-btn" data-fb="up">&#128077;</button>
-      <button class="fb-btn" data-fb="down">&#128078;</button>
-    </div>`;
-}
-
-function attachFeedbackHandlers() {
-  document.querySelectorAll('.feedback-row').forEach(row => {
-    if (row.dataset.bound) return;
-    row.dataset.bound = '1';
-    row.querySelectorAll('.fb-btn').forEach(btn => {
-      btn.onclick = () => {
-        if (row.querySelector('.fb-thanks')) return;
-        btn.classList.add('active');
-        row.querySelectorAll('.fb-btn').forEach(b => b.disabled = true);
-        FEEDBACK.push({ orderNumber: row.dataset.feedback, dealerCode: authState.dealerCode,
-          rating: btn.dataset.fb, timestamp: todayStamp() });
-        saveData();
-        const th = document.createElement('span');
-        th.className = 'fb-thanks'; th.textContent = row.dataset.thanks || 'Thank you!';
-        row.appendChild(th);
-      };
-    });
-  });
-}
-
-function findOrders(q) {
-  const s = q.trim().toUpperCase().replace(/\s+/g, '');
-  return ORDERS.filter(o => {
-    if (!o.orderNumber) return false;
-    if (authState.dealerCode && String(o.dealerCode).toUpperCase() !== authState.dealerCode.toUpperCase()) return false;
-    const oNum = String(o.orderNumber).toUpperCase().replace(/\s+/g, '');
-    const pNum = String(o.partNumber || '').toUpperCase().replace(/\s+/g, '');
-    return oNum === s || pNum === s;
-  });
-}
-
-function requestSupportTeam() {
-  if (authState.supportRequested) return;
-  authState.supportRequested = true;
-  authState.silentMode = true;
-  const isHi = LANG === 'hi';
-  if (isWorkingHours()) {
-    addMsg(isHi
-      ? `<strong>डीलर सपोर्ट टीम</strong> को अनुरोध भेजा गया।<br><br>टीम जल्द संपर्क करेगी। नीचे अपना संदेश टाइप कर सकते हैं।`
-      : `Request sent to <strong>Dealer Support Team</strong>.<br><br>Our team will connect with you shortly. You can continue typing your message below.`, 'bot');
-  } else {
-    addMsg(isHi
-      ? `<strong>डीलर सपोर्ट टीम</strong> के लिए अनुरोध दर्ज।<br><br>टीम अभी ऑफलाइन है। सपोर्ट समय: 9AM-7PM (सोम-शनि)। संदेश छोड़ें।`
-      : `Request recorded for <strong>Dealer Support Team</strong>.<br><br>Team is currently offline. Support: 9AM-7PM (Mon-Sat). Leave your message below.`, 'bot');
-  }
-  silentBanner.style.display = 'block';
-  chips.innerHTML = '';
-}
-
-function handleMessage(text) {
-  if (!authState.loggedIn) return;
-  addMsg(text, 'user');
-
-  if (authState.silentMode) return;
-
-  const msg = text.toLowerCase().trim();
-  const isHi = LANG === 'hi';
-
-  if (/talk to (agent|support|team|dealer support)|connect.*support|support.*team|सपोर्ट.*बात/.test(msg)) {
-    requestSupportTeam(); return;
-  }
-
-  const found = findOrders(text);
-  if (found.length === 1) {
-    authState.lastOrderContext = found[0];
-    botReply((isHi ? 'उपलब्ध विवरण:' : 'Here are the available details:') + '<br><br>' + orderCard(found[0]));
-    setTimeout(attachFeedbackHandlers, 900); return;
-  }
-  if (found.length > 1) {
-    // ⭐ Show ALL parts for this order number
-    authState.lastOrderContext = found[0];
-    botReply((isHi
-      ? `इस ऑर्डर नंबर के <strong>${found.length}</strong> पार्ट्स मिले:`
-      : `Found <strong>${found.length}</strong> parts for this order number:`));
-    setTimeout(() => {
-      found.forEach(o => {
-        addMsg(orderCard(o), 'bot');
-      });
-      setTimeout(attachFeedbackHandlers, 500);
-    }, 1000);
-    return;
-  }
-
-  if (/delay|late|why.*not|pending|देरी|क्यों/.test(msg)) {
-    const o = authState.lastOrderContext;
-    if (!o) { botReply(isHi ? 'कृपया ऑर्डर नंबर दें।' : 'Please share the Order Number first.'); return; }
-    if (o.holdReason) {
-      botReply(`${isHi ? 'ऑर्डर' : 'Order'} <strong>${o.orderNumber}</strong> ${isHi ? 'होल्ड पर है।' : 'is on hold.'}<br><br>
-        <strong>${isHi ? 'कारण' : 'Reason'}:</strong> ${o.holdReason}
-        <div class="updated">${isHi ? 'अंतिम अपडेट' : 'Last Updated'}: ${o.lastUpdated}</div>`);
-    } else {
-      botReply(`${isHi ? 'ऑर्डर' : 'Order'} <strong>${o.orderNumber}</strong> ${isHi ? 'की स्थिति' : 'is'} <strong>${o.orderStatus || 'N/A'}</strong>.<br><br>
-        ${isHi ? 'कोई पुष्ट कारण नहीं। सपोर्ट टीम से संपर्क करें।' : 'No confirmed reason available. Please contact Dealer Support Team.'}`);
-    }
-    return;
-  }
-
-  if (/dispatch|docket|transporter|lr number|invoice|डिस्पैच/.test(msg)) {
-    const o = authState.lastOrderContext;
-    if (!o) { botReply(isHi ? 'कृपया ऑर्डर नंबर दें।' : 'Please share the Order Number.'); return; }
-    let details = '';
-    if (o.invoiceNumber) details += `&bull; ${isHi ? 'इनवॉइस नंबर' : 'Invoice Number'}: ${o.invoiceNumber}<br>`;
-    if ((o.dispatchedQty || 0) > 0) {
-      details += `&bull; ${isHi ? 'डिस्पैच मात्रा' : 'Dispatched Qty'}: ${o.dispatchedQty}<br>`;
-      if (o.dispatchDate) details += `&bull; ${isHi ? 'दिनांक' : 'Dispatch Date'}: ${o.dispatchDate}<br>`;
-      if (o.docketLR) details += `&bull; Docket/LR: ${o.docketLR}<br>`;
-      if (o.transporter) details += `&bull; ${isHi ? 'ट्रांसपोर्टर' : 'Transporter'}: ${o.transporter}<br>`;
-      botReply(`${isHi ? 'डिस्पैच विवरण' : 'Dispatch details'} - <strong>${o.orderNumber}</strong>:<br><br>${details}
-        <div class="updated">${isHi ? 'अंतिम अपडेट' : 'Last Updated'}: ${o.lastUpdated}</div>`);
-    } else {
-      botReply(`${isHi ? 'डिस्पैच नहीं हुआ।' : 'Not dispatched yet.'}<br>
-        ${details}
-        ${isHi ? 'स्थिति' : 'Status'}: <strong>${o.orderStatus || 'N/A'}</strong><br>
-        ETA: ${o.eta || (isHi ? 'अभी उपलब्ध नहीं' : 'Currently not available')}`);
-    }
-    return;
-  }
-
-  if (/eta|availability|available|उपलब्ध/.test(msg)) {
-    const o = authState.lastOrderContext;
-    if (!o) { botReply(isHi ? 'कृपया ऑर्डर या पार्ट नंबर दें।' : 'Please share Order or Part Number.'); return; }
-    botReply(`<strong>${o.partNumber || '-'}</strong> (${o.partDescription || '-'}):<br><br>
-      &bull; ${isHi ? 'स्टॉक' : 'Stock'}: <strong>${o.stockAvailability || '-'}</strong><br>
-      &bull; ETA: <strong>${o.eta || (isHi ? 'अभी उपलब्ध नहीं' : 'Currently not available')}</strong>
-      <div class="updated">${isHi ? 'अंतिम अपडेट' : 'Last Updated'}: ${o.lastUpdated}</div>`);
-    return;
-  }
-
-  if (/help|options|मदद/.test(msg)) {
-    botReply(isHi
-      ? `मैं इनमें सहायता कर सकता हूँ:<br>&bull; ऑर्डर स्थिति<br>&bull; डिस्पैच विवरण<br>&bull; स्टॉक और ETA<br>&bull; सपोर्ट टिकट<br>&bull; सामान्य प्रश्न`
-      : `I can help you with:<br>&bull; Order status & tracking<br>&bull; Dispatch details<br>&bull; Stock and ETA<br>&bull; Support tickets<br>&bull; FAQs<br><br>Use the buttons below or type your question.`);
-    return;
-  }
-
-  botReply(isHi
-    ? `"<strong>${text}</strong>" से मेल खाता कोई ऑर्डर नहीं मिला।<br><br>कृपया ऑर्डर नंबर या पार्ट नंबर जाँचें।`
-    : `Could not find a match for "<strong>${text}</strong>".<br><br>Please verify the Order Number or Part Number.`);
-}
-
-function renderMainChips() {
-  const c = I18N[LANG].chips;
-  renderChips([c.myOrders, c.orderStatus, c.raiseTicket, c.trackTicket, c.faq, c.otherQuery, c.support]);
-}
-
-function renderChips(list) {
-  chips.innerHTML = '';
-  list.forEach(c => {
-    const b = document.createElement('div');
-    b.className = 'chip';
-    const c_ = I18N[LANG].chips;
-    if (c === c_.support) b.classList.add('support');
-    if (c === c_.faq) b.classList.add('faq');
-    b.textContent = c;
-    b.onclick = () => {
-      const cc = I18N[LANG].chips;
-      if (c === cc.orderStatus) openModal('order');
-      else if (c === cc.otherQuery) openModal('query');
-      else if (c === cc.myOrders) openModal('my-orders');
-      else if (c === cc.raiseTicket) openModal('raise-ticket');
-      else if (c === cc.trackTicket) openModal('track-ticket');
-      else if (c === cc.faq) openModal('faq');
-      else if (c === cc.support) requestSupportTeam();
-      else { input.value = c; send(); }
-    };
-    chips.appendChild(b);
-  });
-}
-
-function send() {
-  const v = input.value.trim(); if (!v) return;
-  input.value = ''; handleMessage(v);
-}
-sendBtn.onclick = send;
-input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
-
+/* Language switch */
 document.querySelectorAll('.lang-btn').forEach(b => {
   b.onclick = () => {
     LANG = b.dataset.lang;
@@ -955,31 +940,16 @@ document.querySelectorAll('.lang-btn').forEach(b => {
   };
 });
 
-/* Poll for admin replies */
-setInterval(() => {
-  if (!authState.silentMode || !authState.dealerCode) return;
-  const threads = getThreads();
-  const thread = threads[authState.dealerCode];
-  if (!thread || !thread.messages) return;
-  const adminMsgs = thread.messages.filter(m => m.from === 'admin');
-  const seen = adminMsgSeen[authState.dealerCode] || 0;
-  if (adminMsgs.length > seen) {
-    adminMsgs.slice(seen).forEach(m => {
-      addMsg(`<strong style="color:#16a34a">🛡️ Dealer Support Team:</strong><br>${m.text}`,
-        'bot', true, true, true);
-    });
-    adminMsgSeen[authState.dealerCode] = adminMsgs.length;
-    const th = getThreads();
-    if (th[authState.dealerCode]) {
-      th[authState.dealerCode].unreadByDealer = 0;
-      saveThreads(th);
-    }
-  }
-}, 1500);
-
 /* BOOT */
 applyLanguage();
 setInterval(updateHoursBar, 60000);
+
+/* Reload tickets after login */
+const _origLoginDealer = loginDealer;
+loginDealer = function(code, name) {
+  _origLoginDealer(code, name);
+  loadDealerTickets();
+};
 </script>
 </body>
 </html>
