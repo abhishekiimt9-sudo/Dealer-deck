@@ -108,14 +108,6 @@
   .send-btn { background: #b3001b; color: #fff; border: none; border-radius: 50%;
     width: 42px; height: 42px; cursor: pointer; font-size: 16px;
     display: flex; align-items: center; justify-content: center; }
-  .typing { display: flex; gap: 4px; padding: 12px 16px; background: #fff;
-    border-radius: 14px; align-self: flex-start; width: fit-content; }
-  .typing span { width: 7px; height: 7px; background: #b3001b; border-radius: 50%;
-    animation: bounce 1.2s infinite; }
-  .typing span:nth-child(2) { animation-delay: 0.15s; }
-  .typing span:nth-child(3) { animation-delay: 0.3s; }
-  @keyframes bounce { 0%,60%,100% { transform: none; opacity: 0.4; }
-    30% { transform: translateY(-5px); opacity: 1; } }
   .feedback-row { display: flex; gap: 8px; margin-top: 10px; padding-top: 10px;
     border-top: 1px dashed #ddd; align-items: center; flex-wrap: wrap; }
   .feedback-row span { font-size: 11px; color: #666; margin-right: 4px; }
@@ -164,6 +156,16 @@
     background: #fffbeb; padding: 8px 12px; border-radius: 10px; margin-bottom: 8px;
     font-size: 12px; font-weight: 700; color: #92400e; border-left: 4px solid #f59e0b;
   }
+  .ticket-card {
+    border: 1px solid #e5e7ef; border-radius: 10px; padding: 10px 12px;
+    margin-bottom: 8px; background: #fafbff;
+  }
+  .ticket-card .tc-header { display: flex; justify-content: space-between;
+    align-items: center; margin-bottom: 6px; }
+  .ticket-card .tc-num { font-size: 12.5px; font-weight: 700; color: #b3001b; }
+  .ticket-card .tc-row { font-size: 11.5px; color: #555; margin-top: 3px; }
+  .ticket-card .tc-remarks { background: #ecfdf5; color: #065f46; padding: 8px 10px;
+    border-radius: 8px; font-size: 11.5px; margin-top: 6px; line-height: 1.5; }
 </style>
 </head>
 <body>
@@ -199,7 +201,7 @@
     </div>
   </div>
 
-  <div class="hours-bar" id="hoursBar">Support Hours: 9:00 AM - 6:00 PM (Mon-Sat)</div>
+  <div class="hours-bar" id="hoursBar">Support Hours: 9:00 AM - 7:00 PM (Mon-Sat)</div>
   <div id="chat" class="chat"></div>
   <div id="silentBanner" class="silent-banner" style="display:none">
     <span id="silentText">Your request has been sent to the Dealer Support Team.</span>
@@ -241,6 +243,12 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+
+/* Support team config */
+const SUPPORT_START_HOUR = 9;
+const SUPPORT_END_HOUR = 19;
+const SUPPORT_WORKING_DAYS = [1,2,3,4,5,6]; // Mon-Sat
+const BOT_WAIT_MS = 60000;
 
 /* TRANSLATIONS */
 const I18N = {
@@ -284,7 +292,7 @@ const I18N = {
       { q: 'When will my order be dispatched?', a: 'Orders are dispatched within 24-48 hours once stock is available.' },
       { q: 'How do I raise a support ticket?', a: 'Click "Raise Ticket" button.' },
       { q: 'What are the support hours?', a: 'Mon-Sat, 9:00 AM to 7:00 PM. Bot available 24x7.' },
-      { q: 'How to check multiple orders at once?', a: 'Type multiple order numbers separated by comma. Example: 7400076472, 7400075116' }
+      { q: 'How to check multiple orders at once?', a: 'Type multiple order numbers separated by comma.' }
     ]
   },
   hi: {
@@ -348,7 +356,11 @@ let authState = {
   silentMode: false, supportRequested: false, loggedIn: false
 };
 let threadListener = null;
+let ticketListener = null;
 let seenMessageIds = new Set();
+let lastTicketStates = {};
+let supportTimer = null;
+let adminRepliedInWindow = false;
 
 /* UTILITIES */
 function nowTime() { return new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }); }
@@ -359,7 +371,9 @@ function todayStamp() {
 }
 function isWorkingHours() {
   const d = new Date();
-  return d.getDay() !== 0 && d.getHours() >= 9 && d.getHours() < 19;
+  const day = d.getDay();
+  const hour = d.getHours();
+  return SUPPORT_WORKING_DAYS.includes(day) && hour >= SUPPORT_START_HOUR && hour < SUPPORT_END_HOUR;
 }
 function updateHoursBar() {
   const bar = document.getElementById('hoursBar');
@@ -374,8 +388,6 @@ function applyLanguage() {
   updateHoursBar();
   document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === LANG));
 }
-
-/* Excel date serial to readable */
 function formatDate(val) {
   if (!val && val !== 0) return '';
   const s = String(val).trim();
@@ -391,8 +403,6 @@ function formatDate(val) {
   }
   return s;
 }
-
-/* Status group */
 function getStatusGroup(status) {
   const s = String(status || '').toLowerCase().trim();
   if (s.includes('back')) return 'backorder';
@@ -405,6 +415,14 @@ function getStatusGroup(status) {
   if (s.includes('dispatch')) return 'dispatched';
   if (s.includes('processing') || s.includes('pending') || s.includes('received') || s.includes('booked')) return 'pending';
   return 'pending';
+}
+function getTicketStatusClass(status) {
+  const s = String(status || '').toLowerCase();
+  if (s.includes('open')) return 'yellow';
+  if (s.includes('progress')) return 'blue';
+  if (s.includes('resolv')) return 'green';
+  if (s.includes('clos')) return 'gray';
+  return 'gray';
 }
 
 /* LOGIN */
@@ -434,7 +452,7 @@ async function attemptLogin() {
     document.getElementById('silentBanner').style.display = 'none';
     loginDealer(dealerData.dealerCode, dealerData.dealerName);
     setupThreadListener();
-    loadDealerTickets();
+    setupTicketListener();
   } catch (e) {
     console.error(e);
     err.textContent = 'Error: ' + e.message;
@@ -447,9 +465,12 @@ document.getElementById('loginInput').addEventListener('keydown', e => { if (e.k
 function doLogout() {
   if (!confirm('Are you sure you want to logout?')) return;
   if (threadListener) { threadListener(); threadListener = null; }
+  if (ticketListener) { ticketListener(); ticketListener = null; }
+  if (supportTimer) { clearTimeout(supportTimer); supportTimer = null; }
   authState = { dealerCode: null, dealerName: null, lastOrderContext: null,
     silentMode: false, supportRequested: false, loggedIn: false };
   seenMessageIds.clear();
+  lastTicketStates = {};
   document.getElementById('chat').innerHTML = '';
   document.getElementById('chips').innerHTML = '';
   document.getElementById('silentBanner').style.display = 'none';
@@ -481,7 +502,7 @@ function loginDealer(dealerCode, dealerName) {
   renderMainChips();
 }
 
-/* SUPPORT CHAT */
+/* SUPPORT CHAT LISTENER */
 function setupThreadListener() {
   if (threadListener) threadListener();
   threadListener = db.collection('threads')
@@ -493,6 +514,8 @@ function setupThreadListener() {
           const msg = change.doc.data();
           if (msg.sender === 'admin' && !seenMessageIds.has(change.doc.id)) {
             seenMessageIds.add(change.doc.id);
+            adminRepliedInWindow = true;
+            if (supportTimer) { clearTimeout(supportTimer); supportTimer = null; }
             addMsg(`<strong style="color:#16a34a">🛡️ Dealer Support Team:</strong><br>${msg.message}`,
               'bot', true, true, true);
           }
@@ -510,6 +533,42 @@ async function sendThreadMessage(sender, text) {
       readByAdmin: false, readByDealer: true
     });
   } catch (e) { console.error('Send thread error:', e); }
+}
+
+/* TICKET LISTENER */
+function setupTicketListener() {
+  if (ticketListener) ticketListener();
+  ticketListener = db.collection('tickets')
+    .where('dealerCode', '==', authState.dealerCode)
+    .onSnapshot(snap => {
+      const newTickets = [];
+      snap.docs.forEach(d => {
+        const data = { _id: d.id, ...d.data() };
+        newTickets.push(data);
+        const tn = data.ticketNumber;
+        if (tn) {
+          const prevStatus = lastTicketStates[tn];
+          if (prevStatus && prevStatus !== data.ticketStatus) {
+            const isHi = LANG === 'hi';
+            const oldS = prevStatus;
+            const newS = data.ticketStatus;
+            setTimeout(() => {
+              addMsg(`<div style="background:#ecfdf5;border-left:4px solid #16a34a;padding:10px 12px;border-radius:8px;font-size:12.5px">
+                <strong style="color:#16a34a">🎫 ${isHi?'टिकट अपडेट':'Ticket Update'}</strong><br><br>
+                <strong>${tn}</strong><br>
+                ${isHi?'स्थिति':'Status'}: <span style="color:#666">${oldS}</span> → <strong style="color:#16a34a">${newS}</strong>
+                ${data.resolutionRemarks ? `<br><br><em>💬 ${isHi?'रिमार्क्स जोड़े गए':'New remarks added'}</em>` : ''}
+              </div>`, 'bot', true);
+            }, 400);
+          }
+          lastTicketStates[tn] = data.ticketStatus;
+        }
+      });
+      TICKETS = newTickets;
+      if (currentModalType === 'track-ticket' && modalOverlay.classList.contains('show')) {
+        renderTrackTicketModal();
+      }
+    }, err => console.error('Ticket listener error:', err));
 }
 
 /* CHAT UI */
@@ -556,7 +615,6 @@ function getStatusColor(status) {
   if (s.includes('cancel')) return 'red';
   return 'gray';
 }
-
 function getProgressBar(status) {
   const stages = ['Received','Processing','Dispatched','In Transit','Delivered'];
   const s = String(status || '').toLowerCase().trim();
@@ -574,35 +632,27 @@ function getProgressBar(status) {
     `<div class="progress-step ${i <= active ? 'done' : ''}"></div>`).join('')}</div>
     <div class="progress-labels"><span>Received</span><span>Processing</span><span>Dispatched</span><span>In Transit</span><span>Delivered</span></div>`;
 }
-
 function orderCard(o) {
   const oc = I18N[LANG].orderCard;
-  const L = (en, hi) => LANG === 'hi' ? hi : en;
   const statusClass = getStatusColor(o.orderStatus);
   const group = getStatusGroup(o.orderStatus);
   const rows = [];
-
   rows.push([oc.orderType, o.orderType || '-']);
   if (o.partNumber) rows.push([oc.partNumber, o.partNumber]);
   if (o.partDescription) rows.push([oc.partDesc, o.partDescription]);
   rows.push([oc.orderedQty, o.orderedQty || 0]);
 
-  /* Back Order / On Hold / Cancel */
   if (group === 'backorder' || group === 'hold' || group === 'cancel') {
     rows.push([oc.eta, o.eta ? formatDate(o.eta) : oc.notAvailable, !o.eta]);
     if (o.holdReason) rows.push([oc.holdReason, o.holdReason, true]);
     if (o.stockAvailability) rows.push([oc.stock, o.stockAvailability]);
-  }
-  /* Pending / Processing */
-  else if (group === 'pending') {
+  } else if (group === 'pending') {
     rows.push([oc.dispatchedQty, o.dispatchedQty || 0]);
     rows.push([oc.pendingQty, o.pendingQty || 0]);
     if (o.stockAvailability) rows.push([oc.stock, o.stockAvailability]);
     rows.push([oc.eta, o.eta ? formatDate(o.eta) : oc.notAvailable, !o.eta]);
     if (o.holdReason) rows.push([oc.holdReason, o.holdReason, true]);
-  }
-  /* Partial Dispatched */
-  else if (group === 'partial') {
+  } else if (group === 'partial') {
     rows.push([oc.dispatchedQty, o.dispatchedQty || 0]);
     rows.push([oc.pendingQty, o.pendingQty || 0]);
     if (o.stockAvailability) rows.push([oc.stock, o.stockAvailability]);
@@ -613,15 +663,11 @@ function orderCard(o) {
     if (o.lrMode) rows.push([oc.lrMode, o.lrMode]);
     if (o.transporter) rows.push([oc.transporter, o.transporter]);
     rows.push([oc.eta, o.eta ? formatDate(o.eta) : oc.notAvailable, !o.eta]);
-  }
-  /* Fully Dispatched / In Transit / Delivered — NO Pending Qty, NO ETA */
-  else {
+  } else {
     const dq = Number(o.dispatchedQty) || 0;
     const oq = Number(o.orderedQty) || 0;
-    // If status says fully dispatched but qty is 0, assume full order
     const showDq = dq > 0 ? dq : oq;
     if (showDq > 0) rows.push([oc.dispatchedQty, showDq]);
-    // Skip Pending Qty entirely
     if (o.dispatchDate) rows.push([oc.dispatchDate, formatDate(o.dispatchDate)]);
     if (o.invoiceNumber) rows.push([oc.invoiceNumber, o.invoiceNumber]);
     if (o.docketLR) rows.push([oc.docket, o.docketLR]);
@@ -632,7 +678,6 @@ function orderCard(o) {
 
   const tableRows = rows.map(([label, val, hl]) =>
     `<tr${hl ? ' class="highlight"' : ''}><td>${label}</td><td>${val}</td></tr>`).join('');
-
   const thanksText = LANG === 'hi' ? 'फीडबैक के लिए धन्यवाद!' : 'Thank you for your feedback!';
   const showProgress = !['backorder','hold','cancel'].includes(group);
 
@@ -650,7 +695,6 @@ function orderCard(o) {
       <button class="fb-btn" data-fb="down">&#128078;</button>
     </div>`;
 }
-
 function attachFeedbackHandlers() {
   document.querySelectorAll('.feedback-row').forEach(row => {
     if (row.dataset.bound) return;
@@ -699,7 +743,6 @@ function findOrdersMulti(text) {
   return { results, notFound };
 }
 
-/* HANDLE MESSAGE */
 async function handleMessage(text) {
   if (!authState.loggedIn) return;
   addMsg(text, 'user');
@@ -748,23 +791,45 @@ async function handleMessage(text) {
   }
 }
 
-/* SUPPORT TEAM */
+/* ⭐ SUPPORT TEAM — FINAL LOGIC */
 function requestSupportTeam() {
   if (authState.supportRequested) return;
   authState.supportRequested = true;
   authState.silentMode = true;
-  const isHi = LANG === 'hi';
-  if (isWorkingHours()) {
-    addMsg(isHi
-      ? `<strong>डीलर सपोर्ट टीम</strong> को अनुरोध भेजा गया।<br><br>टीम जल्द संपर्क करेगी।`
-      : `Request sent to <strong>Dealer Support Team</strong>.<br><br>Our team will connect with you shortly.`, 'bot');
-  } else {
-    addMsg(isHi
-      ? `<strong>डीलर सपोर्ट टीम</strong> के लिए अनुरोध दर्ज।<br><br>टीम ऑफलाइन है। 9AM-7PM (सोम-शनि)।`
-      : `Request recorded for <strong>Dealer Support Team</strong>.<br><br>Team offline. 9AM-7PM (Mon-Sat).`, 'bot');
-  }
+
+  /* Log request to thread (for admin) */
+  sendThreadMessage('dealer', 'REQUEST: Talk to Dealer Support Team');
+
+  /* Show banner — silent mode active */
   silentBanner.style.display = 'block';
   chips.innerHTML = '';
+
+  const isHi = LANG === 'hi';
+
+  /* ⭐ CASE 1: OFF HOURS → Bot replies with offline message */
+  if (!isWorkingHours()) {
+    setTimeout(() => {
+      addMsg(isHi
+        ? `🕐 अभी हमारी सपोर्ट टीम <strong>ऑफलाइन</strong> है।<br><br>सपोर्ट समय: <strong>सुबह 9:00 - शाम 7:00 (सोम-शनि)</strong><br><br>कृपया अपना संदेश यहाँ टाइप करें — आपका संदेश टीम के पास पहुँच जाएगा और वे अगली उपलब्धता पर संपर्क करेंगे।`
+        : `🕐 Our support team is currently <strong>offline</strong>.<br><br>Support Hours: <strong>9:00 AM - 7:00 PM (Mon-Sat)</strong><br><br>Please type your message here — it will be forwarded to the team and they will reach out when available.`,
+        'bot', true, false, true);
+    }, 500);
+    return;
+  }
+
+  /* ⭐ CASE 2: WORKING HOURS → Wait 1 min, if no admin reply → bot msg */
+  adminRepliedInWindow = false;
+  if (supportTimer) { clearTimeout(supportTimer); supportTimer = null; }
+
+  supportTimer = setTimeout(() => {
+    if (!adminRepliedInWindow) {
+      addMsg(isHi
+        ? `⏳ हमारी सपोर्ट टीम अभी अन्य अनुरोधों में व्यस्त है। वे जल्द ही आपसे संपर्क करेंगे।<br><br>कृपया अपना संदेश टाइप करते रहें — यह टीम को भेज दिया जाएगा।`
+        : `⏳ Our support team is currently busy with other requests. They will connect with you shortly.<br><br>Please continue typing your message — it will be forwarded to the team.`,
+        'bot', true, false, true);
+    }
+    supportTimer = null;
+  }, BOT_WAIT_MS);
 }
 
 /* CHIPS */
@@ -821,6 +886,48 @@ function hideAllModalInputs() {
   modalDynamic.style.display = 'none'; modalDynamic.innerHTML = '';
   modalLabel.style.display = 'block'; modalBtns.style.display = 'flex';
 }
+function renderTrackTicketModal() {
+  const m = I18N[LANG].modal;
+  modalIcon.textContent = '\uD83D\uDCCB';
+  modalTitle.textContent = m.trackTitle;
+  modalSubtitle.textContent = m.trackSub;
+  modalDynamic.style.display = 'block';
+  modalLabel.style.display = 'none';
+  modalBtns.style.display = 'none';
+  const isHi = LANG === 'hi';
+  if (!TICKETS.length) {
+    modalDynamic.innerHTML = '<div style="text-align:center;color:#999;padding:20px;font-size:12.5px">' +
+      (isHi ? 'कोई टिकट नहीं' : 'No tickets raised yet') + '</div>';
+    return;
+  }
+  const sorted = [...TICKETS].sort((a, b) => {
+    const ta = a.createdAt?.seconds || 0;
+    const tb = b.createdAt?.seconds || 0;
+    return tb - ta;
+  });
+  modalDynamic.innerHTML = sorted.map(x => {
+    const sc = getTicketStatusClass(x.ticketStatus);
+    const remarksBlock = x.resolutionRemarks
+      ? `<div class="tc-remarks"><strong>💬 ${isHi?'रिमार्क्स':'Remarks'}:</strong><br>${x.resolutionRemarks.replace(/\n/g,'<br>')}</div>`
+      : '';
+    return `
+      <div class="ticket-card">
+        <div class="tc-header">
+          <div class="tc-num">${x.ticketNumber || 'TKT'}</div>
+          <span class="status-badge ${sc}">${x.ticketStatus || 'Open'}</span>
+        </div>
+        ${x.orderNumber ? `<div class="tc-row"><strong>${isHi?'ऑर्डर':'Order'}:</strong> ${x.orderNumber}</div>` : ''}
+        ${x.partNumber ? `<div class="tc-row"><strong>${isHi?'पार्ट':'Part'}:</strong> ${x.partNumber}</div>` : ''}
+        <div class="tc-row"><strong>${isHi?'समस्या':'Issue'}:</strong> ${x.issueDescription || '-'}</div>
+        <div class="tc-row" style="color:#999;font-size:10.5px;margin-top:6px">
+          ${isHi?'उठाया':'Raised'}: ${x.raisedDate || '-'}
+          ${x.closedDate ? ` &nbsp;|&nbsp; ${isHi?'बंद':'Closed'}: ${x.closedDate}` : ''}
+        </div>
+        ${remarksBlock}
+      </div>`;
+  }).join('');
+}
+
 function openModal(type) {
   currentModalType = type;
   hideAllModalInputs();
@@ -849,18 +956,7 @@ function openModal(type) {
     modalLabel.style.display = 'none';
     setTimeout(() => document.getElementById('tktIssue').focus(), 100);
   } else if (type === 'track-ticket') {
-    modalIcon.textContent = '\uD83D\uDCCB';
-    modalTitle.textContent = m.trackTitle; modalSubtitle.textContent = m.trackSub;
-    modalDynamic.style.display = 'block';
-    const myT = TICKETS;
-    modalDynamic.innerHTML = myT.length ? myT.map(x => `
-      <div style="border:1px solid #e5e7ef;border-radius:10px;padding:10px;margin-bottom:8px">
-        <div style="font-size:12.5px;font-weight:700;color:#b3001b">${x.ticketNumber}</div>
-        <div style="font-size:11px;color:#666;margin-top:3px">${x.issueDescription}</div>
-        <div style="margin-top:6px"><span class="status-badge ${x.ticketStatus === 'Closed' || x.ticketStatus === 'Resolved' ? 'green' : 'yellow'}">${x.ticketStatus}</span>
-        <span style="font-size:10px;color:#888;margin-left:6px">${x.raisedDate}</span></div>
-      </div>`).join('') : '<div style="text-align:center;color:#999;padding:20px;font-size:12.5px">-</div>';
-    modalLabel.style.display = 'none'; modalBtns.style.display = 'none';
+    renderTrackTicketModal();
   } else if (type === 'faq') {
     modalIcon.textContent = '\u2753';
     modalTitle.textContent = m.faqTitle; modalSubtitle.textContent = m.faqSub;
@@ -928,20 +1024,11 @@ modalSubmit.onclick = async () => {
         ticketStatus: 'Open', raisedDate: todayStamp(),
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
-      TICKETS.push({ ticketNumber: tn, dealerCode: authState.dealerCode, orderNumber: o, partNumber: p, issueDescription: iss, ticketStatus: 'Open', raisedDate: todayStamp() });
     } catch (e) { console.error(e); }
     closeModal();
-    botReply(`Support ticket created!<br><br><strong>Ticket Number:</strong> ${tn}<br><strong>Status:</strong> Open`);
+    botReply(`Support ticket created!<br><br><strong>Ticket Number:</strong> ${tn}<br><strong>Status:</strong> Open<br><br><em>You can track it via "Track Ticket"</em>`);
   }
 };
-
-async function loadDealerTickets() {
-  if (!authState.dealerCode) return;
-  try {
-    const snap = await db.collection('tickets').where('dealerCode', '==', authState.dealerCode).get();
-    TICKETS = snap.docs.map(d => d.data());
-  } catch (e) { console.error(e); }
-}
 
 document.querySelectorAll('.lang-btn').forEach(b => {
   b.onclick = () => {
