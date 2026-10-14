@@ -69,6 +69,7 @@
   .btn { background: #b3001b; color: #fff; border: none; border-radius: 8px;
     padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer; }
   .btn.ghost { background: #fff; color: #b3001b; border: 1.5px solid #b3001b; }
+  .btn.danger { background: #dc2626; }
   .btn-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
   .stats { display: flex; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
   .stat { flex: 1; min-width: 100px; padding: 14px; border-radius: 10px;
@@ -165,7 +166,6 @@
   .toast { position: fixed; top: 20px; right: 20px; background: #b3001b;
     color: #fff; padding: 14px 20px; border-radius: 10px; font-size: 13px;
     font-weight: 600; box-shadow: 0 8px 30px rgba(0,0,0,0.25); z-index: 9999; }
-  /* Modal */
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5);
     display: none; align-items: center; justify-content: center;
     z-index: 100; padding: 20px; }
@@ -180,26 +180,40 @@
     width: 100%; border: 1.5px solid #d7dbe6; border-radius: 10px;
     padding: 10px 12px; font-size: 13.5px; outline: none; margin-bottom: 12px;
     font-family: inherit; }
-  .modal-box input:focus, .modal-box select:focus, .modal-box textarea:focus {
-    border-color: #b3001b; box-shadow: 0 0 0 3px rgba(179,0,27,0.1); }
   .modal-box textarea { resize: vertical; min-height: 80px; }
   .modal-box .info-row { display: flex; justify-content: space-between;
     padding: 6px 0; border-bottom: 1px solid #f0f2f7; font-size: 12.5px; }
   .modal-box .info-row:last-child { border-bottom: none; }
-  .modal-box .info-row .lbl { color: #666; }
-  .modal-box .info-row .val { font-weight: 700; color: #111; }
   .modal-btns { display: flex; gap: 10px; margin-top: 8px; }
   .modal-btns button { flex: 1; padding: 12px; border-radius: 10px; font-size: 13px;
     font-weight: 600; cursor: pointer; border: none; }
   .modal-btns .btn-cancel { background: #f0f2f7; color: #555; }
   .modal-btns .btn-save { background: #b3001b; color: #fff; }
-  .modal-btns .btn-save:hover { background: #7a0012; }
   .badge-status { display: inline-block; padding: 4px 10px; border-radius: 20px;
     font-size: 10px; font-weight: 700; text-transform: uppercase; }
   .badge-status.open { background: #fef3c7; color: #92400e; }
   .badge-status.in-progress { background: #dbeafe; color: #1e40af; }
   .badge-status.resolved { background: #d1fae5; color: #065f46; }
   .badge-status.closed { background: #e5e7eb; color: #4b5563; }
+  /* Broadcast styling */
+  .broadcast-form { background: #f9fafc; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .broadcast-form label { display: block; font-size: 11.5px; color: #555;
+    font-weight: 600; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px; }
+  .broadcast-form input, .broadcast-form textarea {
+    width: 100%; border: 1.5px solid #d7dbe6; border-radius: 10px;
+    padding: 11px 14px; font-size: 13.5px; outline: none; margin-bottom: 12px; font-family: inherit; }
+  .broadcast-form textarea { resize: vertical; min-height: 90px; }
+  .broadcast-form input:focus, .broadcast-form textarea:focus {
+    border-color: #b3001b; box-shadow: 0 0 0 3px rgba(179,0,27,0.1); }
+  .broadcast-item { border: 1px solid #e5e7ef; border-radius: 10px;
+    padding: 12px 14px; margin-bottom: 10px; background: #fafbff; }
+  .broadcast-item .bi-head { display: flex; justify-content: space-between;
+    align-items: flex-start; gap: 10px; margin-bottom: 6px; }
+  .broadcast-item .bi-title { font-size: 13px; font-weight: 700; color: #b3001b; }
+  .broadcast-item .bi-msg { font-size: 12.5px; color: #333; line-height: 1.5; }
+  .broadcast-item .bi-meta { font-size: 10.5px; color: #999; margin-top: 8px; }
+  .broadcast-item .bi-del { background: #fee2e2; color: #991b1b; border: none;
+    border-radius: 6px; padding: 4px 10px; font-size: 11px; font-weight: 600; cursor: pointer; }
   @media (max-width: 700px) {
     .support-wrap { grid-template-columns: 1fr; }
     .threads-list { max-height: 200px; }
@@ -247,6 +261,7 @@
       <span class="badge" id="ticketBadge" style="display:none">0</span>
     </div>
     <div class="nav-tab active" data-tab="upload">📤 Upload Data</div>
+    <div class="nav-tab" data-tab="broadcast">📢 Broadcast</div>
     <div class="nav-tab" data-tab="analytics">📊 Analytics</div>
     <div class="nav-tab" data-tab="records">📦 Orders</div>
   </div>
@@ -342,7 +357,30 @@
         <p style="font-size:12.5px;color:#666;margin-bottom:14px">
           Firestore se saara orders data delete kar dega.
         </p>
-        <button class="btn" onclick="clearAllData()" style="background:#dc2626">🗑️ Delete All Orders</button>
+        <button class="btn danger" onclick="clearAllData()">🗑️ Delete All Orders</button>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-broadcast">
+      <div class="card">
+        <h3>📢 Send Broadcast to All Dealers</h3>
+        <p style="font-size:12.5px;color:#666;margin-bottom:14px">
+          Ye message saare dealers ke chatbot pe dikhega.
+        </p>
+        <div class="broadcast-form">
+          <label>Title (Optional)</label>
+          <input id="bcTitle" type="text" placeholder="e.g. Diwali Offer / Holiday Notice" />
+
+          <label>Message *</label>
+          <textarea id="bcMessage" placeholder="Type your announcement here..."></textarea>
+
+          <button class="btn" onclick="sendBroadcast()">📢 Send to All Dealers</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>📜 Sent Broadcasts</h3>
+        <div id="broadcastList"><div class="empty">No broadcasts sent yet.</div></div>
       </div>
     </div>
 
@@ -379,9 +417,7 @@
   <div class="modal-box">
     <h3 id="tkModalTitle">Ticket Details</h3>
     <p class="sub" id="tkModalSub">—</p>
-
     <div id="tkModalInfo"></div>
-
     <div style="margin-top:16px">
       <label>Ticket Status</label>
       <select id="tkModalStatus">
@@ -390,11 +426,9 @@
         <option value="Resolved">Resolved</option>
         <option value="Closed">Closed</option>
       </select>
-
       <label>Resolution Remarks / Action Taken</label>
       <textarea id="tkModalRemarks" placeholder="e.g. Replacement dispatched on 15-Oct-2026"></textarea>
     </div>
-
     <div class="modal-btns">
       <button class="btn-cancel" onclick="closeTicketModal()">Cancel</button>
       <button class="btn-save" onclick="saveTicketChanges()">💾 Save Changes</button>
@@ -421,6 +455,7 @@ let ORDERS = [];
 let TICKETS = [];
 let FEEDBACK = [];
 let THREADS = {};
+let BROADCASTS = [];
 let selectedDealer = null;
 let selectedTicketId = null;
 let allThreadsListener = null;
@@ -443,7 +478,6 @@ function detectColumnMapping(headerName) {
   if (!headerName) return null;
   const h = String(headerName).trim().toLowerCase()
     .replace(/[_\-\.#\/\\]/g, ' ').replace(/\s+/g, ' ').trim();
-
   if ((h.includes('lr') || h.includes('docket') || h.includes('consignment') || h.includes('dkt')) &&
       (h.includes('date') || h === 'lr dt' || h.includes('lr dt'))) return 'lrDate';
   if ((h.includes('lr') || h.includes('transport') || h.includes('shipment')) &&
@@ -550,6 +584,10 @@ function setupListeners() {
     FEEDBACK = snap.docs.map(d => d.data());
     renderAnalytics();
   });
+  db.collection('broadcasts').orderBy('createdAt', 'desc').onSnapshot(snap => {
+    BROADCASTS = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+    renderBroadcasts();
+  });
   if (allThreadsListener) allThreadsListener();
   allThreadsListener = db.collection('threads').orderBy('timestamp', 'asc').onSnapshot(snap => {
     THREADS = {};
@@ -575,8 +613,62 @@ document.querySelectorAll('.nav-tab').forEach(tab => {
     if (tab.dataset.tab === 'analytics') renderAnalytics();
     if (tab.dataset.tab === 'records') renderRecords();
     if (tab.dataset.tab === 'tickets') renderTickets();
+    if (tab.dataset.tab === 'broadcast') renderBroadcasts();
   };
 });
+
+/* BROADCAST */
+async function sendBroadcast() {
+  const title = document.getElementById('bcTitle').value.trim();
+  const message = document.getElementById('bcMessage').value.trim();
+  if (!message) { alert('Please enter a message.'); return; }
+  if (!confirm('Send this broadcast to ALL dealers?')) return;
+
+  try {
+    await db.collection('broadcasts').add({
+      title: title,
+      message: message,
+      sentBy: sessionStorage.getItem('mg_admin') || 'admin',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      timestamp: Date.now()
+    });
+    document.getElementById('bcTitle').value = '';
+    document.getElementById('bcMessage').value = '';
+    showToast('✅ Broadcast sent to all dealers!');
+  } catch (e) {
+    alert('❌ Failed: ' + e.message);
+  }
+}
+
+async function deleteBroadcast(id) {
+  if (!confirm('Delete this broadcast? It will be removed for all dealers.')) return;
+  try {
+    await db.collection('broadcasts').doc(id).delete();
+    showToast('🗑️ Broadcast deleted.');
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+function renderBroadcasts() {
+  const el = document.getElementById('broadcastList');
+  if (!BROADCASTS.length) {
+    el.innerHTML = '<div class="empty">No broadcasts sent yet.</div>';
+    return;
+  }
+  el.innerHTML = BROADCASTS.map(b => `
+    <div class="broadcast-item">
+      <div class="bi-head">
+        <div>
+          ${b.title ? `<div class="bi-title">${b.title}</div>` : ''}
+          <div class="bi-msg">${b.message}</div>
+        </div>
+        <button class="bi-del" onclick="deleteBroadcast('${b._id}')">🗑️ Delete</button>
+      </div>
+      <div class="bi-meta">
+        Sent by: ${b.sentBy || 'admin'} • ${b.timestamp ? new Date(b.timestamp).toLocaleString('en-IN') : '-'}
+      </div>
+    </div>
+  `).join('');
+}
 
 /* SUPPORT CHAT */
 function renderThreads() {
@@ -665,9 +757,7 @@ document.getElementById('adminReplyInput')?.addEventListener('keydown', e => {
   if (e.key === 'Enter') sendAdminReply();
 });
 
-/* ============================================================
-   TICKET MANAGEMENT (NEW)
-   ============================================================ */
+/* TICKETS */
 function getStatusClass(status) {
   const s = String(status || '').toLowerCase();
   if (s.includes('open')) return 'open';
@@ -676,7 +766,6 @@ function getStatusClass(status) {
   if (s.includes('clos')) return 'closed';
   return 'open';
 }
-
 function updateTicketBadge() {
   const open = TICKETS.filter(t => {
     const s = String(t.ticketStatus || '').toLowerCase();
@@ -686,7 +775,6 @@ function updateTicketBadge() {
   if (open > 0) { badge.textContent = open; badge.style.display = 'inline-block'; }
   else { badge.style.display = 'none'; }
 }
-
 function renderTickets() {
   const open = TICKETS.filter(t => String(t.ticketStatus || '').toLowerCase().includes('open')).length;
   const inProgress = TICKETS.filter(t => String(t.ticketStatus || '').toLowerCase().includes('progress')).length;
@@ -713,21 +801,13 @@ function renderTickets() {
       String(t.partNumber || '').toLowerCase().includes(s) ||
       String(t.issueDescription || '').toLowerCase().includes(s);
   });
-
-  // Sort by latest first
-  filtered.sort((a, b) => {
-    const ta = a.createdAt?.seconds || 0;
-    const tb = b.createdAt?.seconds || 0;
-    return tb - ta;
-  });
+  filtered.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
 
   if (!filtered.length) { el.innerHTML = '<div class="empty">No tickets found.</div>'; return; }
-
   let html = `<table><thead><tr>
     <th>Ticket #</th><th>Dealer</th><th>Order</th><th>Part</th>
     <th>Issue</th><th>Status</th><th>Raised</th><th>Action</th>
   </tr></thead><tbody>`;
-
   filtered.forEach(t => {
     const cls = getStatusClass(t.ticketStatus);
     html += `<tr class="clickable" onclick="openTicketModal('${t._id}')">
@@ -744,79 +824,56 @@ function renderTickets() {
   html += '</tbody></table>';
   el.innerHTML = html;
 }
-
 document.getElementById('tkSearch')?.addEventListener('input', renderTickets);
 document.getElementById('tkStatusFilter')?.addEventListener('change', renderTickets);
 
-/* TICKET MODAL */
 function openTicketModal(id) {
   const t = TICKETS.find(x => x._id === id);
   if (!t) return;
   selectedTicketId = id;
-
   document.getElementById('tkModalTitle').textContent = '🎫 ' + (t.ticketNumber || 'Ticket');
   document.getElementById('tkModalSub').textContent = 'Raised on ' + (t.raisedDate || '-');
-
   const info = document.getElementById('tkModalInfo');
   info.innerHTML = `
-    <div class="info-row"><span class="lbl">Dealer Code</span><span class="val">${t.dealerCode || '-'}</span></div>
-    <div class="info-row"><span class="lbl">Order Number</span><span class="val">${t.orderNumber || '-'}</span></div>
-    <div class="info-row"><span class="lbl">Part Number</span><span class="val">${t.partNumber || '-'}</span></div>
-    <div class="info-row" style="display:block">
-      <div class="lbl" style="margin-bottom:6px">Issue Description</div>
-      <div class="val" style="font-weight:400;background:#f9fafc;padding:10px;border-radius:8px;font-size:12.5px;line-height:1.5">${t.issueDescription || '-'}</div>
+    <div class="info-row"><span style="color:#666">Dealer Code</span><span style="font-weight:700">${t.dealerCode || '-'}</span></div>
+    <div class="info-row"><span style="color:#666">Order Number</span><span style="font-weight:700">${t.orderNumber || '-'}</span></div>
+    <div class="info-row"><span style="color:#666">Part Number</span><span style="font-weight:700">${t.partNumber || '-'}</span></div>
+    <div style="margin-top:10px">
+      <div style="font-size:11.5px;color:#555;font-weight:600;margin-bottom:6px">ISSUE DESCRIPTION</div>
+      <div style="background:#f9fafc;padding:10px;border-radius:8px;font-size:12.5px;line-height:1.5">${t.issueDescription || '-'}</div>
     </div>
-    ${t.resolutionRemarks ? `<div class="info-row" style="display:block">
-      <div class="lbl" style="margin-bottom:6px">Previous Remarks</div>
-      <div class="val" style="font-weight:400;background:#ecfdf5;padding:10px;border-radius:8px;font-size:12.5px;line-height:1.5;color:#065f46">${t.resolutionRemarks}</div>
+    ${t.resolutionRemarks ? `<div style="margin-top:10px">
+      <div style="font-size:11.5px;color:#555;font-weight:600;margin-bottom:6px">PREVIOUS REMARKS</div>
+      <div style="background:#ecfdf5;padding:10px;border-radius:8px;font-size:12.5px;line-height:1.5;color:#065f46">${t.resolutionRemarks.replace(/\n/g,'<br>')}</div>
     </div>` : ''}
   `;
-
   document.getElementById('tkModalStatus').value = t.ticketStatus || 'Open';
   document.getElementById('tkModalRemarks').value = '';
-
   document.getElementById('ticketModal').classList.add('show');
 }
 function closeTicketModal() {
   document.getElementById('ticketModal').classList.remove('show');
   selectedTicketId = null;
 }
-
 async function saveTicketChanges() {
   if (!selectedTicketId) return;
   const newStatus = document.getElementById('tkModalStatus').value;
   const newRemarks = document.getElementById('tkModalRemarks').value.trim();
-
   const t = TICKETS.find(x => x._id === selectedTicketId);
   if (!t) return;
-
-  // Merge remarks with existing
   let finalRemarks = t.resolutionRemarks || '';
   if (newRemarks) {
     const stamp = todayStamp();
     finalRemarks = finalRemarks ? finalRemarks + '\n---\n[' + stamp + '] ' + newRemarks : '[' + stamp + '] ' + newRemarks;
   }
-
-  const update = {
-    ticketStatus: newStatus,
-    resolutionRemarks: finalRemarks
-  };
-  if (newStatus === 'Closed' || newStatus === 'Resolved') {
-    update.closedDate = todayStamp();
-  }
-
-  const btn = event?.target;
-  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
-
+  const update = { ticketStatus: newStatus, resolutionRemarks: finalRemarks };
+  if (newStatus === 'Closed' || newStatus === 'Resolved') update.closedDate = todayStamp();
   try {
     await db.collection('tickets').doc(selectedTicketId).update(update);
     showToast('✅ Ticket updated!');
     closeTicketModal();
     renderTickets();
-  } catch (e) {
-    alert('❌ Failed: ' + e.message);
-  }
-  if (btn) { btn.disabled = false; btn.textContent = '💾 Save Changes'; }
+  } catch (e) { alert('❌ Failed: ' + e.message); }
 }
 
 /* UPLOAD */
@@ -844,7 +901,6 @@ function handleFile(file) {
   };
   reader.readAsArrayBuffer(file);
 }
-
 function validateRows(raw) {
   const rows = []; const errors = []; const seen = new Set();
   const detectedMap = {};
@@ -872,7 +928,6 @@ function validateRows(raw) {
   });
   return { rows, errors, detectedMap };
 }
-
 function renderPreview(result, fileName) {
   const { rows, errors, detectedMap } = result;
   document.getElementById('previewCard').style.display = 'block';
@@ -900,7 +955,6 @@ function renderPreview(result, fileName) {
     document.getElementById('fileInput').value = '';
   };
 }
-
 async function publishData(rows, errors, fileName) {
   if (!rows.length) { alert('No valid rows.'); return; }
   const btn = document.getElementById('publishBtn');
@@ -927,7 +981,6 @@ async function publishData(rows, errors, fileName) {
   } catch (e) { alert('❌ Failed: ' + e.message); }
   btn.disabled = false; btn.textContent = '✅ Publish to Firestore';
 }
-
 async function clearAllData() {
   if (!confirm('All orders will be deleted from Firestore. Continue?')) return;
   try {
@@ -941,7 +994,6 @@ async function clearAllData() {
     alert('✅ All orders deleted.');
   } catch (e) { alert('Error: ' + e.message); }
 }
-
 function downloadTemplate() {
   const sample = [
     { 'Dealer Code':'MGDL001','Dealer Name':'ABC Motors Pvt Ltd','Order Number':'7400076565',
