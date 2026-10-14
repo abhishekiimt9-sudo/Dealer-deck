@@ -243,7 +243,7 @@
       <div class="card">
         <h3>📤 Upload Excel / CSV File</h3>
         <p style="font-size:12.5px;color:#666;margin-bottom:14px">
-          ✅ <strong>Smart Column Detection:</strong> Column names kuch bhi ho (Invoice No, Inv #, LR No, Docket No) — chatbot automatic detect kar lega.
+          ✅ <strong>Smart Column Detection:</strong> Column names kuch bhi ho (Invoice No, Inv #, LR No, Docket No, LR Date, LR Mode) — chatbot automatic detect kar lega.
         </p>
         <div class="upload-zone" id="uploadZone">
           <div class="icon">📤</div>
@@ -288,15 +288,17 @@
       <div class="card">
         <h3>📦 Orders Management</h3>
         <div class="dealer-filter">
-          <input id="recSearch" type="text" placeholder="Search order / part / dealer..." style="flex:1;min-width:200px" />
+          <input id="recSearch" type="text" placeholder="Search order / part / dealer / invoice / LR..." style="flex:1;min-width:200px" />
           <select id="recStatusFilter">
             <option value="">All Statuses</option>
             <option>Pending Dispatch</option>
+            <option>Dispatched</option>
             <option>Fully Dispatched</option>
             <option>Partially Dispatched</option>
             <option>In Transit</option>
             <option>Delivered</option>
             <option>On Hold</option>
+            <option>Back Order</option>
             <option>Processing</option>
           </select>
         </div>
@@ -356,90 +358,97 @@ function showToast(msg) {
 }
 
 /* ============================================================
-   SMART COLUMN DETECTION  ⭐ NEW
+   SMART COLUMN DETECTION
    ============================================================ */
 function detectColumnMapping(headerName) {
   if (!headerName) return null;
-  // Normalize: lowercase, replace special chars with space, collapse spaces
   const h = String(headerName).trim().toLowerCase()
     .replace(/[_\-\.#\/\\]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
-  // Invoice — check first (specific)
-  if (h.includes('invoice') || h.includes('inv no') || h.includes('inv #') || h.includes('bill no')) return 'invoiceNumber';
+  // ── LR DATE (before generic LR) ──
+  if ((h.includes('lr') || h.includes('docket') || h.includes('consignment') || h.includes('dkt')) &&
+      (h.includes('date') || h === 'lr dt' || h.includes('lr dt'))) return 'lrDate';
 
-  // LR / Docket / Consignment
+  // ── LR MODE ──
+  if ((h.includes('lr') || h.includes('transport') || h.includes('shipment')) &&
+      (h.includes('mode') || h.includes('type'))) return 'lrMode';
+
+  // ── INVOICE ──
+  if (h.includes('invoice') || h.includes('inv no') || h.includes('inv #') ||
+      h.includes('bill no') || h.includes('gst invoice') || h.includes('gst bill')) return 'invoiceNumber';
+
+  // ── LR / DOCKET ──
   if (h.includes('lr no') || h.includes('lr #') || h === 'lr' ||
       h.includes('docket') || h.includes('dkt') ||
       h.includes('consignment') || h.includes('cn no')) return 'docketLR';
 
-  // Transporter
+  // ── TRANSPORTER ──
   if (h.includes('transporter') || h.includes('courier') || h.includes('logistics') ||
       h.includes('carrier') || h.includes('transport')) return 'transporter';
 
-  // Dispatch date (before generic dispatch)
-  if (h.includes('dispatch') && h.includes('date')) return 'dispatchDate';
-  if (h.includes('dispatch') && (h.includes('qty') || h.includes('quantity') || h.includes('q'))) return 'dispatchedQty';
+  // ── DISPATCH DATE ──
+  if (h.includes('dispatch') && (h.includes('date') || h.includes('dt'))) return 'dispatchDate';
+  if (h.includes('dispatch') && (h.includes('qty') || h.includes('quantity') || h === 'dispatch')) return 'dispatchedQty';
 
-  // Order Type
+  // ── ORDER TYPE ──
   if (h.includes('order') && h.includes('type')) return 'orderType';
   if (h === 'type' || h === 'order type') return 'orderType';
 
-  // Order Number
+  // ── ORDER NUMBER ──
   if (h.includes('order') && (h.includes('no') || h.includes('num') || h.includes('id') || h.includes('#'))) return 'orderNumber';
   if (h === 'order' || h === 'order no' || h === 'order number') return 'orderNumber';
 
-  // Order Date
-  if (h.includes('order') && h.includes('date')) return 'orderDate';
+  // ── ORDER DATE ──
+  if (h.includes('order') && (h.includes('date') || h.includes('dt'))) return 'orderDate';
   if (h === 'date' || h === 'order date') return 'orderDate';
 
-  // Part Number
+  // ── PART NUMBER ──
   if ((h.includes('part') || h.includes('item') || h.includes('material') || h.includes('sku') || h.includes('product')) &&
       (h.includes('no') || h.includes('num') || h.includes('code') || h.includes('id') || h.includes('#'))) return 'partNumber';
   if (h === 'part' || h === 'part no' || h === 'part number' || h === 'partno' || h === 'item code') return 'partNumber';
 
-  // Part Description
+  // ── PART DESCRIPTION ──
   if (h.includes('part') && (h.includes('desc') || h.includes('name'))) return 'partDescription';
   if (h.includes('description') || h.includes('item name') || h.includes('product name')) return 'partDescription';
 
-  // Dispatched Qty (generic)
+  // ── DISPATCHED QTY ──
   if (h.includes('dispatch')) return 'dispatchedQty';
 
-  // Pending Qty
+  // ── PENDING QTY ──
   if ((h.includes('pending') || h.includes('balance') || h.includes('outstanding')) &&
       (h.includes('qty') || h.includes('quantity'))) return 'pendingQty';
 
-  // Ordered Qty
-  if ((h.includes('order') || h.includes('qty') || h.includes('quantity')) &&
-      !h.includes('dispatch') && !h.includes('pending')) {
-    if (h.includes('qty') || h.includes('quantity')) return 'orderedQty';
-  }
+  // ── ORDERED QTY ──
+  if ((h.includes('ordered') || h.includes('order qty')) &&
+      (h.includes('qty') || h.includes('quantity'))) return 'orderedQty';
+  if (h === 'qty' || h === 'quantity' || h.includes('ordered quantity')) return 'orderedQty';
 
-  // Stock
+  // ── STOCK ──
   if (h.includes('stock') || h.includes('availability')) return 'stockAvailability';
 
-  // ETA
+  // ── ETA ──
   if (h.includes('eta') || h.includes('expected') || h.includes('tentative') ||
       (h.includes('delivery') && h.includes('date')) || h.includes('exp date')) return 'eta';
 
-  // Hold Reason
+  // ── HOLD REASON ──
   if (h.includes('hold') || h.includes('reason') || h.includes('remark')) return 'holdReason';
 
-  // Dealer Code
+  // ── DEALER CODE ──
   if ((h.includes('dealer') || h.includes('party') || h.includes('customer')) &&
       (h.includes('code') || h.includes('id') || h.includes('no') || h.includes('#'))) return 'dealerCode';
   if (h === 'dealer' || h === 'dealer code' || h === 'party code') return 'dealerCode';
 
-  // Dealer Name
+  // ── DEALER NAME ──
   if ((h.includes('dealer') || h.includes('party') || h.includes('customer')) &&
       (h.includes('name') || h === 'dealer name')) return 'dealerName';
   if (h === 'dealer name' || h === 'party name') return 'dealerName';
 
-  // Last Updated
+  // ── LAST UPDATED ──
   if (h.includes('last') && h.includes('update')) return 'lastUpdated';
 
-  // Ticket
+  // ── TICKET ──
   if (h.includes('ticket') && (h.includes('no') || h.includes('num') || h.includes('#'))) return 'ticketNumber';
   if (h.includes('ticket') && h.includes('status')) return 'ticketStatus';
 
@@ -637,7 +646,7 @@ document.getElementById('adminReplyInput')?.addEventListener('keydown', e => {
 });
 
 /* ============================================================
-   UPLOAD — SMART DETECTION
+   UPLOAD
    ============================================================ */
 document.getElementById('uploadZone').onclick = () => document.getElementById('fileInput').click();
 const zone = document.getElementById('uploadZone');
@@ -688,10 +697,6 @@ function validateRows(raw) {
     obj.dispatchedQty = Number(obj.dispatchedQty) || 0;
     obj.pendingQty = Number(obj.pendingQty) || (obj.orderedQty - obj.dispatchedQty);
     if (obj.dispatchedQty > obj.orderedQty) { errors.push({ row: rowNum, reason: 'Dispatched > Ordered' }); return; }
-    if (obj.dispatchedQty > 0 && !obj.docketLR && !obj.transporter) {
-      // Allow if either is present, only reject if both missing AND qty>0
-      errors.push({ row: rowNum, reason: 'Dispatched but no LR/Transporter' }); return;
-    }
     if (obj.orderStatus === 'On Hold' && !obj.holdReason) {
       errors.push({ row: rowNum, reason: 'On Hold but no reason' }); return;
     }
@@ -708,7 +713,6 @@ function renderPreview(result, fileName) {
   document.getElementById('statValid').textContent = rows.length;
   document.getElementById('statRejected').textContent = errors.length;
 
-  // Show detected columns
   const colEl = document.getElementById('detectedColumns');
   if (Object.keys(detectedMap).length) {
     const pairs = Object.entries(detectedMap).map(([orig, mapped]) =>
@@ -721,7 +725,7 @@ function renderPreview(result, fileName) {
     colEl.style.display = 'none';
   }
 
-  const cols = ['dealerCode','dealerName','orderNumber','partNumber','orderStatus','invoiceNumber','docketLR','eta'];
+  const cols = ['dealerCode','dealerName','orderNumber','partNumber','orderStatus','invoiceNumber','docketLR','lrDate','lrMode','eta'];
   let html = '<table><thead><tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
   rows.forEach(o => { html += '<tr>' + cols.map(c => `<td>${o[c] ?? ''}</td>`).join('') + '</tr>'; });
   errors.forEach(e => { html += `<tr class="bad"><td colspan="${cols.length}">Row ${e.row}: ${e.reason}</td></tr>`; });
@@ -779,12 +783,13 @@ async function clearAllData() {
 
 function downloadTemplate() {
   const sample = [
-    { 'Dealer Code':'MGDL001','Dealer Name':'ABC Motors Pvt Ltd','Order Number':'ORD100001',
-      'Order Type':'VOR','Order Date':'10-Oct-2026','Part Number':'MG-P-11111',
-      'Part Description':'Brake Pad Front','Ordered Quantity':5,'Dispatched Quantity':0,
-      'Pending Quantity':5,'Order Status':'Pending Dispatch','Stock Availability':'Available',
-      'Tentative ETA':'20-Oct-2026','Dispatch Date':'','Invoice Number':'INV-2026-001',
-      'LR Number':'LR555111','Transporter Name':'DTDC','Order Hold Reason':'' }
+    { 'Dealer Code':'MGDL001','Dealer Name':'ABC Motors Pvt Ltd','Order Number':'7400076565',
+      'Order Type':'ZSTK','Order Date':'14-Oct-2026','Part Number':'A4000331',
+      'Part Description':'DOOR EDGE GUARD','Ordered Quantity':20,'Dispatched Quantity':20,
+      'Pending Quantity':0,'Order Status':'Dispatched','Stock Availability':'Available',
+      'Tentative ETA':'','Dispatch Date':'14-Oct-2026','GST Invoice Number':'GST-2026-001',
+      'LR / Docket Number':'104002265625','LR Date':'14-Oct-2026','LR Mode':'Road',
+      'Transporter Name':'TCI Express','Order Hold Reason':'','Last Updated':'14-Oct-2026 21:47' }
   ];
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(sample);
@@ -798,9 +803,9 @@ function downloadTemplate() {
 function renderAnalytics() {
   const el = document.getElementById('analyticsBody');
   const total = ORDERS.filter(o => o.orderNumber).length;
-  const delivered = ORDERS.filter(o => o.orderStatus === 'Delivered').length;
+  const delivered = ORDERS.filter(o => (o.orderStatus || '').toLowerCase().includes('deliver')).length;
   const pending = ORDERS.filter(o => o.pendingQty > 0).length;
-  const onHold = ORDERS.filter(o => o.orderStatus === 'On Hold').length;
+  const onHold = ORDERS.filter(o => (o.orderStatus || '').toLowerCase().includes('hold')).length;
   const statuses = {};
   ORDERS.filter(o => o.orderStatus).forEach(o => { statuses[o.orderStatus] = (statuses[o.orderStatus] || 0) + 1; });
   const statusEntries = Object.entries(statuses).sort((a,b) => b[1] - a[1]);
@@ -833,7 +838,7 @@ function renderAnalytics() {
         const pct = Math.round((c / maxStatus) * 100);
         let cls = '';
         if (s.includes('Deliver')) cls = 'green';
-        else if (s.includes('Hold')) cls = 'red';
+        else if (s.includes('Hold') || s.includes('Back')) cls = 'red';
         else if (s.includes('Dispatch') || s.includes('Transit')) cls = 'blue';
         else cls = 'yellow';
         return `<div class="bar-row"><div class="bar-label">${s}</div>
@@ -891,7 +896,7 @@ function renderRecords() {
       String(o.docketLR || '').toLowerCase().includes(s);
   });
   if (!filtered.length) { el.innerHTML = '<div class="empty">No records.</div>'; return; }
-  const cols = ['dealerCode','dealerName','orderNumber','orderType','partNumber','orderStatus','orderedQty','dispatchedQty','pendingQty','invoiceNumber','docketLR','eta'];
+  const cols = ['dealerCode','dealerName','orderNumber','orderType','partNumber','orderStatus','orderedQty','dispatchedQty','pendingQty','invoiceNumber','docketLR','lrDate','lrMode','eta'];
   let html = '<table><thead><tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
   filtered.slice(0, 200).forEach(o => { html += '<tr>' + cols.map(c => `<td>${o[c] ?? ''}</td>`).join('') + '</tr>'; });
   html += '</tbody></table>';
