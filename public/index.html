@@ -142,6 +142,22 @@
   .badge-transit { background: #e0e7ff; color: #3730a3; }
   .badge-delivered { background: #d1fae5; color: #065f46; }
   .badge-hold { background: #fee2e2; color: #991b1b; }
+
+  .dealer-option {
+    border: 1.5px solid #e5e7ef; border-radius: 12px; padding: 14px 16px;
+    margin-bottom: 10px; cursor: pointer; transition: 0.15s; background: #fafbff;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .dealer-option:hover { border-color: #b3001b; background: #fff5f6; transform: translateY(-1px); }
+  .dealer-avatar {
+    width: 42px; height: 42px; border-radius: 50%; background: #b3001b;
+    color: #fff; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 16px; flex-shrink: 0;
+  }
+  .dealer-info { flex: 1; }
+  .dealer-info .d-name { font-size: 13.5px; font-weight: 700; color: #333; }
+  .dealer-info .d-code { font-size: 11px; color: #888; margin-top: 2px; }
+  .dealer-info .d-count { font-size: 10.5px; color: #16a34a; margin-top: 2px; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -198,13 +214,12 @@ const I18N = {
     hoursOpen: 'Support Team Available: 9:00 AM - 7:00 PM (Mon-Sat)',
     hoursClosed: 'Support Team Offline. Bot available 24x7.',
     inputPlaceholder: 'Type your message...',
-    silentText: 'Your request has been sent to the Dealer Support Team. You can continue typing below.',
+    silentText: 'Your request has been sent to the Dealer Support Team.',
     welcome: 'Welcome to MG Parts & Order Support.',
-    enterCode: 'Please enter your Dealer Code to continue.',
-    demoCodes: 'Demo codes: MGDL001, MGDL002',
+    enterCode: 'Please select your Dealership to continue.',
     verified: 'Verified', howCanHelp: 'How can I help you today?',
     notFound: 'Dealer code not found. Please verify and try again.',
-    loggedOut: 'Logged out successfully. Please enter your Dealer Code.',
+    loggedOut: 'Logged out successfully.',
     chips: {
       myOrders: 'My Orders', orderStatus: 'Order Status', raiseTicket: 'Raise Ticket',
       trackTicket: 'Track Ticket', faq: 'FAQ', otherQuery: 'Other Query',
@@ -238,11 +253,10 @@ const I18N = {
     inputPlaceholder: 'अपना संदेश लिखें...',
     silentText: 'आपका अनुरोध डीलर सपोर्ट टीम को भेज दिया गया है।',
     welcome: 'MG पार्ट्स और ऑर्डर सपोर्ट में आपका स्वागत है।',
-    enterCode: 'कृपया अपना डीलर कोड दर्ज करें।',
-    demoCodes: 'डेमो कोड: MGDL001, MGDL002',
+    enterCode: 'कृपया अपना डीलरशिप चुनें।',
     verified: 'सत्यापित', howCanHelp: 'मैं आपकी कैसे सहायता कर सकता हूँ?',
     notFound: 'डीलर कोड नहीं मिला। कृपया जाँचें।',
-    loggedOut: 'सफलतापूर्वक लॉग आउट। कृपया अपना डीलर कोड दर्ज करें।',
+    loggedOut: 'सफलतापूर्वक लॉग आउट।',
     chips: {
       myOrders: 'मेरे ऑर्डर', orderStatus: 'ऑर्डर स्थिति', raiseTicket: 'टिकट बनाएं',
       trackTicket: 'टिकट ट्रैक करें', faq: 'सामान्य प्रश्न', otherQuery: 'अन्य प्रश्न',
@@ -286,28 +300,28 @@ const STORAGE_KEY = 'mg_orders_data';
 const LOG_KEY = 'mg_upload_log';
 const TICKETS_KEY = 'mg_support_tickets';
 const FEEDBACK_KEY = 'mg_feedback';
-const THREADS_KEY = 'mg_support_threads';   // ⭐ NEW
+const THREADS_KEY = 'mg_support_threads';
 
 const DEMO_ORDERS = [
-  { orderNumber:"ORD123456", dealerCode:"MGDL001", dealerName:"ABC Motors Pvt Ltd",
+  { dealerCode:"MGDL001", dealerName:"ABC Motors Pvt Ltd", orderNumber:"ORD123456",
     orderType:"VOR", orderDate:"01-Oct-2026", partNumber:"MG-P-45678",
     partDescription:"Brake Pad Front", orderedQty:2, dispatchedQty:0, pendingQty:2,
     orderStatus:"Pending Dispatch", stockAvailability:"Available", eta:"15-Oct-2026",
     dispatchDate:"", docketLR:"", transporter:"", holdReason:"",
     lastUpdated:"13-Oct-2026 14:30", ticketNumber:"TKT-2026-001", ticketStatus:"Open" },
-  { orderNumber:"ORD123457", dealerCode:"MGDL001", dealerName:"ABC Motors Pvt Ltd",
+  { dealerCode:"MGDL001", dealerName:"ABC Motors Pvt Ltd", orderNumber:"ORD123457",
     orderType:"Stock Order", orderDate:"05-Oct-2026", partNumber:"MG-P-99001",
     partDescription:"Air Filter", orderedQty:10, dispatchedQty:10, pendingQty:0,
     orderStatus:"Fully Dispatched", stockAvailability:"Available", eta:"12-Oct-2026",
     dispatchDate:"10-Oct-2026", docketLR:"LR987654", transporter:"BlueDart Logistics",
     holdReason:"", lastUpdated:"13-Oct-2026 14:30", ticketNumber:"", ticketStatus:"" },
-  { orderNumber:"ORD123458", dealerCode:"MGDL001", dealerName:"ABC Motors Pvt Ltd",
+  { dealerCode:"MGDL001", dealerName:"ABC Motors Pvt Ltd", orderNumber:"ORD123458",
     orderType:"Back Order", orderDate:"08-Oct-2026", partNumber:"MG-P-77777",
     partDescription:"Clutch Plate", orderedQty:3, dispatchedQty:0, pendingQty:3,
     orderStatus:"On Hold", stockAvailability:"Not Available", eta:"",
     dispatchDate:"", docketLR:"", transporter:"", holdReason:"Stock Unavailability",
     lastUpdated:"13-Oct-2026 14:30", ticketNumber:"", ticketStatus:"" },
-  { orderNumber:"ORD900001", dealerCode:"MGDL002", dealerName:"XYZ Auto Parts",
+  { dealerCode:"MGDL002", dealerName:"XYZ Auto Parts", orderNumber:"ORD900001",
     orderType:"VOR", orderDate:"02-Oct-2026", partNumber:"MG-P-11111",
     partDescription:"Headlight Assembly", orderedQty:1, dispatchedQty:1, pendingQty:0,
     orderStatus:"Fully Dispatched", stockAvailability:"Available", eta:"11-Oct-2026",
@@ -333,7 +347,7 @@ function saveData() {
 }
 
 /* ============================================================
-   SUPPORT THREAD HELPERS  ⭐ NEW
+   SUPPORT THREAD HELPERS
    ============================================================ */
 function getThreads() {
   return JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
@@ -368,8 +382,8 @@ function addThreadMessage(dealerCode, from, text, dealerName) {
   });
   threads[dealerCode].lastUpdate = todayStamp();
   threads[dealerCode].status = 'open';
-  if (from === 'dealer') threads[dealerCode].unreadByAdmin++;
-  if (from === 'admin') threads[dealerCode].unreadByDealer++;
+  if (from === 'dealer') threads[dealerCode].unreadByAdmin = (threads[dealerCode].unreadByAdmin || 0) + 1;
+  if (from === 'admin') threads[dealerCode].unreadByDealer = (threads[dealerCode].unreadByDealer || 0) + 1;
   saveThreads(threads);
 }
 
@@ -398,6 +412,107 @@ function applyLanguage() {
   document.getElementById('silentText').textContent = t('silentText');
   updateHoursBar();
   document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === LANG));
+}
+
+/* ============================================================
+   DEALER SELECTION POPUP
+   ============================================================ */
+function getUniqueDealers() {
+  const map = {};
+  ORDERS.forEach(o => {
+    const code = o.dealerCode;
+    const name = o.dealerName || code;
+    if (!code) return;
+    if (!map[code]) {
+      map[code] = { code, name, orderCount: 0 };
+    }
+    if (o.orderNumber) map[code].orderCount++;
+  });
+  return Object.values(map).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function openDealerSelectModal() {
+  const modalOverlay = document.getElementById('modalOverlay');
+  const modalIcon = document.getElementById('modalIcon');
+  const modalTitle = document.getElementById('modalTitle');
+  const modalSubtitle = document.getElementById('modalSubtitle');
+  const modalInput = document.getElementById('modalInput');
+  const modalTextarea = document.getElementById('modalTextarea');
+  const modalDynamic = document.getElementById('modalDynamic');
+  const modalLabel = document.getElementById('modalLabel');
+  const modalBtns = document.getElementById('modalBtns');
+
+  modalIcon.textContent = '\uD83C\uDFE2';
+  modalTitle.textContent = LANG === 'hi' ? 'अपना डीलरशिप चुनें' : 'Select Your Dealership';
+  modalSubtitle.textContent = LANG === 'hi'
+    ? 'नीचे से अपना डीलर चुनें'
+    : 'Choose your dealership from the list below';
+
+  modalInput.style.display = 'none';
+  modalTextarea.style.display = 'none';
+  modalLabel.style.display = 'none';
+  modalBtns.style.display = 'none';
+  modalDynamic.style.display = 'block';
+
+  const dealers = getUniqueDealers();
+
+  if (!dealers.length) {
+    modalDynamic.innerHTML = `
+      <div style="text-align:center;padding:20px;color:#999;font-size:13px">
+        No dealerships available.<br>Please contact admin.
+      </div>`;
+    modalOverlay.classList.add('show');
+    return;
+  }
+
+  modalDynamic.innerHTML = dealers.map(d => `
+    <div class="dealer-option" data-code="${d.code}" data-name="${d.name}">
+      <div class="dealer-avatar">${d.name.charAt(0).toUpperCase()}</div>
+      <div class="dealer-info">
+        <div class="d-name">${d.name}</div>
+        <div class="d-code">${d.code}</div>
+        <div class="d-count">${d.orderCount} order${d.orderCount !== 1 ? 's' : ''}</div>
+      </div>
+    </div>
+  `).join('');
+
+  modalOverlay.classList.add('show');
+
+  setTimeout(() => {
+    document.querySelectorAll('.dealer-option').forEach(el => {
+      el.onclick = () => {
+        const code = el.dataset.code;
+        const name = el.dataset.name;
+        closeModal();
+        loginDealer(code, name);
+      };
+    });
+  }, 50);
+}
+
+function loginDealer(dealerCode, dealerName) {
+  clearChat();
+  authState.dealerCode = dealerCode;
+  authState.dealerName = dealerName;
+
+  const myO = ORDERS.filter(o => String(o.dealerCode).toUpperCase() === dealerCode.toUpperCase() && o.orderNumber);
+  const pend = myO.filter(o => o.pendingQty > 0).length;
+  const hold = myO.filter(o => o.orderStatus === 'On Hold').length;
+
+  const isHi = LANG === 'hi';
+  let wmsg = `✅ ${t('verified')}: <strong>${dealerName}</strong> (${dealerCode}).<br><br>`;
+  if (isHi) {
+    wmsg += `आपके <strong>${myO.length}</strong> ऑर्डर हैं।<br>`;
+    if (pend) wmsg += `&bull; <strong>${pend}</strong> डिस्पैच बाकी<br>`;
+    if (hold) wmsg += `&bull; <strong>${hold}</strong> होल्ड पर<br>`;
+  } else {
+    wmsg += `You have <strong>${myO.length}</strong> order(s).<br>`;
+    if (pend) wmsg += `&bull; <strong>${pend}</strong> pending dispatch<br>`;
+    if (hold) wmsg += `&bull; <strong>${hold}</strong> on hold<br>`;
+  }
+  wmsg += `<br>${t('howCanHelp')}`;
+  botReply(wmsg);
+  renderMainChips();
 }
 
 /* ============================================================
@@ -479,14 +594,14 @@ function openModal(type) {
     modalIcon.textContent = '\uD83D\uDCE6';
     modalTitle.textContent = m.myOrdersTitle; modalSubtitle.textContent = m.myOrdersSub;
     modalDynamic.style.display = 'block';
-    const myO = ORDERS.filter(o => String(o.dealerCode).toUpperCase() === String(authState.dealerCode).toUpperCase());
+    const myO = ORDERS.filter(o => String(o.dealerCode).toUpperCase() === String(authState.dealerCode).toUpperCase() && o.orderNumber);
     modalDynamic.innerHTML = myO.length ? myO.map(o => `
       <div class="order-list-item" data-order="${o.orderNumber}">
         <div class="order-num">${o.orderNumber}
-          <span class="order-status-badge ${getStatusBadge(o.orderStatus)}">${o.orderStatus}</span>
+          <span class="order-status-badge ${getStatusBadge(o.orderStatus)}">${o.orderStatus || 'N/A'}</span>
         </div>
-        <div class="order-info">${o.partNumber} - ${o.partDescription}</div>
-        <div class="order-info">${o.orderType} &bull; Qty: ${o.orderedQty}</div>
+        <div class="order-info">${o.partNumber || '-'} - ${o.partDescription || '-'}</div>
+        <div class="order-info">${o.orderType || '-'} &bull; Qty: ${o.orderedQty || 0}</div>
       </div>`).join('') : '<div style="text-align:center;color:#999;padding:20px;font-size:12.5px">-</div>';
     modalLabel.style.display = 'none'; modalBtns.style.display = 'none';
     setTimeout(() => document.querySelectorAll('.order-list-item').forEach(e =>
@@ -509,7 +624,9 @@ function closeModal() {
   modalInput.value = ''; modalTextarea.value = '';
 }
 modalCancel.onclick = closeModal;
-modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
+modalOverlay.addEventListener('click', e => {
+  if (e.target === modalOverlay && currentModalType !== 'dealer-select') closeModal();
+});
 modalInput.addEventListener('keydown', e => { if (e.key === 'Enter') modalSubmit.click(); });
 modalTextarea.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); modalSubmit.click(); } });
 
@@ -549,7 +666,7 @@ const silentBanner = document.getElementById('silentBanner');
 
 let authState = { dealerCode: null, dealerName: null, lastOrderContext: null,
   silentMode: false, supportRequested: false };
-let adminMsgSeen = {};   // ⭐ Per-dealer tracking of admin messages already shown
+let adminMsgSeen = {};
 
 function addMsg(text, who = "bot", showTime = true, isAdmin = false) {
   const w = document.createElement('div');
@@ -593,13 +710,13 @@ function orderCard(o) {
     <strong>${L('Order Details','ऑर्डर विवरण')} - ${o.orderNumber}</strong>
     ${getProgressBar(o.orderStatus)}
     <table>
-      <tr><td>${L('Order Type','ऑर्डर प्रकार')}</td><td>${o.orderType}</td></tr>
-      <tr><td>${L('Part Number','पार्ट नंबर')}</td><td>${o.partNumber}</td></tr>
-      <tr><td>${L('Part Description','पार्ट विवरण')}</td><td>${o.partDescription}</td></tr>
-      <tr><td>${L('Order Status','ऑर्डर स्थिति')}</td><td>${o.orderStatus}</td></tr>
-      <tr><td>${L('Ordered Qty','ऑर्डर मात्रा')}</td><td>${o.orderedQty}</td></tr>
-      <tr><td>${L('Dispatched Qty','डिस्पैच मात्रा')}</td><td>${o.dispatchedQty}</td></tr>
-      <tr><td>${L('Pending Qty','बाकी मात्रा')}</td><td>${o.pendingQty}</td></tr>
+      <tr><td>${L('Order Type','ऑर्डर प्रकार')}</td><td>${o.orderType || '-'}</td></tr>
+      <tr><td>${L('Part Number','पार्ट नंबर')}</td><td>${o.partNumber || '-'}</td></tr>
+      <tr><td>${L('Part Description','पार्ट विवरण')}</td><td>${o.partDescription || '-'}</td></tr>
+      <tr><td>${L('Order Status','ऑर्डर स्थिति')}</td><td>${o.orderStatus || '-'}</td></tr>
+      <tr><td>${L('Ordered Qty','ऑर्डर मात्रा')}</td><td>${o.orderedQty || 0}</td></tr>
+      <tr><td>${L('Dispatched Qty','डिस्पैच मात्रा')}</td><td>${o.dispatchedQty || 0}</td></tr>
+      <tr><td>${L('Pending Qty','बाकी मात्रा')}</td><td>${o.pendingQty || 0}</td></tr>
       <tr><td>${L('Stock','स्टॉक')}</td><td>${o.stockAvailability || '-'}</td></tr>
       <tr><td>${L('Tentative ETA','अनुमानित ETA')}</td><td>${o.eta || L('Currently not available','अभी उपलब्ध नहीं')}</td></tr>
       ${o.dispatchDate ? `<tr><td>${L('Dispatch Date','डिस्पैच दिनांक')}</td><td>${o.dispatchDate}</td></tr>` : ''}
@@ -637,25 +754,19 @@ function attachFeedbackHandlers() {
 
 function findOrders(q) {
   const s = q.trim().toUpperCase();
-  return ORDERS.filter(o =>
-    String(o.orderNumber).toUpperCase() === s ||
-    String(o.partNumber).toUpperCase() === s ||
-    String(o.dealerCode).toUpperCase() === s);
+  return ORDERS.filter(o => o.orderNumber &&
+    (String(o.orderNumber).toUpperCase() === s ||
+     String(o.partNumber || '').toUpperCase() === s ||
+     String(o.dealerCode).toUpperCase() === s));
 }
 
-/* ============================================================
-   SUPPORT TEAM REQUEST  ⭐ UPDATED
-   ============================================================ */
 function requestSupportTeam() {
   if (authState.supportRequested) return;
   authState.supportRequested = true;
   authState.silentMode = true;
-
-  // Create/open thread
   ensureThread(authState.dealerCode, authState.dealerName);
   addThreadMessage(authState.dealerCode, 'dealer',
     'REQUEST: Talk to Dealer Support Team', authState.dealerName);
-
   const isHi = LANG === 'hi';
   if (isWorkingHours()) {
     addMsg(isHi
@@ -670,13 +781,9 @@ function requestSupportTeam() {
   chips.innerHTML = '';
 }
 
-/* ============================================================
-   HANDLE MESSAGE  ⭐ UPDATED for silent mode
-   ============================================================ */
 function handleMessage(text) {
   addMsg(text, 'user');
 
-  // If silent mode is on → save message to thread, no bot reply
   if (authState.silentMode) {
     if (authState.dealerCode) {
       addThreadMessage(authState.dealerCode, 'dealer', text, authState.dealerName);
@@ -691,39 +798,29 @@ function handleMessage(text) {
     requestSupportTeam(); return;
   }
   if (/^(hi|hello|hey|namaste|नमस्ते)/.test(msg)) {
-    botReply(`${t('welcome')}<br><br>${t('enterCode')}`); return;
+    botReply(`${t('welcome')}<br><br>${t('enterCode')}`);
+    openDealerSelectModal();
+    return;
   }
 
   if (!authState.dealerCode) {
     const code = text.trim().toUpperCase();
     const exists = ORDERS.some(o => String(o.dealerCode).toUpperCase() === code);
     if (exists) {
-      clearChat();
-      authState.dealerCode = code;
       const dealer = ORDERS.find(o => String(o.dealerCode).toUpperCase() === code);
-      authState.dealerName = dealer.dealerName;
-      const myO = ORDERS.filter(o => String(o.dealerCode).toUpperCase() === code);
-      const pend = myO.filter(o => o.pendingQty > 0).length;
-      const hold = myO.filter(o => o.orderStatus === 'On Hold').length;
-      let wmsg = `${t('verified')}: <strong>${dealer.dealerName}</strong> (${code}).<br><br>`;
-      if (isHi) {
-        wmsg += `आपके <strong>${myO.length}</strong> ऑर्डर हैं।<br>`;
-        if (pend) wmsg += `&bull; <strong>${pend}</strong> डिस्पैच बाकी<br>`;
-        if (hold) wmsg += `&bull; <strong>${hold}</strong> होल्ड पर<br>`;
-      } else {
-        wmsg += `You have <strong>${myO.length}</strong> order(s).<br>`;
-        if (pend) wmsg += `&bull; <strong>${pend}</strong> pending dispatch<br>`;
-        if (hold) wmsg += `&bull; <strong>${hold}</strong> on hold<br>`;
-      }
-      wmsg += `<br>${t('howCanHelp')}`;
-      botReply(wmsg); renderMainChips();
-    } else { botReply(t('notFound')); }
+      loginDealer(dealer.dealerCode, dealer.dealerName);
+    } else {
+      botReply(t('notFound'));
+      setTimeout(openDealerSelectModal, 1200);
+    }
     return;
   }
 
   if (/logout|switch dealer|change dealer|लॉग आउट/.test(msg)) {
     clearChat(); authState.dealerCode = null; authState.dealerName = null;
-    botReply(t('loggedOut')); renderChips(["MGDL001", "MGDL002"]); return;
+    botReply(t('loggedOut'));
+    setTimeout(openDealerSelectModal, 800);
+    return;
   }
 
   const found = findOrders(text);
@@ -734,7 +831,7 @@ function handleMessage(text) {
   }
   if (found.length > 1) {
     botReply((isHi ? 'कई ऑर्डर मिले:' : 'Multiple orders found:') + '<br><br>' +
-      found.map((o,i) => `${i+1}. ${o.orderNumber} - ${o.partDescription}`).join('<br>')); return;
+      found.map((o,i) => `${i+1}. ${o.orderNumber} - ${o.partDescription || ''}`).join('<br>')); return;
   }
 
   if (/delay|late|why.*not|pending|देरी|क्यों/.test(msg)) {
@@ -745,7 +842,7 @@ function handleMessage(text) {
         <strong>${isHi ? 'कारण' : 'Reason'}:</strong> ${o.holdReason}
         <div class="updated">${isHi ? 'अंतिम अपडेट' : 'Last Updated'}: ${o.lastUpdated}</div>`);
     } else {
-      botReply(`${isHi ? 'ऑर्डर' : 'Order'} <strong>${o.orderNumber}</strong> ${isHi ? 'की स्थिति' : 'is'} <strong>${o.orderStatus}</strong>.<br><br>
+      botReply(`${isHi ? 'ऑर्डर' : 'Order'} <strong>${o.orderNumber}</strong> ${isHi ? 'की स्थिति' : 'is'} <strong>${o.orderStatus || 'N/A'}</strong>.<br><br>
         ${isHi ? 'कोई पुष्ट कारण नहीं। सपोर्ट टीम से संपर्क करें।' : 'No confirmed reason. Contact support.'}`);
     }
     return;
@@ -754,7 +851,7 @@ function handleMessage(text) {
   if (/dispatch|docket|transporter|lr number|डिस्पैच/.test(msg)) {
     const o = authState.lastOrderContext;
     if (!o) { botReply(isHi ? 'कृपया ऑर्डर नंबर दें।' : 'Please share the Order Number.'); return; }
-    if (o.dispatchedQty > 0) {
+    if ((o.dispatchedQty || 0) > 0) {
       botReply(`${isHi ? 'डिस्पैच विवरण' : 'Dispatch details'} - <strong>${o.orderNumber}</strong>:<br><br>
         &bull; ${isHi ? 'मात्रा' : 'Qty'}: ${o.dispatchedQty}<br>
         &bull; ${isHi ? 'दिनांक' : 'Date'}: ${o.dispatchDate || '-'}<br>
@@ -763,7 +860,7 @@ function handleMessage(text) {
         <div class="updated">${isHi ? 'अंतिम अपडेट' : 'Last Updated'}: ${o.lastUpdated}</div>`);
     } else {
       botReply(`${isHi ? 'डिस्पैच नहीं हुआ।' : 'Not dispatched yet.'}<br>
-        ${isHi ? 'स्थिति' : 'Status'}: <strong>${o.orderStatus}</strong><br>
+        ${isHi ? 'स्थिति' : 'Status'}: <strong>${o.orderStatus || 'N/A'}</strong><br>
         ETA: ${o.eta || (isHi ? 'अभी उपलब्ध नहीं' : 'Currently not available')}`);
     }
     return;
@@ -772,7 +869,7 @@ function handleMessage(text) {
   if (/eta|availability|available|उपलब्ध/.test(msg)) {
     const o = authState.lastOrderContext;
     if (!o) { botReply(isHi ? 'कृपया ऑर्डर या पार्ट नंबर दें।' : 'Please share Order or Part Number.'); return; }
-    botReply(`<strong>${o.partNumber}</strong> (${o.partDescription}):<br><br>
+    botReply(`<strong>${o.partNumber || '-'}</strong> (${o.partDescription || '-'}):<br><br>
       &bull; ${isHi ? 'स्टॉक' : 'Stock'}: <strong>${o.stockAvailability || '-'}</strong><br>
       &bull; ETA: <strong>${o.eta || (isHi ? 'अभी उपलब्ध नहीं' : 'Currently not available')}</strong>
       <div class="updated">${isHi ? 'अंतिम अपडेट' : 'Last Updated'}: ${o.lastUpdated}</div>`);
@@ -823,59 +920,48 @@ function send() {
 sendBtn.onclick = send;
 input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
 
-/* Language buttons */
 document.querySelectorAll('.lang-btn').forEach(b => {
   b.onclick = () => {
     LANG = b.dataset.lang;
     localStorage.setItem('mg_lang', LANG);
     applyLanguage();
-    if (!authState.dealerCode && chat.children.length <= 1) {
+    if (!authState.dealerCode) {
       chat.innerHTML = '';
-      addMsg(`${t('welcome')}<br><br>${t('enterCode')}<br><em>${t('demoCodes')}</em>`);
-      renderChips(["MGDL001", "MGDL002"]);
+      addMsg(`${t('welcome')}<br><br>${t('enterCode')}`);
+      openDealerSelectModal();
     } else { renderMainChips(); }
   };
 });
 
-/* ============================================================
-   POLL FOR ADMIN REPLIES  ⭐ NEW
-   ============================================================ */
+/* Poll for admin replies */
 setInterval(() => {
   if (!authState.silentMode || !authState.dealerCode) return;
   const threads = getThreads();
   const thread = threads[authState.dealerCode];
   if (!thread || !thread.messages) return;
-
   const adminMsgs = thread.messages.filter(m => m.from === 'admin');
   const seen = adminMsgSeen[authState.dealerCode] || 0;
-
   if (adminMsgs.length > seen) {
     adminMsgs.slice(seen).forEach(m => {
       addMsg(`<strong style="color:#16a34a">🛡️ Dealer Support Team:</strong><br>${m.text}`,
         'bot', true, true);
     });
     adminMsgSeen[authState.dealerCode] = adminMsgs.length;
-    // Clear dealer unread count
     const th = getThreads();
     if (th[authState.dealerCode]) {
       th[authState.dealerCode].unreadByDealer = 0;
       saveThreads(th);
     }
   }
-}, 2000);
+}, 1500);
 
-/* Storage event — instant when admin replies in same browser */
-window.addEventListener('storage', e => {
-  if (e.key === THREADS_KEY && authState.silentMode && authState.dealerCode) {
-    // Triggers in OTHER tab — polling handles it too
-  }
-});
-
-/* BOOT */
+/* ============================================================
+   BOOT
+   ============================================================ */
 applyLanguage();
 setInterval(updateHoursBar, 60000);
-addMsg(`${t('welcome')}<br><br>${t('enterCode')}<br><em>${t('demoCodes')}</em>`);
-renderChips(["MGDL001", "MGDL002"]);
+addMsg(`${t('welcome')}<br><br>${t('enterCode')}`);
+setTimeout(() => { openDealerSelectModal(); }, 500);
 </script>
 </body>
 </html>
