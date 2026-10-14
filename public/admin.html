@@ -5,10 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>MG Admin Portal — Parts & Order Management</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
   body { background: #f0f2f7; min-height: 100vh; }
-
   .login-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px;
     background: linear-gradient(135deg, #0b1b3a 0%, #1e3c72 100%); }
   .login-box { background: #fff; border-radius: 16px; padding: 30px 26px;
@@ -21,16 +22,12 @@
   .login-box label { display: block; font-size: 11.5px; color: #555; font-weight: 600;
     margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px; }
   .login-box input { width: 100%; border: 1.5px solid #d7dbe6; border-radius: 10px;
-    padding: 12px 14px; font-size: 14px; outline: none; margin-bottom: 14px; transition: 0.15s; }
-  .login-box input:focus { border-color: #b3001b; box-shadow: 0 0 0 3px rgba(179,0,27,0.1); }
+    padding: 12px 14px; font-size: 14px; outline: none; margin-bottom: 14px; }
   .login-box button { width: 100%; background: #b3001b; color: #fff; border: none;
-    border-radius: 10px; padding: 13px; font-size: 14px; font-weight: 600;
-    cursor: pointer; transition: 0.15s; }
-  .login-box button:hover { background: #7a0012; }
+    border-radius: 10px; padding: 13px; font-size: 14px; font-weight: 600; cursor: pointer; }
   .login-error { background: #fee2e2; color: #991b1b; padding: 10px 12px;
     border-radius: 8px; font-size: 12px; margin-bottom: 14px; text-align: center; }
   .login-hint { font-size: 11px; color: #999; text-align: center; margin-top: 14px; }
-
   .dash-wrap { display: none; }
   .dash-wrap.show { display: block; }
   .topbar { background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
@@ -44,52 +41,35 @@
   .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
   .admin-name { font-size: 12px; color: #555; }
   .logout-btn { background: #f0f2f7; border: none; padding: 8px 14px; border-radius: 8px;
-    font-size: 12px; font-weight: 600; color: #555; cursor: pointer; transition: 0.15s; }
-  .logout-btn:hover { background: #e2e5ec; }
+    font-size: 12px; font-weight: 600; color: #555; cursor: pointer; }
   .view-chat-btn { background: #b3001b; color: #fff; border: none; padding: 8px 14px;
     border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;
     text-decoration: none; display: inline-block; }
-  .view-chat-btn:hover { background: #7a0012; }
-
   .nav-tabs { background: #fff; padding: 0 22px; display: flex; gap: 4px;
     border-bottom: 1px solid #e5e7ef; overflow-x: auto; }
   .nav-tab { padding: 12px 16px; font-size: 13px; font-weight: 600; color: #888;
-    cursor: pointer; border-bottom: 3px solid transparent; transition: 0.15s;
-    white-space: nowrap; position: relative; }
-  .nav-tab:hover { color: #b3001b; }
+    cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; position: relative; }
   .nav-tab.active { color: #b3001b; border-bottom-color: #b3001b; }
   .nav-tab .badge { position: absolute; top: 6px; right: 4px;
     background: #dc2626; color: #fff; font-size: 9.5px; font-weight: 700;
     padding: 1px 6px; border-radius: 10px; min-width: 16px; text-align: center; }
-
   .content { padding: 22px; max-width: 1200px; margin: 0 auto; }
   .tab-panel { display: none; }
-  .tab-panel.active { display: block; animation: fadeIn 0.3s ease; }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-
+  .tab-panel.active { display: block; }
   .card { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-  .card h3 { font-size: 15px; color: #111; margin-bottom: 14px;
-    display: flex; align-items: center; gap: 10px; font-weight: 700; }
-  .card h3 .num { background: #b3001b; color: #fff; width: 26px; height: 26px;
-    border-radius: 50%; display: inline-flex; align-items: center;
-    justify-content: center; font-size: 12px; font-weight: 700; }
-
+  .card h3 { font-size: 15px; color: #111; margin-bottom: 14px; font-weight: 700; }
   .upload-zone { border: 2px dashed #c9cfe0; border-radius: 10px; padding: 32px 16px;
-    text-align: center; cursor: pointer; transition: 0.15s; background: #fafbff; }
-  .upload-zone:hover, .upload-zone.drag { border-color: #b3001b; background: #fff5f6; }
+    text-align: center; cursor: pointer; background: #fafbff; }
+  .upload-zone.drag { border-color: #b3001b; background: #fff5f6; }
   .upload-zone .icon { font-size: 40px; margin-bottom: 10px; }
   .upload-zone p { font-size: 13.5px; color: #555; }
   .upload-zone small { font-size: 11.5px; color: #999; }
   .upload-zone input { display: none; }
-
   .btn { background: #b3001b; color: #fff; border: none; border-radius: 8px;
-    padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.15s; }
-  .btn:hover { background: #7a0012; }
+    padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer; }
   .btn.ghost { background: #fff; color: #b3001b; border: 1.5px solid #b3001b; }
-  .btn.ghost:hover { background: #fff5f6; }
   .btn-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
-
   .stats { display: flex; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
   .stat { flex: 1; min-width: 100px; padding: 14px; border-radius: 10px;
     background: #f4f6fb; text-align: center; }
@@ -99,33 +79,24 @@
   .stat.warn .val { color: #d97706; }
   .stat.err .val { color: #dc2626; }
   .stat.blue .val { color: #1e40af; }
-
   .preview-table { max-height: 320px; overflow: auto; border-radius: 10px;
     border: 1px solid #e5e7ef; margin-top: 12px; }
   .preview-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
   .preview-table th { background: #b3001b; color: #fff; padding: 9px 10px;
     text-align: left; position: sticky; top: 0; font-weight: 600; white-space: nowrap; }
-  .preview-table td { padding: 8px 10px; border-bottom: 1px solid #eee;
-    color: #333; white-space: nowrap; }
+  .preview-table td { padding: 8px 10px; border-bottom: 1px solid #eee; white-space: nowrap; }
   .preview-table tr:nth-child(even) td { background: #fafbff; }
   .preview-table tr.bad td { background: #fee2e2; color: #991b1b; }
-
   .log-item { display: flex; align-items: center; gap: 12px; padding: 12px 0;
     border-bottom: 1px solid #eee; font-size: 13px; }
-  .log-item:last-child { border-bottom: none; }
   .log-badge { padding: 4px 10px; border-radius: 6px; font-size: 11px;
-    font-weight: 700; color: #fff; flex-shrink: 0; }
+    font-weight: 700; color: #fff; }
   .log-badge.success { background: #16a34a; }
   .log-badge.partial { background: #d97706; }
   .log-badge.failed { background: #dc2626; }
-  .log-meta { margin-left: auto; text-align: right; color: #888;
-    font-size: 11.5px; flex-shrink: 0; }
-  .log-name { font-weight: 600; color: #333; }
-
+  .log-meta { margin-left: auto; text-align: right; color: #888; font-size: 11.5px; }
   .empty { text-align: center; padding: 30px; color: #999; font-size: 13px; }
-
-  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 12px; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
   .kpi { background: linear-gradient(135deg, #fff5f6, #fef2f4);
     border: 1px solid #fecdd3; border-radius: 12px; padding: 16px; text-align: center; }
   .kpi.blue { background: linear-gradient(135deg, #eff6ff, #dbeafe); border-color: #bfdbfe; }
@@ -136,61 +107,36 @@
   .kpi.green .kpi-val { color: #065f46; }
   .kpi.yellow .kpi-val { color: #92400e; }
   .kpi .kpi-lbl { font-size: 12px; color: #666; margin-top: 6px; font-weight: 600; }
-
   .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 12.5px; }
-  .bar-row .bar-label { width: 130px; color: #555; font-weight: 600; flex-shrink: 0; }
-  .bar-row .bar-track { flex: 1; height: 20px; background: #f0f2f7;
-    border-radius: 10px; overflow: hidden; }
+  .bar-row .bar-label { width: 130px; color: #555; font-weight: 600; }
+  .bar-row .bar-track { flex: 1; height: 20px; background: #f0f2f7; border-radius: 10px; overflow: hidden; }
   .bar-row .bar-fill { height: 100%; border-radius: 10px;
-    background: linear-gradient(90deg, #b3001b, #e11d48);
-    transition: width 0.6s ease; min-width: 4px; }
+    background: linear-gradient(90deg, #b3001b, #e11d48); transition: width 0.6s ease; min-width: 4px; }
   .bar-row .bar-fill.green { background: linear-gradient(90deg, #16a34a, #4ade80); }
   .bar-row .bar-fill.blue { background: linear-gradient(90deg, #1e40af, #60a5fa); }
   .bar-row .bar-fill.yellow { background: linear-gradient(90deg, #d97706, #fbbf24); }
   .bar-row .bar-fill.red { background: linear-gradient(90deg, #dc2626, #f87171); }
-  .bar-row .bar-val { width: 40px; text-align: right; color: #333;
-    font-weight: 700; flex-shrink: 0; }
-
+  .bar-row .bar-val { width: 40px; text-align: right; font-weight: 700; }
   .top-list-item { display: flex; align-items: center; gap: 12px;
     padding: 10px 0; border-bottom: 1px solid #f0f2f7; font-size: 13px; }
-  .top-list-item:last-child { border-bottom: none; }
   .top-list-item .rank { width: 26px; height: 26px; border-radius: 50%;
     background: #f4f6fb; color: #666; font-weight: 700; font-size: 12px;
-    display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    display: flex; align-items: center; justify-content: center; }
   .top-list-item.rank-1 .rank { background: #fbbf24; color: #fff; }
   .top-list-item.rank-2 .rank { background: #cbd5e1; color: #fff; }
   .top-list-item.rank-3 .rank { background: #fb923c; color: #fff; }
   .top-list-item .name { flex: 1; font-weight: 600; color: #333; }
   .top-list-item .count { color: #b3001b; font-weight: 700; }
-
-  .trend-chart { display: flex; align-items: flex-end; gap: 6px; height: 140px;
-    padding: 10px 0; margin-top: 10px; }
-  .trend-bar { flex: 1; background: linear-gradient(180deg, #b3001b, #7a0012);
-    border-radius: 6px 6px 0 0; min-height: 4px; position: relative;
-    transition: height 0.6s ease; cursor: pointer; }
-  .trend-bar:hover::after { content: attr(data-val); position: absolute;
-    bottom: 100%; left: 50%; transform: translateX(-50%);
-    background: #333; color: #fff; padding: 4px 8px; border-radius: 6px;
-    font-size: 11px; white-space: nowrap; margin-bottom: 6px; }
-  .trend-labels { display: flex; gap: 6px; margin-top: 6px; }
-  .trend-labels div { flex: 1; text-align: center; font-size: 10px; color: #888; }
-
   .dealer-filter { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
-  .dealer-filter input, .dealer-filter select {
-    border: 1.5px solid #d7dbe6; border-radius: 8px; padding: 9px 12px;
-    font-size: 13px; outline: none; }
-  .dealer-filter input:focus, .dealer-filter select:focus { border-color: #b3001b; }
-
-  .support-wrap { display: grid; grid-template-columns: 300px 1fr; gap: 0;
-    background: #fff; border-radius: 12px; overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05); min-height: 550px; }
+  .dealer-filter input, .dealer-filter select { border: 1.5px solid #d7dbe6;
+    border-radius: 8px; padding: 9px 12px; font-size: 13px; outline: none; }
+  .support-wrap { display: grid; grid-template-columns: 300px 1fr;
+    background: #fff; border-radius: 12px; overflow: hidden; min-height: 550px; }
   .threads-list { border-right: 1px solid #e5e7ef; overflow-y: auto; max-height: 600px; }
   .threads-header { padding: 14px 16px; background: #fafbff;
     border-bottom: 1px solid #e5e7ef; font-size: 12px; font-weight: 700;
     color: #555; text-transform: uppercase; letter-spacing: 0.5px; }
-  .thread-item { padding: 12px 16px; border-bottom: 1px solid #f0f2f7;
-    cursor: pointer; transition: 0.15s; }
-  .thread-item:hover { background: #fafbff; }
+  .thread-item { padding: 12px 16px; border-bottom: 1px solid #f0f2f7; cursor: pointer; }
   .thread-item.active { background: #fff5f6; border-left: 4px solid #b3001b; }
   .thread-item .t-name { font-size: 13px; font-weight: 700; color: #333; }
   .thread-item .t-code { font-size: 10.5px; color: #888; margin-top: 2px; }
@@ -200,51 +146,34 @@
     align-items: center; margin-top: 4px; font-size: 10px; color: #999; }
   .unread-badge { background: #dc2626; color: #fff; font-size: 10px;
     padding: 1px 7px; border-radius: 10px; font-weight: 700; }
-
   .chat-window { display: flex; flex-direction: column; max-height: 600px; }
   .chat-header { padding: 14px 18px; background: #fafbff;
     border-bottom: 1px solid #e5e7ef; display: flex; align-items: center; gap: 10px; }
   .chat-header .dot { width: 10px; height: 10px; border-radius: 50%; background: #16a34a; }
   .chat-header .ch-name { font-size: 14px; font-weight: 700; color: #333; }
   .chat-header .ch-code { font-size: 11px; color: #888; }
-  .chat-refresh-btn { margin-left: auto; background: #f0f2f7; border: none;
-    padding: 6px 12px; border-radius: 6px; font-size: 11.5px; font-weight: 600;
-    color: #555; cursor: pointer; }
-  .chat-refresh-btn:hover { background: #e2e5ec; }
   .chat-body { flex: 1; overflow-y: auto; padding: 16px 18px;
     background: #f9fafc; display: flex; flex-direction: column; gap: 10px;
     min-height: 400px; max-height: 450px; }
   .chat-msg { max-width: 78%; padding: 10px 14px; border-radius: 14px;
     font-size: 13px; line-height: 1.45; word-wrap: break-word; }
-  .chat-msg.dealer { background: #fff; border: 1px solid #e5e7ef;
-    align-self: flex-start; border-bottom-left-radius: 4px; }
-  .chat-msg.admin { background: #b3001b; color: #fff;
-    align-self: flex-end; border-bottom-right-radius: 4px; }
+  .chat-msg.dealer { background: #fff; border: 1px solid #e5e7ef; align-self: flex-start; }
+  .chat-msg.admin { background: #b3001b; color: #fff; align-self: flex-end; }
   .chat-msg.bot { background: #f8fafc; border: 1px dashed #cbd5e1;
-    align-self: flex-start; border-bottom-left-radius: 4px; color: #555;
-    font-style: italic; max-width: 70%; }
+    align-self: flex-start; color: #555; font-style: italic; max-width: 70%; }
   .chat-msg .m-time { font-size: 10px; opacity: 0.75; margin-top: 4px; }
-  .chat-msg.admin .m-time { color: rgba(255,255,255,0.8); }
   .chat-input-bar { display: flex; gap: 8px; padding: 12px 16px;
     background: #fff; border-top: 1px solid #e5e7ef; }
   .chat-input-bar input { flex: 1; border: 1.5px solid #d7dbe6;
     border-radius: 10px; padding: 11px 14px; font-size: 13.5px; outline: none; }
-  .chat-input-bar input:focus { border-color: #b3001b; }
   .chat-input-bar button { background: #b3001b; color: #fff; border: none;
-    border-radius: 10px; padding: 11px 20px; font-size: 13px;
-    font-weight: 600; cursor: pointer; }
-  .chat-input-bar button:hover { background: #7a0012; }
-
+    border-radius: 10px; padding: 11px 20px; font-size: 13px; font-weight: 600; cursor: pointer; }
   .toast { position: fixed; top: 20px; right: 20px; background: #b3001b;
     color: #fff; padding: 14px 20px; border-radius: 10px; font-size: 13px;
-    font-weight: 600; box-shadow: 0 8px 30px rgba(0,0,0,0.25); z-index: 9999;
-    animation: slideIn 0.3s ease; max-width: 320px; }
-  @keyframes slideIn { from { transform: translateX(120%); } to { transform: translateX(0); } }
-
+    font-weight: 600; box-shadow: 0 8px 30px rgba(0,0,0,0.25); z-index: 9999; }
   @media (max-width: 700px) {
     .support-wrap { grid-template-columns: 1fr; }
     .threads-list { max-height: 200px; }
-    .content { padding: 14px; }
   }
 </style>
 </head>
@@ -288,11 +217,9 @@
     <div class="nav-tab" data-tab="analytics">📊 Analytics</div>
     <div class="nav-tab" data-tab="records">📦 Orders</div>
     <div class="nav-tab" data-tab="tickets">🎫 Tickets</div>
-    <div class="nav-tab" data-tab="history">📜 History</div>
   </div>
 
   <div class="content">
-
     <div class="tab-panel active" id="panel-support">
       <div class="card" style="padding:0;overflow:hidden">
         <div class="support-wrap">
@@ -322,21 +249,20 @@
 
     <div class="tab-panel" id="panel-upload">
       <div class="card">
-        <h3><span class="num">1</span> Upload Excel / CSV File</h3>
+        <h3>📤 Upload Excel / CSV File</h3>
         <div class="upload-zone" id="uploadZone">
           <div class="icon">📤</div>
           <p><strong>Click to upload</strong> or drag file here</p>
           <small>Required: <strong>Dealer Code</strong> and <strong>Dealer Name</strong> only</small>
           <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" />
         </div>
-        <div style="margin-top:14px;padding-top:14px;border-top:1px dashed #e5e7ef;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="margin-top:14px;padding-top:14px;border-top:1px dashed #e5e7ef">
           <button class="btn ghost" onclick="downloadTemplate()">⬇️ Download Excel Template</button>
-          <span style="font-size:12px;color:#888">Ready-to-use template</span>
         </div>
       </div>
 
       <div class="card" id="previewCard" style="display:none">
-        <h3><span class="num">2</span> Preview & Validate</h3>
+        <h3>✅ Preview & Validate</h3>
         <div class="stats">
           <div class="stat blue"><div class="val" id="statTotal">0</div><div class="lbl">Total Rows</div></div>
           <div class="stat ok"><div class="val" id="statValid">0</div><div class="lbl">Valid</div></div>
@@ -344,24 +270,17 @@
         </div>
         <div class="preview-table" id="previewTable"></div>
         <div class="btn-row">
-          <button class="btn" id="publishBtn">✅ Publish to Chatbot</button>
+          <button class="btn" id="publishBtn">✅ Publish to Firestore</button>
           <button class="btn ghost" id="cancelBtn">Cancel</button>
         </div>
       </div>
 
       <div class="card">
-        <h3>💾 Data Backup & Restore</h3>
+        <h3>🗑️ Clear All Data</h3>
         <p style="font-size:12.5px;color:#666;margin-bottom:14px">
-          Data browser me save hoti hai. Backup zaroor rakho.
+          Firestore se saara orders data delete kar dega. Chat/tickets safe rahenge.
         </p>
-        <div class="btn-row">
-          <button class="btn" onclick="exportData()">📥 Export Data (JSON)</button>
-          <button class="btn ghost" onclick="document.getElementById('importInput').click()">📤 Import Data</button>
-          <input type="file" id="importInput" accept=".json" style="display:none" onchange="importData(event)" />
-        </div>
-        <div id="storageInfo" style="margin-top:14px;padding:12px;background:#f4f6fb;border-radius:8px;font-size:12px;color:#555">
-          <strong>Storage:</strong> <span id="storageDetails">Checking...</span>
-        </div>
+        <button class="btn" onclick="clearAllData()" style="background:#dc2626">🗑️ Delete All Orders</button>
       </div>
     </div>
 
@@ -394,46 +313,39 @@
         <h3>🎫 Support Tickets</h3>
         <div class="stats">
           <div class="stat warn"><div class="val" id="tkOpen">0</div><div class="lbl">Open</div></div>
-          <div class="stat ok"><div class="val" id="tkClosed">0</div><div class="lbl">Closed / Resolved</div></div>
+          <div class="stat ok"><div class="val" id="tkClosed">0</div><div class="lbl">Closed</div></div>
           <div class="stat blue"><div class="val" id="tkTotal">0</div><div class="lbl">Total</div></div>
         </div>
         <div class="preview-table" id="ticketsTable" style="margin-top:14px"></div>
       </div>
     </div>
-
-    <div class="tab-panel" id="panel-history">
-      <div class="card">
-        <h3>📜 Upload History</h3>
-        <div id="uploadHistory"><div class="empty">No uploads yet.</div></div>
-      </div>
-    </div>
-
   </div>
 </div>
 
 <script>
+/* ============================================================
+   FIREBASE INIT
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyA6QL0wWLb_l9uyofgYrsgc6CiCRUufHdM",
+  authDomain: "mg-parts-chatbot.firebaseapp.com",
+  projectId: "mg-parts-chatbot",
+  storageBucket: "mg-parts-chatbot.firebasestorage.app",
+  messagingSenderId: "182710880849",
+  appId: "1:182710880849:web:9f60c63b9f468611fd8670"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
 const ADMIN_USERS = { 'admin': 'mg@2026' };
 
-const STORAGE_KEY = 'mg_orders_data';
-const LOG_KEY = 'mg_upload_log';
-const TICKETS_KEY = 'mg_support_tickets';
-const FEEDBACK_KEY = 'mg_feedback';
-const THREADS_KEY = 'mg_support_threads';
-
-let ORDERS = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-let UPLOAD_LOG = JSON.parse(localStorage.getItem(LOG_KEY) || '[]');
-let TICKETS = JSON.parse(localStorage.getItem(TICKETS_KEY) || '[]');
-let FEEDBACK = JSON.parse(localStorage.getItem(FEEDBACK_KEY) || '[]');
-let THREADS = JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
+let ORDERS = [];
+let TICKETS = [];
+let FEEDBACK = [];
+let THREADS = {};       // dealerCode -> { dealerName, messages: [] }
 let selectedDealer = null;
-
-function saveData() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(ORDERS));
-  localStorage.setItem(LOG_KEY, JSON.stringify(UPLOAD_LOG));
-  localStorage.setItem(TICKETS_KEY, JSON.stringify(TICKETS));
-  localStorage.setItem(FEEDBACK_KEY, JSON.stringify(FEEDBACK));
-}
-function saveThreads() { localStorage.setItem(THREADS_KEY, JSON.stringify(THREADS)); }
+let allThreadsListener = null;
+let currentThreadListener = null;
 
 function todayStamp() {
   const d = new Date();
@@ -441,14 +353,16 @@ function todayStamp() {
     + ' ' + d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
 }
 function nowTime() { return new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }); }
-
 function showToast(msg) {
-  const t = document.createElement('div');
-  t.className = 'toast'; t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 4000);
+  const el = document.createElement('div');
+  el.className = 'toast'; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
 }
 
+/* ============================================================
+   LOGIN
+   ============================================================ */
 function doLogin() {
   const u = document.getElementById('loginUser').value.trim();
   const p = document.getElementById('loginPass').value;
@@ -461,25 +375,70 @@ function doLogin() {
     err.style.display = 'block';
   }
 }
-document.getElementById('loginPass').addEventListener('keydown', e => {
-  if (e.key === 'Enter') doLogin();
-});
+document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
 function doLogout() {
   sessionStorage.removeItem('mg_admin');
+  if (allThreadsListener) allThreadsListener();
+  if (currentThreadListener) currentThreadListener();
   document.getElementById('loginWrap').style.display = 'flex';
   document.getElementById('dashWrap').classList.remove('show');
   document.getElementById('loginUser').value = '';
   document.getElementById('loginPass').value = '';
 }
+
 function showDashboard(username) {
   document.getElementById('loginWrap').style.display = 'none';
   document.getElementById('dashWrap').classList.add('show');
   document.getElementById('adminName').textContent = username;
-  renderAll();
+  setupListeners();
 }
 const session = sessionStorage.getItem('mg_admin');
 if (session) showDashboard(session);
 
+/* ============================================================
+   REAL-TIME LISTENERS
+   ============================================================ */
+function setupListeners() {
+  // Orders listener
+  db.collection('orders').onSnapshot(snap => {
+    ORDERS = snap.docs.map(d => d.data());
+    renderAll();
+  });
+
+  // Tickets listener
+  db.collection('tickets').onSnapshot(snap => {
+    TICKETS = snap.docs.map(d => d.data());
+    renderTickets();
+    renderAnalytics();
+  });
+
+  // Feedback listener
+  db.collection('feedback').onSnapshot(snap => {
+    FEEDBACK = snap.docs.map(d => d.data());
+    renderAnalytics();
+  });
+
+  // All threads listener — group messages by dealer
+  if (allThreadsListener) allThreadsListener();
+  allThreadsListener = db.collection('threads').orderBy('timestamp', 'asc').onSnapshot(snap => {
+    THREADS = {};
+    snap.docs.forEach(d => {
+      const m = d.data();
+      if (!THREADS[m.dealerCode]) {
+        THREADS[m.dealerCode] = { dealerCode: m.dealerCode, dealerName: m.dealerName, messages: [] };
+      }
+      THREADS[m.dealerCode].messages.push({ id: d.id, ...m });
+    });
+    renderThreads();
+    updateSupportBadge();
+    if (selectedDealer && THREADS[selectedDealer]) selectDealer(selectedDealer);
+  });
+}
+
+/* ============================================================
+   TABS
+   ============================================================ */
 document.querySelectorAll('.nav-tab').forEach(tab => {
   tab.onclick = () => {
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
@@ -489,8 +448,6 @@ document.querySelectorAll('.nav-tab').forEach(tab => {
     if (tab.dataset.tab === 'analytics') renderAnalytics();
     if (tab.dataset.tab === 'records') renderRecords();
     if (tab.dataset.tab === 'tickets') renderTickets();
-    if (tab.dataset.tab === 'history') renderHistory();
-    if (tab.dataset.tab === 'support') { renderThreads(); updateSupportBadge(); }
   };
 });
 
@@ -498,7 +455,6 @@ document.querySelectorAll('.nav-tab').forEach(tab => {
    SUPPORT CHAT
    ============================================================ */
 function renderThreads() {
-  THREADS = JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
   const el = document.getElementById('threadsList');
   const entries = Object.values(THREADS).sort((a, b) => {
     const ta = a.messages.length ? a.messages[a.messages.length-1].timestamp : 0;
@@ -510,19 +466,18 @@ function renderThreads() {
     return;
   }
   el.innerHTML = entries.map(t => {
-    const lastMsg = t.messages.length ? t.messages[t.messages.length - 1] : null;
-    const preview = lastMsg ? lastMsg.text.substring(0, 40) : 'No messages';
-    const time = lastMsg ? lastMsg.time : '';
-    const fromLabel = lastMsg ? (lastMsg.from === 'dealer' ? '👤 ' : lastMsg.from === 'bot' ? '🤖 ' : '🛡️ ') : '';
+    const last = t.messages.length ? t.messages[t.messages.length - 1] : null;
+    const preview = last ? last.message.substring(0, 40) : 'No messages';
+    const unread = t.messages.filter(m => m.sender === 'dealer' && !m.readByAdmin).length;
+    const fromLabel = last ? (last.sender === 'dealer' ? '👤 ' : last.sender === 'bot' ? '🤖 ' : '🛡️ ') : '';
     return `
-      <div class="thread-item ${selectedDealer === t.dealerCode ? 'active' : ''}"
-           onclick="selectDealer('${t.dealerCode}')">
+      <div class="thread-item ${selectedDealer === t.dealerCode ? 'active' : ''}" onclick="selectDealer('${t.dealerCode}')">
         <div class="t-name">${t.dealerName || t.dealerCode}</div>
         <div class="t-code">${t.dealerCode}</div>
         <div class="t-preview">${fromLabel}${preview}</div>
         <div class="t-meta">
-          <span>${time}</span>
-          ${t.unreadByAdmin ? `<span class="unread-badge">${t.unreadByAdmin}</span>` : ''}
+          <span>${last ? new Date(last.timestamp).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : ''}</span>
+          ${unread ? `<span class="unread-badge">${unread}</span>` : ''}
         </div>
       </div>`;
   }).join('');
@@ -530,68 +485,68 @@ function renderThreads() {
 }
 
 function updateSupportBadge() {
-  THREADS = JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
-  const total = Object.values(THREADS).reduce((s, t) => s + (t.unreadByAdmin || 0), 0);
+  let total = 0;
+  Object.values(THREADS).forEach(t => {
+    total += t.messages.filter(m => m.sender === 'dealer' && !m.readByAdmin).length;
+  });
   const badge = document.getElementById('supportBadge');
   if (total > 0) { badge.textContent = total; badge.style.display = 'inline-block'; }
   else { badge.style.display = 'none'; }
 }
 
-function selectDealer(dealerCode) {
+async function selectDealer(dealerCode) {
   selectedDealer = dealerCode;
-  THREADS = JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
   const t = THREADS[dealerCode];
   if (!t) return;
 
-  t.unreadByAdmin = 0;
-  saveThreads();
+  // Mark as read
+  const unread = t.messages.filter(m => m.sender === 'dealer' && !m.readByAdmin);
+  for (const m of unread) {
+    try { await db.collection('threads').doc(m.id).update({ readByAdmin: true }); } catch(e){}
+  }
 
   document.getElementById('chatHeader').innerHTML = `
     <div class="dot"></div>
     <div>
       <div class="ch-name">${t.dealerName || dealerCode}</div>
       <div class="ch-code">${dealerCode}</div>
-    </div>
-    <button class="chat-refresh-btn" onclick="selectDealer('${dealerCode}')">🔄 Refresh</button>`;
+    </div>`;
 
   const body = document.getElementById('chatBody');
   body.innerHTML = t.messages.length ? t.messages.map(m => {
-    const cls = m.from === 'dealer' ? 'dealer' : (m.from === 'admin' ? 'admin' : 'bot');
-    const label = m.from === 'bot' ? '<div style="font-size:10px;color:#888;margin-bottom:3px">🤖 Bot reply</div>' :
-                  m.from === 'dealer' ? '<div style="font-size:10px;color:#888;margin-bottom:3px">👤 Dealer</div>' :
-                  '<div style="font-size:10px;color:rgba(255,255,255,0.8);margin-bottom:3px">🛡️ You (Support)</div>';
-    return `
-      <div class="chat-msg ${cls}">
-        ${label}${m.text}
-        <div class="m-time">${m.time}</div>
-      </div>`;
+    const cls = m.sender === 'dealer' ? 'dealer' : (m.sender === 'admin' ? 'admin' : 'bot');
+    const label = m.sender === 'bot' ? '<div style="font-size:10px;color:#888;margin-bottom:3px">🤖 Bot</div>'
+                 : m.sender === 'dealer' ? '<div style="font-size:10px;color:#888;margin-bottom:3px">👤 Dealer</div>'
+                 : '<div style="font-size:10px;color:rgba(255,255,255,0.8);margin-bottom:3px">🛡️ You</div>';
+    const time = new Date(m.timestamp).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+    return `<div class="chat-msg ${cls}">${label}${m.message}<div class="m-time">${time}</div></div>`;
   }).join('') : '<div class="empty">No messages yet.</div>';
   body.scrollTop = body.scrollHeight;
 
   document.getElementById('adminReplyInput').disabled = false;
   document.getElementById('adminSendBtn').disabled = false;
   setTimeout(() => document.getElementById('adminReplyInput').focus(), 100);
-
   renderThreads();
 }
 
-function sendAdminReply() {
+async function sendAdminReply() {
   const inp = document.getElementById('adminReplyInput');
   const text = inp.value.trim();
   if (!text || !selectedDealer) return;
-
-  THREADS = JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
-  const t = THREADS[selectedDealer];
-  if (!t) return;
-  t.messages.push({ from: 'admin', text, time: nowTime(), timestamp: Date.now() });
-  t.lastUpdate = todayStamp();
-  t.unreadByDealer = (t.unreadByDealer || 0) + 1;
-  saveThreads();
-
-  inp.value = '';
-  selectDealer(selectedDealer);
+  try {
+    await db.collection('threads').add({
+      dealerCode: selectedDealer,
+      dealerName: THREADS[selectedDealer].dealerName,
+      sender: 'admin',
+      message: text,
+      timestamp: Date.now(),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      readByAdmin: true,
+      readByDealer: false
+    });
+    inp.value = '';
+  } catch (e) { console.error(e); alert('Failed to send: ' + e.message); }
 }
-
 document.getElementById('adminReplyInput')?.addEventListener('keydown', e => {
   if (e.key === 'Enter') sendAdminReply();
 });
@@ -610,8 +565,7 @@ const COLUMN_MAP = {
   'docket / lr number': 'docketLR', 'docket/lr number': 'docketLR',
   'lr number': 'docketLR', 'lr no': 'docketLR',
   'docket number': 'docketLR', 'docket no': 'docketLR',
-  'transporter name': 'transporter',
-  'order hold reason': 'holdReason',
+  'transporter name': 'transporter', 'order hold reason': 'holdReason',
   'last updated date & time': 'lastUpdated', 'last updated': 'lastUpdated',
   'support ticket number': 'ticketNumber', 'ticket status': 'ticketStatus',
   'invoice number': 'invoiceNumber', 'invoice no': 'invoiceNumber', 'invoice': 'invoiceNumber'
@@ -626,9 +580,7 @@ zone.addEventListener('drop', e => {
   e.preventDefault(); zone.classList.remove('drag');
   if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
 });
-document.getElementById('fileInput').onchange = e => {
-  if (e.target.files[0]) handleFile(e.target.files[0]);
-};
+document.getElementById('fileInput').onchange = e => { if (e.target.files[0]) handleFile(e.target.files[0]); };
 
 function handleFile(file) {
   const reader = new FileReader();
@@ -640,10 +592,11 @@ function handleFile(file) {
       if (!raw.length) { alert('File is empty.'); return; }
       const result = validateRows(raw);
       renderPreview(result, file.name);
-    } catch (err) { alert('Failed to read file: ' + err.message); }
+    } catch (err) { alert('Failed: ' + err.message); }
   };
   reader.readAsArrayBuffer(file);
 }
+
 function normalizeHeader(h) { return String(h).trim().toLowerCase(); }
 
 function validateRows(raw) {
@@ -657,10 +610,9 @@ function validateRows(raw) {
     });
     const missing = REQUIRED.filter(f => obj[f] === undefined || obj[f] === '');
     if (missing.length) { errors.push({ row: rowNum, reason: 'Missing: ' + missing.join(', ') }); return; }
-
     if (obj.orderNumber) {
       const key = obj.orderNumber + '|' + (obj.partNumber || '');
-      if (seen.has(key)) { errors.push({ row: rowNum, reason: 'Duplicate order+part' }); return; }
+      if (seen.has(key)) { errors.push({ row: rowNum, reason: 'Duplicate' }); return; }
       seen.add(key);
     }
     obj.orderedQty = Number(obj.orderedQty) || 0;
@@ -668,10 +620,10 @@ function validateRows(raw) {
     obj.pendingQty = Number(obj.pendingQty) || (obj.orderedQty - obj.dispatchedQty);
     if (obj.dispatchedQty > obj.orderedQty) { errors.push({ row: rowNum, reason: 'Dispatched > Ordered' }); return; }
     if (obj.dispatchedQty > 0 && (!obj.docketLR || !obj.transporter)) {
-      errors.push({ row: rowNum, reason: 'Dispatched but docket/transporter missing' }); return;
+      errors.push({ row: rowNum, reason: 'Docket/Transporter missing' }); return;
     }
     if (obj.orderStatus === 'On Hold' && !obj.holdReason) {
-      errors.push({ row: rowNum, reason: 'On Hold but no reason' }); return;
+      errors.push({ row: rowNum, reason: 'Hold reason missing' }); return;
     }
     rows.push(obj);
   });
@@ -697,142 +649,85 @@ function renderPreview(result, fileName) {
   };
 }
 
-function publishData(rows, errors, fileName) {
-  if (!rows.length) { alert('No valid rows to publish.'); return; }
-  rows.forEach(r => { r.lastUpdated = r.lastUpdated || todayStamp(); });
-  ORDERS = rows;
+async function publishData(rows, errors, fileName) {
+  if (!rows.length) { alert('No valid rows.'); return; }
+  const btn = document.getElementById('publishBtn');
+  btn.disabled = true; btn.textContent = 'Publishing...';
 
-  const status = errors.length === 0 ? 'success' : 'partial';
-  UPLOAD_LOG.unshift({ fileName, status, total: rows.length + errors.length,
-    valid: rows.length, rejected: errors.length, timestamp: todayStamp() });
-  UPLOAD_LOG = UPLOAD_LOG.slice(0, 20);
+  try {
+    // Delete all existing orders
+    const existing = await db.collection('orders').get();
+    let batch = db.batch();
+    let count = 0;
+    for (const doc of existing.docs) {
+      batch.delete(doc.ref);
+      count++;
+      if (count % 400 === 0) { await batch.commit(); batch = db.batch(); }
+    }
+    if (count % 400 !== 0) await batch.commit();
 
-  try { saveData(); } catch (e) { alert('❌ Failed to save: ' + e.message); return; }
+    // Add new orders in batches
+    batch = db.batch();
+    count = 0;
+    for (const o of rows) {
+      const ref = db.collection('orders').doc();
+      const data = { ...o, lastUpdated: o.lastUpdated || todayStamp() };
+      batch.set(ref, data);
+      count++;
+      if (count % 400 === 0) { await batch.commit(); batch = db.batch(); }
+    }
+    if (count % 400 !== 0) await batch.commit();
 
-  const verify = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-  if (!verify || verify.length !== rows.length) {
-    alert('⚠️ Data not saved properly!');
-    return;
+    alert(`✅ Published!\n\n${rows.length} records live.` + (errors.length ? `\n${errors.length} rejected.` : ''));
+    document.getElementById('previewCard').style.display = 'none';
+    document.getElementById('fileInput').value = '';
+  } catch (e) {
+    alert('❌ Failed: ' + e.message);
   }
+  btn.disabled = false; btn.textContent = '✅ Publish to Firestore';
+}
 
-  alert('✅ Published & Verified!\n\n' +
-    '• ' + rows.length + ' records now live\n' +
-    '• Stored: ' + (localStorage.getItem(STORAGE_KEY).length / 1024).toFixed(1) + ' KB' +
-    (errors.length ? '\n• ' + errors.length + ' rows rejected' : ''));
-
-  document.getElementById('previewCard').style.display = 'none';
-  document.getElementById('fileInput').value = '';
-  renderAll();
+async function clearAllData() {
+  if (!confirm('All orders will be deleted from Firestore. Continue?')) return;
+  try {
+    const existing = await db.collection('orders').get();
+    let batch = db.batch();
+    let count = 0;
+    for (const doc of existing.docs) {
+      batch.delete(doc.ref);
+      count++;
+      if (count % 400 === 0) { await batch.commit(); batch = db.batch(); }
+    }
+    if (count % 400 !== 0) await batch.commit();
+    alert('✅ All orders deleted.');
+  } catch (e) { alert('Error: ' + e.message); }
 }
 
 function downloadTemplate() {
-  const sampleData = [
+  const sample = [
     { 'Dealer Code':'MGDL001','Dealer Name':'ABC Motors Pvt Ltd','Order Number':'ORD100001',
       'Order Type':'VOR','Order Date':'10-Oct-2026','Part Number':'MG-P-11111',
       'Part Description':'Brake Pad Front','Ordered Quantity':5,'Dispatched Quantity':0,
       'Pending Quantity':5,'Order Status':'Pending Dispatch','Stock Availability':'Available',
       'Tentative ETA':'20-Oct-2026','Dispatch Date':'','Invoice Number':'INV-2026-001',
       'Docket / LR Number':'','Transporter Name':'','Order Hold Reason':'',
-      'Last Updated Date & Time':'14-Oct-2026 10:00','Support Ticket Number':'','Ticket Status':'' },
+      'Last Updated Date & Time':'','Support Ticket Number':'','Ticket Status':'' },
     { 'Dealer Code':'MGDL002','Dealer Name':'XYZ Auto Parts','Order Number':'ORD100002',
       'Order Type':'Stock Order','Order Date':'10-Oct-2026','Part Number':'MG-P-22222',
       'Part Description':'Air Filter','Ordered Quantity':20,'Dispatched Quantity':20,
       'Pending Quantity':0,'Order Status':'Fully Dispatched','Stock Availability':'Available',
       'Tentative ETA':'15-Oct-2026','Dispatch Date':'13-Oct-2026','Invoice Number':'INV-2026-002',
       'Docket / LR Number':'LR555111','Transporter Name':'DTDC','Order Hold Reason':'',
-      'Last Updated Date & Time':'14-Oct-2026 10:00','Support Ticket Number':'','Ticket Status':'' }
+      'Last Updated Date & Time':'','Support Ticket Number':'','Ticket Status':'' }
   ];
   const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(sampleData);
+  const ws = XLSX.utils.json_to_sheet(sample);
   ws['!cols'] = [
     {wch:12},{wch:22},{wch:15},{wch:15},{wch:14},{wch:15},{wch:22},{wch:12},{wch:14},
-    {wch:12},{wch:18},{wch:14},{wch:14},{wch:16},{wch:18},{wch:18},{wch:18},{wch:22},
-    {wch:18},{wch:14}
+    {wch:12},{wch:18},{wch:14},{wch:14},{wch:14},{wch:16},{wch:18},{wch:18},{wch:18},{wch:22},{wch:18},{wch:14}
   ];
   XLSX.utils.book_append_sheet(wb, ws, 'Orders');
-  const instructions = [
-    { 'Instructions': 'MG Parts & Order Management - Excel Template' },
-    { 'Instructions': '' },
-    { 'Instructions': '🔴 REQUIRED COLUMNS:' },
-    { 'Instructions': '  1. Dealer Code' },
-    { 'Instructions': '  2. Dealer Name' },
-    { 'Instructions': '' },
-    { 'Instructions': '🟢 OPTIONAL COLUMNS (add if needed):' },
-    { 'Instructions': '  Order Number, Order Type, Order Date, Part Number, Part Description,' },
-    { 'Instructions': '  Ordered Quantity, Dispatched Quantity, Pending Quantity, Order Status,' },
-    { 'Instructions': '  Stock Availability, Tentative ETA, Dispatch Date, Invoice Number,' },
-    { 'Instructions': '  Docket / LR Number, Transporter Name, Order Hold Reason,' },
-    { 'Instructions': '  Last Updated, Support Ticket Number, Ticket Status' },
-    { 'Instructions': '' },
-    { 'Instructions': 'CONDITIONAL RULES:' },
-    { 'Instructions': '  - Dispatched Qty cannot exceed Ordered Qty' },
-    { 'Instructions': '  - If Dispatched Qty > 0 → Docket/LR + Transporter required' },
-    { 'Instructions': '  - If Status = "On Hold" → Hold Reason required' }
-  ];
-  const ws2 = XLSX.utils.json_to_sheet(instructions);
-  ws2['!cols'] = [{ wch: 100 }];
-  XLSX.utils.book_append_sheet(wb, ws2, 'Instructions');
-  XLSX.writeFile(wb, 'MG_Orders_Template_' + new Date().toISOString().slice(0,10) + '.xlsx');
-}
-
-function updateStorageInfo() {
-  const el = document.getElementById('storageDetails');
-  if (!el) return;
-  try {
-    const size = (localStorage.getItem('mg_orders_data') || '').length;
-    const orders = JSON.parse(localStorage.getItem('mg_orders_data') || '[]');
-    const tickets = JSON.parse(localStorage.getItem('mg_support_tickets') || '[]');
-    const kb = (size / 1024).toFixed(1);
-    el.innerHTML = `<strong>${orders.length}</strong> orders • <strong>${tickets.length}</strong> tickets • 
-      <strong>${kb} KB</strong><br>
-      <span style="font-size:11px;color:#888">Status: ${orders.length > 0 ? '✅ Data saved' : '⚠️ No data'}</span>`;
-  } catch (e) { el.textContent = 'Error'; }
-}
-
-function exportData() {
-  const data = {
-    orders: JSON.parse(localStorage.getItem('mg_orders_data') || '[]'),
-    tickets: JSON.parse(localStorage.getItem('mg_support_tickets') || '[]'),
-    feedback: JSON.parse(localStorage.getItem('mg_feedback') || '[]'),
-    threads: JSON.parse(localStorage.getItem('mg_support_threads') || '{}'),
-    uploadLog: JSON.parse(localStorage.getItem('mg_upload_log') || '[]'),
-    exportedAt: todayStamp(), version: 1
-  };
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'MG_Backup_' + new Date().toISOString().slice(0, 10) + '.json';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  alert('✅ Backup downloaded!');
-}
-
-function importData(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      const data = JSON.parse(e.target.result);
-      if (!data.orders || !Array.isArray(data.orders)) { alert('❌ Invalid file.'); return; }
-      if (!confirm('📦 Backup:\n\n• Orders: ' + data.orders.length +
-        '\n• Tickets: ' + (data.tickets?.length || 0) +
-        '\n• Exported: ' + (data.exportedAt || '?') +
-        '\n\n⚠️ Current data will be replaced. Continue?')) return;
-
-      localStorage.setItem('mg_orders_data', JSON.stringify(data.orders));
-      localStorage.setItem('mg_support_tickets', JSON.stringify(data.tickets || []));
-      localStorage.setItem('mg_feedback', JSON.stringify(data.feedback || []));
-      localStorage.setItem('mg_support_threads', JSON.stringify(data.threads || {}));
-      localStorage.setItem('mg_upload_log', JSON.stringify(data.uploadLog || []));
-      alert('✅ Imported! Refreshing...');
-      setTimeout(() => location.reload(), 800);
-    } catch (err) { alert('❌ Failed: ' + err.message); }
-  };
-  reader.readAsText(file);
+  XLSX.writeFile(wb, 'MG_Template_' + new Date().toISOString().slice(0,10) + '.xlsx');
 }
 
 /* ============================================================
@@ -844,44 +739,21 @@ function renderAnalytics() {
   const delivered = ORDERS.filter(o => o.orderStatus === 'Delivered').length;
   const pending = ORDERS.filter(o => o.pendingQty > 0).length;
   const onHold = ORDERS.filter(o => o.orderStatus === 'On Hold').length;
-
   const statuses = {};
   ORDERS.filter(o => o.orderStatus).forEach(o => { statuses[o.orderStatus] = (statuses[o.orderStatus] || 0) + 1; });
   const statusEntries = Object.entries(statuses).sort((a,b) => b[1] - a[1]);
   const maxStatus = Math.max(1, ...statusEntries.map(e => e[1]));
-
   const types = {};
   ORDERS.filter(o => o.orderType).forEach(o => { types[o.orderType] = (types[o.orderType] || 0) + 1; });
   const typeEntries = Object.entries(types).sort((a,b) => b[1] - a[1]);
   const maxType = Math.max(1, ...typeEntries.map(e => e[1]));
-
   const dealerCount = {};
-  ORDERS.forEach(o => {
-    const key = o.dealerCode + '|' + (o.dealerName || o.dealerCode);
-    dealerCount[key] = (dealerCount[key] || 0) + 1;
-  });
+  ORDERS.forEach(o => { const k = o.dealerCode + '|' + (o.dealerName || o.dealerCode); dealerCount[k] = (dealerCount[k] || 0) + 1; });
   const topDealers = Object.entries(dealerCount).sort((a,b) => b[1] - a[1]).slice(0, 5);
-
   const thumbsUp = FEEDBACK.filter(f => f.rating === 'up').length;
   const thumbsDown = FEEDBACK.filter(f => f.rating === 'down').length;
   const openTickets = TICKETS.filter(tk => tk.ticketStatus !== 'Closed' && tk.ticketStatus !== 'Resolved').length;
   const closedTickets = TICKETS.length - openTickets;
-
-  const days = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const label = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-    const dayStart = new Date(d); dayStart.setHours(0,0,0,0);
-    const dayEnd = new Date(d); dayEnd.setHours(23,59,59,999);
-    const count = ORDERS.filter(o => {
-      if (!o.orderDate) return false;
-      const od = new Date(o.orderDate);
-      return od >= dayStart && od <= dayEnd;
-    }).length;
-    days.push({ label, count });
-  }
-  const maxTrend = Math.max(1, ...days.map(d => d.count));
 
   el.innerHTML = `
     <div class="card">
@@ -893,7 +765,6 @@ function renderAnalytics() {
         <div class="kpi"><div class="kpi-val">${onHold}</div><div class="kpi-lbl">On Hold</div></div>
       </div>
     </div>
-
     <div class="card">
       <h3>📈 Order Status Distribution</h3>
       ${statusEntries.length ? statusEntries.map(([s, c]) => {
@@ -903,65 +774,50 @@ function renderAnalytics() {
         else if (s.includes('Hold')) cls = 'red';
         else if (s.includes('Dispatch') || s.includes('Transit')) cls = 'blue';
         else cls = 'yellow';
-        return `<div class="bar-row">
-          <div class="bar-label">${s}</div>
+        return `<div class="bar-row"><div class="bar-label">${s}</div>
           <div class="bar-track"><div class="bar-fill ${cls}" style="width:${pct}%"></div></div>
-          <div class="bar-val">${c}</div>
-        </div>`;
+          <div class="bar-val">${c}</div></div>`;
       }).join('') : '<div class="empty">No data.</div>'}
     </div>
-
     <div class="card">
       <h3>🔧 Order Type Breakdown</h3>
       ${typeEntries.length ? typeEntries.map(([ty, c]) => {
         const pct = Math.round((c / maxType) * 100);
-        return `<div class="bar-row">
-          <div class="bar-label">${ty}</div>
+        return `<div class="bar-row"><div class="bar-label">${ty}</div>
           <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
-          <div class="bar-val">${c}</div>
-        </div>`;
+          <div class="bar-val">${c}</div></div>`;
       }).join('') : '<div class="empty">No data.</div>'}
     </div>
-
     <div class="card">
-      <h3>🏆 Top Dealers by Orders</h3>
-      ${topDealers.length ? topDealers.map(([key, c], i) => {
-        const [code, name] = key.split('|');
+      <h3>🏆 Top Dealers</h3>
+      ${topDealers.length ? topDealers.map(([k, c], i) => {
+        const [code, name] = k.split('|');
         return `<div class="top-list-item rank-${i+1}">
           <div class="rank">${i+1}</div>
           <div class="name">${name}<br><span style="font-size:11px;color:#888">${code}</span></div>
-          <div class="count">${c}</div>
-        </div>`;
+          <div class="count">${c}</div></div>`;
       }).join('') : '<div class="empty">No data.</div>'}
     </div>
-
     <div class="card">
-      <h3>📅 Orders Trend (Last 7 Days)</h3>
-      <div class="trend-chart">
-        ${days.map(d => `<div class="trend-bar" style="height:${(d.count/maxTrend)*100}%" data-val="${d.count}"></div>`).join('')}
-      </div>
-      <div class="trend-labels">${days.map(d => `<div>${d.label}</div>`).join('')}</div>
-    </div>
-
-    <div class="card">
-      <h3>💬 Feedback Summary</h3>
+      <h3>💬 Feedback</h3>
       <div class="stats">
         <div class="stat ok"><div class="val">${thumbsUp}</div><div class="lbl">👍 Helpful</div></div>
         <div class="stat err"><div class="val">${thumbsDown}</div><div class="lbl">👎 Not Helpful</div></div>
         <div class="stat blue"><div class="val">${FEEDBACK.length}</div><div class="lbl">Total</div></div>
       </div>
     </div>
-
     <div class="card">
-      <h3>🎫 Support Tickets Summary</h3>
+      <h3>🎫 Tickets</h3>
       <div class="stats">
         <div class="stat warn"><div class="val">${openTickets}</div><div class="lbl">Open</div></div>
         <div class="stat ok"><div class="val">${closedTickets}</div><div class="lbl">Closed</div></div>
       </div>
-    </div>
-  `;
+    </div>`;
 }
 
+/* ============================================================
+   RECORDS
+   ============================================================ */
 function renderRecords() {
   const el = document.getElementById('recordsTable');
   const s = (document.getElementById('recSearch')?.value || '').toLowerCase().trim();
@@ -974,10 +830,10 @@ function renderRecords() {
       String(o.dealerCode || '').toLowerCase().includes(s) ||
       String(o.dealerName || '').toLowerCase().includes(s);
   });
-  if (!filtered.length) { el.innerHTML = '<div class="empty">No matching records.</div>'; return; }
+  if (!filtered.length) { el.innerHTML = '<div class="empty">No records.</div>'; return; }
   const cols = ['dealerCode','dealerName','orderNumber','orderType','partNumber','orderStatus','orderedQty','dispatchedQty','pendingQty','invoiceNumber','docketLR','eta'];
   let html = '<table><thead><tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
-  filtered.slice(0, 100).forEach(o => { html += '<tr>' + cols.map(c => `<td>${o[c] ?? ''}</td>`).join('') + '</tr>'; });
+  filtered.slice(0, 200).forEach(o => { html += '<tr>' + cols.map(c => `<td>${o[c] ?? ''}</td>`).join('') + '</tr>'; });
   html += '</tbody></table>';
   el.innerHTML = html;
 }
@@ -999,80 +855,10 @@ function renderTickets() {
   el.innerHTML = html;
 }
 
-function renderHistory() {
-  const el = document.getElementById('uploadHistory');
-  if (!UPLOAD_LOG.length) { el.innerHTML = '<div class="empty">No uploads yet.</div>'; return; }
-  el.innerHTML = UPLOAD_LOG.map(l => `
-    <div class="log-item">
-      <span class="log-badge ${l.status}">${l.status.toUpperCase()}</span>
-      <div>
-        <div class="log-name">${l.fileName}</div>
-        <div style="font-size:11.5px;color:#777">${l.valid} valid &bull; ${l.rejected} rejected</div>
-      </div>
-      <div class="log-meta">${l.timestamp}</div>
-    </div>`).join('');
-}
-
 function renderAll() {
-  renderThreads();
-  renderHistory();
   renderRecords();
-  renderTickets();
   renderAnalytics();
-  updateStorageInfo();
 }
-
-/* ============================================================
-   LIVE POLLING
-   ============================================================ */
-let lastMsgCounts = {};
-
-setInterval(() => {
-  const freshThreads = JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
-
-  let newFromDealer = false;
-  Object.keys(freshThreads).forEach(code => {
-    const t = freshThreads[code];
-    const count = t.messages ? t.messages.length : 0;
-    const prev = lastMsgCounts[code] || 0;
-    if (count > prev) {
-      const newMsgs = t.messages.slice(prev);
-      if (newMsgs.some(m => m.from === 'dealer')) newFromDealer = true;
-    }
-    lastMsgCounts[code] = count;
-  });
-
-  THREADS = freshThreads;
-  updateSupportBadge();
-
-  if (document.getElementById('panel-support')?.classList.contains('active')) {
-    renderThreads();
-    if (selectedDealer && THREADS[selectedDealer]) {
-      const t = THREADS[selectedDealer];
-      const bodyCount = document.querySelectorAll('#chatBody .chat-msg').length;
-      if ((t.messages ? t.messages.length : 0) !== bodyCount) {
-        selectDealer(selectedDealer);
-      }
-    }
-  }
-
-  if (newFromDealer) {
-    showToast('💬 New message from dealer!');
-  }
-}, 1000);
-
-window.addEventListener('storage', e => {
-  if (e.key === THREADS_KEY) {
-    THREADS = JSON.parse(localStorage.getItem(THREADS_KEY) || '{}');
-    updateSupportBadge();
-    if (document.getElementById('panel-support')?.classList.contains('active')) {
-      renderThreads();
-      if (selectedDealer && THREADS[selectedDealer]) {
-        selectDealer(selectedDealer);
-      }
-    }
-  }
-});
 </script>
 </body>
 </html>
