@@ -166,11 +166,15 @@
   .ticket-card .tc-remarks { background: #ecfdf5; color: #065f46; padding: 8px 10px;
     border-radius: 8px; font-size: 11.5px; margin-top: 6px; line-height: 1.5; }
   .pending-item { background: #fafbff; border-left: 3px solid #f59e0b;
-    border-radius: 8px; padding: 10px; margin-bottom: 8px; font-size: 12px; }
+    border-radius: 8px; padding: 10px; margin-bottom: 8px; font-size: 12px;
+    transition: 0.15s; }
+  .pending-item.clickable-order { cursor: pointer; }
+  .pending-item.clickable-order:hover { background: #fff5f6; border-left-color: #b3001b; transform: translateX(2px); }
   .pending-item .pi-head { display: flex; justify-content: space-between;
     align-items: center; margin-bottom: 4px; }
   .pending-item .pi-num { font-weight: 700; color: #b3001b; }
   .pending-item .pi-info { color: #666; font-size: 11px; line-height: 1.5; }
+  .pending-item .pi-cta { font-size: 10px; color: #b3001b; font-weight: 600; margin-top: 6px; }
   .stat-card { background: linear-gradient(135deg, #eff6ff, #dbeafe); border-radius: 10px;
     padding: 14px; text-align: center; margin-bottom: 8px; }
   .stat-card.green { background: linear-gradient(135deg, #ecfdf5, #d1fae5); }
@@ -244,7 +248,6 @@
 </div>
 
 <script>
-/* FIREBASE INIT */
 const firebaseConfig = {
   apiKey: "AIzaSyA6QL0wWLb_l9uyofgYrsgc6CiCRUufHdM",
   authDomain: "mg-parts-chatbot.firebaseapp.com",
@@ -771,6 +774,21 @@ function attachFeedbackHandlers() {
   });
 }
 
+/* ⭐ NEW: Attach click handlers to pending/recent order items */
+function attachOrderClickHandlers() {
+  document.querySelectorAll('.clickable-order').forEach(el => {
+    if (el.dataset.bound) return;
+    el.dataset.bound = '1';
+    el.onclick = () => {
+      const orderNum = el.dataset.order;
+      if (orderNum) {
+        // Remove "click" hint and show full details
+        handleMessage(orderNum);
+      }
+    };
+  });
+}
+
 /* MULTI SEARCH */
 function splitInputNumbers(text) {
   return text.split(/[,\n;\t]+|\s{2,}/).map(s => s.trim()).filter(s => s.length > 0);
@@ -803,9 +821,10 @@ function showPendingOrders() {
     botReply(isHi ? '✅ कोई पेंडिंग ऑर्डर नहीं है।' : '✅ No pending orders.');
     return;
   }
-  let html = `<strong>⏳ ${isHi?'पेंडिंग ऑर्डर':'Pending Orders'} (${pending.length})</strong><br><br>`;
+  let html = `<strong>⏳ ${isHi?'पेंडिंग ऑर्डर':'Pending Orders'} (${pending.length})</strong><br>
+    <em style="font-size:11px;color:#666">${isHi?'किसी भी ऑर्डर पर क्लिक करें पूरी जानकारी के लिए':'Click any order to view full details'}</em><br><br>`;
   pending.forEach(o => {
-    html += `<div class="pending-item">
+    html += `<div class="pending-item clickable-order" data-order="${o.orderNumber}">
       <div class="pi-head">
         <div class="pi-num">${o.orderNumber}</div>
         <span class="status-badge ${getStatusColor(o.orderStatus)}" style="font-size:9px">${o.orderStatus||'-'}</span>
@@ -814,26 +833,31 @@ function showPendingOrders() {
         ${o.partNumber || '-'} — ${o.partDescription || '-'}<br>
         ${isHi?'पेंडिंग':'Pending'}: <strong>${o.pendingQty}</strong> | ETA: <strong>${o.eta ? formatDate(o.eta) : 'N/A'}</strong>
       </div>
+      <div class="pi-cta">👆 ${isHi?'क्लिक करें विवरण के लिए':'Click for details'}</div>
     </div>`;
   });
-  addMsg(html, 'bot');
+  addMsg(html, 'bot', true, false, true);
+  setTimeout(attachOrderClickHandlers, 150);
 }
 
 function showRecentOrders() {
   const isHi = LANG === 'hi';
   const recent = [...ORDERS].filter(o => o.orderNumber).slice(-10).reverse();
   if (!recent.length) { botReply(isHi ? 'कोई ऑर्डर नहीं मिला।' : 'No orders found.'); return; }
-  let html = `<strong>📋 ${isHi?'हाल के ऑर्डर':'Recent Orders'} (${recent.length})</strong><br><br>`;
+  let html = `<strong>📋 ${isHi?'हाल के ऑर्डर':'Recent Orders'} (${recent.length})</strong><br>
+    <em style="font-size:11px;color:#666">${isHi?'किसी भी ऑर्डर पर क्लिक करें पूरी जानकारी के लिए':'Click any order to view full details'}</em><br><br>`;
   recent.forEach(o => {
-    html += `<div class="pending-item" style="border-left-color:#2563eb">
+    html += `<div class="pending-item clickable-order" data-order="${o.orderNumber}" style="border-left-color:#2563eb">
       <div class="pi-head">
         <div class="pi-num">${o.orderNumber}</div>
         <span class="status-badge ${getStatusColor(o.orderStatus)}" style="font-size:9px">${o.orderStatus||'-'}</span>
       </div>
       <div class="pi-info">${o.partNumber||'-'} — ${o.partDescription||'-'}<br>${o.orderType||''}</div>
+      <div class="pi-cta">👆 ${isHi?'क्लिक करें विवरण के लिए':'Click for details'}</div>
     </div>`;
   });
-  addMsg(html, 'bot');
+  addMsg(html, 'bot', true, false, true);
+  setTimeout(attachOrderClickHandlers, 150);
 }
 
 function showMyStats() {
@@ -881,7 +905,6 @@ function showStockResult(partNumInput) {
     return { color: '#dc2626', label: isHi ? 'उपलब्ध नहीं' : 'Not Available', emoji: '🔴' };
   }
   const s1 = statusOf(w1), s2 = statusOf(w2), s3 = statusOf(w3);
-
   const allGreen = w1 >= 20 && w2 >= 20 && w3 >= 20;
   const anyGreen = w1 >= 20 || w2 >= 20 || w3 >= 20;
   const anyYellow = (w1 > 0 && w1 < 20) || (w2 > 0 && w2 < 20) || (w3 > 0 && w3 < 20);
@@ -930,7 +953,33 @@ function showStockResult(partNumInput) {
   addMsg(html, 'bot');
 }
 
-/* HANDLE MESSAGE */
+/* ⭐ NEW: Help menu function */
+function showHelpMenu() {
+  const isHi = LANG === 'hi';
+  botReply(isHi
+    ? `मैं इनमें सहायता कर सकता हूँ:<br>
+       &bull; <strong>ऑर्डर स्थिति</strong> — ऑर्डर नंबर डालें<br>
+       &bull; <strong>पेंडिंग ऑर्डर</strong> — पेंडिंग ऑर्डर देखें<br>
+       &bull; <strong>हाल के ऑर्डर</strong> — recent orders<br>
+       &bull; <strong>स्टॉक चेक</strong> — पार्ट availability<br>
+       &bull; <strong>आँकड़े</strong> — आपके stats<br>
+       &bull; <strong>टिकट बनाएं</strong> — शिकायत दर्ज करें<br>
+       &bull; <strong>टिकट ट्रैक</strong> — पुराने tickets<br>
+       &bull; <strong>डीलर सपोर्ट टीम</strong> — टीम से बात करें<br><br>
+       नीचे बटन्स पर क्लिक करें या सीधे अपना सवाल पूछें।`
+    : `I can help you with:<br>
+       &bull; <strong>Order Status</strong> — enter order number<br>
+       &bull; <strong>Pending Orders</strong> — view pending orders<br>
+       &bull; <strong>Recent Orders</strong> — recent orders<br>
+       &bull; <strong>Check Stock</strong> — part availability<br>
+       &bull; <strong>Stats</strong> — your stats<br>
+       &bull; <strong>Raise Ticket</strong> — file a complaint<br>
+       &bull; <strong>Track Ticket</strong> — old tickets<br>
+       &bull; <strong>Talk to Support Team</strong> — chat with team<br><br>
+       Click buttons below or ask your question directly.`);
+}
+
+/* ⭐ UPDATED: handleMessage with intent detection */
 async function handleMessage(text) {
   if (!authState.loggedIn) return;
   addMsg(text, 'user');
@@ -943,15 +992,124 @@ async function handleMessage(text) {
     if (partMatch) { showStockResult(partMatch[1]); return; }
   }
 
-  if (/talk to (agent|support|team|dealer support)|connect.*support|support.*team|सपोर्ट.*बात/.test(msg)) {
+  // Talk to support team
+  if (/talk to (agent|support|team|dealer support)|support.*team|सपोर्ट.*बात/i.test(msg)) {
     requestSupportTeam(); return;
   }
 
+  // ⭐ Greeting
+  if (/^(hi+|hello+|hey+|namaste|नमस्ते)\b/i.test(msg)) {
+    botReply(isHi
+      ? `नमस्ते! 👋 मैं आपकी कैसे सहायता कर सकता हूँ?<br><br>
+         आप कर सकते हैं:<br>
+         &bull; ऑर्डर स्थिति देखें<br>
+         &bull; पेंडिंग / हाल के ऑर्डर देखें<br>
+         &bull; स्टॉक चेक करें<br>
+         &bull; टिकट बनाएं<br>
+         &bull; सपोर्ट टीम से बात करें`
+      : `Hello! 👋 How can I help you?<br><br>
+         You can:<br>
+         &bull; Check order status<br>
+         &bull; View pending / recent orders<br>
+         &bull; Check stock<br>
+         &bull; Raise a ticket<br>
+         &bull; Talk to support team`);
+    return;
+  }
+
+  // ⭐ Raise query / ticket / complaint
+  if (/raise\s+(a\s+)?(query|ticket|complaint|issue|problem)|register.*(complaint|query)|complain|shikayat|problem (hai|raise)|issue raise|query raise|ticket raise/i.test(msg)) {
+    openModal('raise-ticket'); return;
+  }
+
+  // ⭐ Connect / contact support
+  if (/\b(connect|contact)\b|how can i (reach|contact|talk)|support.*se.*baat|agent.*se.*baat|team.*se.*baat|baat karni hai/i.test(msg)) {
+    requestSupportTeam(); return;
+  }
+
+  // ⭐ Help / guide
+  if (/^(help|guide|menu|options|madad)$/i.test(msg) || /what can you do|kya kar sakte|kya kar sakta|how can you help|aap kya kar sakte|options dikhao/i.test(msg)) {
+    showHelpMenu(); return;
+  }
+
+  // ⭐ Thanks
+  if (/^(thanks?|thank\s*you|thanku|shukriya|dhanyavad|shukriya bhai|thank u)/i.test(msg)) {
+    botReply(isHi
+      ? `आपका स्वागत है! 😊 और कुछ चाहिए तो बताइए।`
+      : `You're welcome! 😊 Let me know if you need anything else.`);
+    return;
+  }
+
+  // ⭐ Track ticket
+  if (/track.*ticket|ticket.*track|my ticket|mere ticket|ticket status|ticket dikhao/i.test(msg)) {
+    openModal('track-ticket'); return;
+  }
+
+  // ⭐ FAQ
+  if (/^(faq|frequently|common question|sawal|question)/i.test(msg)) {
+    openModal('faq'); return;
+  }
+
+  // ⭐ Pending orders
+  if (/pending\s*order|show pending|mere pending|pending dikhao|pending list/i.test(msg)) {
+    showPendingOrders(); return;
+  }
+
+  // ⭐ Recent orders
+  if (/recent\s*order|order\s*history|last orders|mere recent|recent dikhao|history dikhao/i.test(msg)) {
+    showRecentOrders(); return;
+  }
+
+  // ⭐ Stats
+  if (/^(stats?|statistics|summary)$/i.test(msg) || /my stats|mere stats|mere aankde|summary dikhao|aankde/i.test(msg)) {
+    showMyStats(); return;
+  }
+
+  // ⭐ Stock check — "stock" alone
+  if (/^(stock|stock check|check stock|stock dekho|stock check karo|availability)$/i.test(msg)) {
+    openModal('stock-check'); return;
+  }
+
+  // ⭐ Short random responses (single word or small)
+  if (/^(ok|okay|k|fine|achha|accha|hmm+|oh+|huh|yes|no|haan|nahi|yep|nope|kya|what|why|when|who|where|how|kaise|kab|kahan|kaun|cool|nice|good|bad|great|thanks bhai)$/i.test(msg)) {
+    botReply(isHi
+      ? `कृपया अपना सवाल साफ़ लिखें या नीचे बटन्स का उपयोग करें।<br><br>
+         किस चीज़ में सहायता चाहिए?<br>
+         &bull; ऑर्डर स्थिति<br>
+         &bull; पेंडिंग / हाल के ऑर्डर<br>
+         &bull; स्टॉक चेक<br>
+         &bull; टिकट बनाएं<br>
+         &bull; सपोर्ट टीम से बात करें`
+      : `Please type your question clearly or use the buttons below.<br><br>
+         What do you need help with?<br>
+         &bull; Order status<br>
+         &bull; Pending / recent orders<br>
+         &bull; Check stock<br>
+         &bull; Raise ticket<br>
+         &bull; Talk to support team`);
+    return;
+  }
+
+  // ⭐ General question words without matching order
+  if (/^(how|what|why|when|where|who|can you|could you|will you|is there|are there|kya|kaise|kab|kahan|kaun|kaisa)\b/i.test(msg) && msg.length < 40) {
+    botReply(isHi
+      ? `मैं पूरी तरह समझ नहीं पाया 🤔 कृपया साफ़ लिखें या नीचे बटन्स का उपयोग करें।<br><br>
+         सपोर्ट टीम से बात करने के लिए <strong>"Talk to Dealer Support Team"</strong> पर क्लिक करें।`
+      : `I didn't quite understand 🤔 Please type clearly or use the buttons below.<br><br>
+         To talk to support team, click <strong>"Talk to Dealer Support Team"</strong>.`);
+    return;
+  }
+
+  // Order search
   const { results, notFound } = findOrdersMulti(text);
   if (!results.length && notFound.length) {
     botReply(isHi
-      ? `"<strong>${notFound.join(', ')}</strong>" से मेल खाता कुछ नहीं मिला।<br><br>कृपया सही ऑर्डर / पार्ट नंबर जाँचें।`
-      : `Could not find any order or part matching: <strong>${notFound.join(', ')}</strong><br><br>Please verify the Order / Part Number.`);
+      ? `"<strong>${notFound.join(', ')}</strong>" से मेल खाता कुछ नहीं मिला।<br><br>
+         कृपया सही ऑर्डर / पार्ट नंबर जाँचें।<br><br>
+         या नीचे बटन्स से ऑर्डर स्थिति, पेंडिंग ऑर्डर, या स्टॉक चेक करें।`
+      : `Could not find any order or part matching: <strong>${notFound.join(', ')}</strong><br><br>
+         Please verify the Order / Part Number.<br><br>
+         Or use buttons below to check order status, pending orders, or stock.`);
     return;
   }
   if (results.length === 1 && results[0].matches.length === 1 && notFound.length === 0) {
