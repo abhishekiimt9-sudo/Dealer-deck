@@ -66,8 +66,7 @@
     border-bottom-left-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
   .user { background: #b3001b; color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
   .bot strong { color: #b3001b; }
-  .admin-msg { background: #ecfdf5 !important; border-left: 4px solid #16a34a !important;
-    box-shadow: 0 2px 8px rgba(22,163,74,0.15) !important; }
+  .admin-msg { background: #ecfdf5 !important; border-left: 4px solid #16a34a !important; }
   .order-card-header { display: flex; align-items: center; justify-content: space-between;
     padding-bottom: 8px; margin-bottom: 8px; border-bottom: 2px solid #f0f2f7; gap: 8px; flex-wrap: wrap; }
   .order-card-header .order-num { font-size: 13.5px; font-weight: 800; color: #b3001b; }
@@ -96,10 +95,12 @@
     color: #888; margin-top: 2px; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px 4px; background: #f4f6fb; }
   .chip { background: #fff; border: 1px solid #d7dbe6; color: #b3001b;
-    font-size: 11.5px; padding: 6px 10px; border-radius: 20px; cursor: pointer; transition: 0.15s; }
+    font-size: 11px; padding: 6px 10px; border-radius: 20px; cursor: pointer; transition: 0.15s; }
   .chip:hover { background: #b3001b; color: #fff; border-color: #b3001b; }
   .chip.support { background: #b3001b; color: #fff; border-color: #b3001b; font-weight: 600; }
   .chip.faq { background: #f0f9ff; color: #0369a1; border-color: #bae6fd; }
+  .chip.new { background: #fff7ed; color: #c2410c; border-color: #fed7aa; font-weight: 600; }
+  .chip.new:hover { background: #c2410c; color: #fff; border-color: #c2410c; }
   .input-bar { display: flex; padding: 10px 12px; background: #fff;
     border-top: 1px solid #e5e7ef; gap: 8px; }
   .input-bar input { flex: 1; border: 1px solid #d7dbe6; border-radius: 22px;
@@ -162,6 +163,22 @@
   .ticket-card .tc-row { font-size: 11.5px; color: #555; margin-top: 3px; }
   .ticket-card .tc-remarks { background: #ecfdf5; color: #065f46; padding: 8px 10px;
     border-radius: 8px; font-size: 11.5px; margin-top: 6px; line-height: 1.5; }
+  .pending-item { background: #fafbff; border-left: 3px solid #f59e0b;
+    border-radius: 8px; padding: 10px; margin-bottom: 8px; font-size: 12px; }
+  .pending-item .pi-head { display: flex; justify-content: space-between;
+    align-items: center; margin-bottom: 4px; }
+  .pending-item .pi-num { font-weight: 700; color: #b3001b; }
+  .pending-item .pi-info { color: #666; font-size: 11px; line-height: 1.5; }
+  .stat-card { background: linear-gradient(135deg, #eff6ff, #dbeafe); border-radius: 10px;
+    padding: 14px; text-align: center; margin-bottom: 8px; }
+  .stat-card.green { background: linear-gradient(135deg, #ecfdf5, #d1fae5); }
+  .stat-card.yellow { background: linear-gradient(135deg, #fffbeb, #fef3c7); }
+  .stat-card.red { background: linear-gradient(135deg, #fef2f2, #fee2e2); }
+  .stat-card .sc-val { font-size: 24px; font-weight: 800; color: #1e40af; line-height: 1; }
+  .stat-card.green .sc-val { color: #065f46; }
+  .stat-card.yellow .sc-val { color: #92400e; }
+  .stat-card.red .sc-val { color: #991b1b; }
+  .stat-card .sc-lbl { font-size: 11px; color: #666; margin-top: 4px; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -201,7 +218,7 @@
   <div id="chat" class="chat"></div>
   <div id="chips" class="chips"></div>
   <div class="input-bar">
-    <input id="userInput" type="text" placeholder="Type order/part numbers (comma separated)..." autocomplete="off" />
+    <input id="userInput" type="text" placeholder="Type order/part numbers..." autocomplete="off" />
     <button class="send-btn" id="sendBtn">&#10148;</button>
   </div>
 
@@ -225,9 +242,7 @@
 </div>
 
 <script>
-/* ============================================================
-   FIREBASE INIT
-   ============================================================ */
+/* FIREBASE INIT */
 const firebaseConfig = {
   apiKey: "AIzaSyA6QL0wWLb_l9uyofgYrsgc6CiCRUufHdM",
   authDomain: "mg-parts-chatbot.firebaseapp.com",
@@ -239,37 +254,35 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-/* Support hours config */
 const SUPPORT_START_HOUR = 9;
 const SUPPORT_END_HOUR = 19;
 const SUPPORT_WORKING_DAYS = [1,2,3,4,5,6];
 
-/* ============================================================
-   TRANSLATIONS
-   ============================================================ */
+/* TRANSLATIONS */
 const I18N = {
   en: {
     hdrTitle: 'Parts & Order Support', hdrSub: 'MG Aftersales Assistant',
     hoursOpen: 'Support Team Available: 9:00 AM - 7:00 PM (Mon-Sat)',
     hoursClosed: 'Support Team Offline. Bot available 24x7.',
-    inputPlaceholder: 'Type order/part numbers (comma separated)...',
+    inputPlaceholder: 'Type order/part numbers...',
     verified: 'Verified', howCanHelp: 'How can I help you today?',
     chips: {
-      myOrders: 'My Orders', orderStatus: 'Order Status', raiseTicket: 'Raise Ticket',
-      trackTicket: 'Track Ticket', faq: 'FAQ', otherQuery: 'Other Query',
-      support: 'Talk to Dealer Support Team'
+      pending: '⏳ Pending', recent: '📋 Recent', myStats: '📊 Stats',
+      myOrders: 'My Orders', orderStatus: 'Order Status',
+      raiseTicket: 'Raise Ticket', trackTicket: 'Track Ticket', faq: 'FAQ',
+      otherQuery: 'Other Query', support: 'Talk to Dealer Support Team'
     },
     modal: {
       orderTitle: 'Enter Order / Part Number',
-      orderSub: 'Enter one or more numbers separated by comma. Example: 7400076472, 7400075116',
+      orderSub: 'Enter one or more numbers separated by comma.',
       orderLabel: 'Order / Part Number',
-      queryTitle: 'Type Your Query', querySub: 'Write your question or concern below.',
+      queryTitle: 'Type Your Query', querySub: 'Write your question below.',
       queryLabel: 'Your Query',
-      ticketTitle: 'Raise Support Ticket', ticketSub: 'Fill the details. You will receive a ticket number.',
+      ticketTitle: 'Raise Support Ticket', ticketSub: 'Fill the details.',
       ticketOrder: 'Order Number (optional)', ticketPart: 'Part Number (optional)', ticketIssue: 'Issue Description *',
       trackTitle: 'Your Support Tickets', trackSub: 'Below are the tickets raised by your dealership.',
       faqTitle: 'Frequently Asked Questions', faqSub: 'Click a question to see the answer.',
-      myOrdersTitle: 'My Orders', myOrdersSub: 'All orders for your dealership. Click any to view.',
+      myOrdersTitle: 'My Orders', myOrdersSub: 'All orders for your dealership.',
       cancel: 'Cancel', submit: 'Submit'
     },
     orderCard: {
@@ -286,20 +299,21 @@ const I18N = {
       { q: 'What does "On Hold" mean?', a: 'Order is temporarily paused.' },
       { q: 'When will my order be dispatched?', a: 'Orders are dispatched within 24-48 hours once stock is available.' },
       { q: 'How do I raise a support ticket?', a: 'Click "Raise Ticket" button.' },
-      { q: 'What are the support hours?', a: 'Mon-Sat, 9:00 AM to 7:00 PM. Bot available 24x7.' },
-      { q: 'How to check multiple orders at once?', a: 'Type multiple order numbers separated by comma.' }
+      { q: 'What are the support hours?', a: 'Mon-Sat, 9:00 AM to 7:00 PM.' },
+      { q: 'How to check multiple orders?', a: 'Type multiple order numbers separated by comma.' }
     ]
   },
   hi: {
     hdrTitle: 'पार्ट्स और ऑर्डर सपोर्ट', hdrSub: 'MG आफ्टरसेल्स असिस्टेंट',
     hoursOpen: 'सपोर्ट टीम उपलब्ध: सुबह 9:00 - शाम 7:00 (सोम-शनि)',
     hoursClosed: 'सपोर्ट टीम ऑफलाइन है। बॉट 24x7 उपलब्ध।',
-    inputPlaceholder: 'ऑर्डर/पार्ट नंबर लिखें (कॉमा से अलग)...',
+    inputPlaceholder: 'ऑर्डर/पार्ट नंबर लिखें...',
     verified: 'सत्यापित', howCanHelp: 'मैं आपकी कैसे सहायता कर सकता हूँ?',
     chips: {
-      myOrders: 'मेरे ऑर्डर', orderStatus: 'ऑर्डर स्थिति', raiseTicket: 'टिकट बनाएं',
-      trackTicket: 'टिकट ट्रैक करें', faq: 'सामान्य प्रश्न', otherQuery: 'अन्य प्रश्न',
-      support: 'डीलर सपोर्ट टीम से बात करें'
+      pending: '⏳ पेंडिंग', recent: '📋 हाल के', myStats: '📊 आँकड़े',
+      myOrders: 'मेरे ऑर्डर', orderStatus: 'ऑर्डर स्थिति',
+      raiseTicket: 'टिकट बनाएं', trackTicket: 'टिकट ट्रैक', faq: 'सामान्य प्रश्न',
+      otherQuery: 'अन्य प्रश्न', support: 'डीलर सपोर्ट टीम'
     },
     modal: {
       orderTitle: 'ऑर्डर / पार्ट नंबर दर्ज करें',
@@ -309,8 +323,8 @@ const I18N = {
       queryLabel: 'आपका प्रश्न',
       ticketTitle: 'सपोर्ट टिकट बनाएं', ticketSub: 'विवरण भरें।',
       ticketOrder: 'ऑर्डर नंबर (वैकल्पिक)', ticketPart: 'पार्ट नंबर (वैकल्पिक)', ticketIssue: 'समस्या का विवरण *',
-      trackTitle: 'आपके सपोर्ट टिकट', trackSub: 'आपके डीलरशिप के टिकट नीचे हैं।',
-      faqTitle: 'अक्सर पूछे जाने वाले प्रश्न', faqSub: 'उत्तर देखने के लिए प्रश्न पर क्लिक करें।',
+      trackTitle: 'आपके सपोर्ट टिकट', trackSub: 'आपके टिकट नीचे हैं।',
+      faqTitle: 'अक्सर पूछे जाने वाले प्रश्न', faqSub: 'उत्तर देखने के लिए क्लिक करें।',
       myOrdersTitle: 'मेरे ऑर्डर', myOrdersSub: 'आपके सभी ऑर्डर।',
       cancel: 'रद्द करें', submit: 'जमा करें'
     },
@@ -342,22 +356,18 @@ function t(key) {
   return cur;
 }
 
-/* ============================================================
-   STATE
-   ============================================================ */
+/* STATE */
 let ORDERS = [];
 let TICKETS = [];
-let authState = {
-  dealerCode: null, dealerName: null, lastOrderContext: null, loggedIn: false
-};
+let BROADCASTS = [];
+let authState = { dealerCode: null, dealerName: null, lastOrderContext: null, loggedIn: false };
 let threadListener = null;
 let ticketListener = null;
+let broadcastListener = null;
 let seenMessageIds = new Set();
 let lastTicketStates = {};
 
-/* ============================================================
-   UTILITIES
-   ============================================================ */
+/* UTILITIES */
 function nowTime() { return new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }); }
 function todayStamp() {
   const d = new Date();
@@ -366,9 +376,7 @@ function todayStamp() {
 }
 function isWorkingHours() {
   const d = new Date();
-  return SUPPORT_WORKING_DAYS.includes(d.getDay()) &&
-         d.getHours() >= SUPPORT_START_HOUR &&
-         d.getHours() < SUPPORT_END_HOUR;
+  return SUPPORT_WORKING_DAYS.includes(d.getDay()) && d.getHours() >= SUPPORT_START_HOUR && d.getHours() < SUPPORT_END_HOUR;
 }
 function updateHoursBar() {
   const bar = document.getElementById('hoursBar');
@@ -390,9 +398,7 @@ function formatDate(val) {
     const n = parseInt(s);
     if (n > 20000 && n < 60000) {
       const d = new Date((n - 25569) * 86400 * 1000);
-      if (!isNaN(d.getTime())) {
-        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-      }
+      if (!isNaN(d.getTime())) return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     }
   }
   return s;
@@ -405,7 +411,6 @@ function getStatusGroup(status) {
   if (s.includes('deliver')) return 'delivered';
   if (s.includes('transit')) return 'transit';
   if (s.includes('dispatch') && s.includes('partial')) return 'partial';
-  if (s.includes('dispatch') && (s.includes('fully') || s === 'dispatched' || s.includes('complete'))) return 'dispatched';
   if (s.includes('dispatch')) return 'dispatched';
   return 'pending';
 }
@@ -417,10 +422,17 @@ function getTicketStatusClass(status) {
   if (s.includes('clos')) return 'gray';
   return 'gray';
 }
+function getStatusColor(status) {
+  if (!status) return 'gray';
+  const s = status.toLowerCase();
+  if (s.includes('deliver') || (s.includes('dispatch') && s.includes('fully')) || s === 'dispatched') return 'green';
+  if (s.includes('dispatch')) return 'blue';
+  if (s.includes('transit')) return 'purple';
+  if (s.includes('hold') || s.includes('back') || s.includes('cancel')) return 'red';
+  return 'yellow';
+}
 
-/* ============================================================
-   LOGIN
-   ============================================================ */
+/* LOGIN */
 async function attemptLogin() {
   const inp = document.getElementById('loginInput');
   const btn = document.getElementById('loginBtn');
@@ -432,8 +444,7 @@ async function attemptLogin() {
     const snap = await db.collection('orders').where('dealerCode', '==', code).limit(1).get();
     if (snap.empty) {
       err.textContent = 'Dealer Code "' + code + '" not found.';
-      err.classList.add('show');
-      btn.disabled = false; btn.textContent = 'Login'; return;
+      err.classList.add('show'); btn.disabled = false; btn.textContent = 'Login'; return;
     }
     const dealerData = snap.docs[0].data();
     authState.loggedIn = true;
@@ -447,6 +458,8 @@ async function attemptLogin() {
     loginDealer(dealerData.dealerCode, dealerData.dealerName);
     setupThreadListener();
     setupTicketListener();
+    setupBroadcastListener();
+    setTimeout(() => checkAutoNotifications(), 1500);
   } catch (e) {
     console.error(e);
     err.textContent = 'Error: ' + e.message;
@@ -458,8 +471,8 @@ document.getElementById('loginInput').addEventListener('keydown', e => { if (e.k
 
 function doLogout() {
   if (!confirm('Are you sure you want to logout?')) return;
-  if (threadListener) { threadListener(); threadListener = null; }
-  if (ticketListener) { ticketListener(); ticketListener = null; }
+  [threadListener, ticketListener, broadcastListener].forEach(f => { if (f) f(); });
+  threadListener = ticketListener = broadcastListener = null;
   authState = { dealerCode: null, dealerName: null, lastOrderContext: null, loggedIn: false };
   seenMessageIds.clear();
   lastTicketStates = {};
@@ -473,46 +486,77 @@ function doLogout() {
 function loginDealer(dealerCode, dealerName) {
   const myO = ORDERS.filter(o => o.orderNumber);
   const uniqueOrders = new Set(myO.map(o => o.orderNumber));
+  const pendingCount = myO.filter(o => Number(o.pendingQty) > 0).length;
   const isHi = LANG === 'hi';
   let wmsg = `✅ ${t('verified')}: <strong>${dealerName}</strong> (${dealerCode}).<br><br>`;
   wmsg += isHi
     ? `आपके <strong>${uniqueOrders.size}</strong> ऑर्डर और <strong>${myO.length}</strong> पार्ट्स हैं।`
     : `You have <strong>${uniqueOrders.size}</strong> order(s) with <strong>${myO.length}</strong> part(s).`;
+  if (pendingCount > 0) {
+    wmsg += isHi
+      ? `<br><br>⏳ <strong>${pendingCount}</strong> पेंडिंग पार्ट्स हैं।`
+      : `<br><br>⏳ <strong>${pendingCount}</strong> pending part(s).`;
+  }
   wmsg += `<br><br>${t('howCanHelp')}`;
   addMsg(wmsg, 'bot');
   renderMainChips();
 }
 
-/* ============================================================
-   CHAT UI
-   ============================================================ */
-const chat = document.getElementById('chat');
-const input = document.getElementById('userInput');
-const sendBtn = document.getElementById('sendBtn');
-const chips = document.getElementById('chips');
+/* BROADCAST LISTENER */
+function setupBroadcastListener() {
+  if (broadcastListener) broadcastListener();
+  broadcastListener = db.collection('broadcasts')
+    .orderBy('createdAt', 'desc').limit(5)
+    .onSnapshot(snap => {
+      const newB = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+      const seen = JSON.parse(localStorage.getItem('mg_seen_broadcasts') || '[]');
+      let isFirstLoad = BROADCASTS.length === 0;
+      newB.forEach(b => {
+        if (!seen.includes(b._id)) {
+          seen.push(b._id);
+          if (!isFirstLoad) {
+            addMsg(`<div style="background:#eff6ff;border-left:4px solid #2563eb;padding:10px 12px;border-radius:8px;font-size:12.5px">
+              <strong style="color:#1e40af">📢 ${LANG==='hi'?'घोषणा':'Announcement'}</strong><br><br>
+              ${b.message}
+            </div>`, 'bot', true);
+          }
+        }
+      });
+      localStorage.setItem('mg_seen_broadcasts', JSON.stringify(seen));
+      BROADCASTS = newB;
+    }, err => console.error('Broadcast listener:', err));
+}
 
-function addMsg(text, who = "bot", showTime = true, isAdmin = false, skipLog = false) {
-  const w = document.createElement('div');
-  w.className = 'msg ' + who + (isAdmin ? ' admin-msg' : '');
-  let html = text;
-  if (showTime) html += `<div class="ts">${nowTime()}</div>`;
-  w.innerHTML = html;
-  chat.appendChild(w);
-  chat.scrollTop = chat.scrollHeight;
-  if (authState.loggedIn && authState.dealerCode && !isAdmin && !skipLog) {
-    if (who === 'user' || who === 'bot') {
-      const plainText = text.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-      if (plainText && plainText.length > 1) {
-        sendThreadMessage(who === 'user' ? 'dealer' : 'bot', plainText.substring(0, 500));
-      }
+/* AUTO NOTIFICATIONS */
+function checkAutoNotifications() {
+  const lastStatuses = JSON.parse(localStorage.getItem('mg_last_statuses') || '{}');
+  const updates = [];
+  const currentStatuses = {};
+  ORDERS.forEach(o => {
+    if (!o.orderNumber) return;
+    currentStatuses[o.orderNumber] = o.orderStatus;
+    if (lastStatuses[o.orderNumber] && lastStatuses[o.orderNumber] !== o.orderStatus) {
+      updates.push({ order: o, old: lastStatuses[o.orderNumber], new: o.orderStatus });
     }
+  });
+  localStorage.setItem('mg_last_statuses', JSON.stringify(currentStatuses));
+
+  if (updates.length) {
+    const isHi = LANG === 'hi';
+    setTimeout(() => {
+      let html = `<div style="background:#fff7ed;border-left:4px solid #f59e0b;padding:10px 12px;border-radius:8px;font-size:12.5px">
+        <strong style="color:#c2410c">🔔 ${isHi?'ऑर्डर अपडेट':'Order Updates'} (${updates.length})</strong><br><br>`;
+      updates.forEach(u => {
+        html += `<strong>${u.order.orderNumber}</strong><br>
+          <span style="color:#666">${u.old}</span> → <strong style="color:#16a34a">${u.new}</strong><br><br>`;
+      });
+      html += `</div>`;
+      addMsg(html, 'bot', true);
+    }, 500);
   }
 }
-function botReply(html) { addMsg(html, 'bot'); }
 
-/* ============================================================
-   SUPPORT CHAT LISTENER
-   ============================================================ */
+/* SUPPORT CHAT LISTENER */
 function setupThreadListener() {
   if (threadListener) threadListener();
   threadListener = db.collection('threads')
@@ -543,9 +587,7 @@ async function sendThreadMessage(sender, text) {
   } catch (e) { console.error('Send thread error:', e); }
 }
 
-/* ============================================================
-   TICKET LISTENER
-   ============================================================ */
+/* TICKET LISTENER */
 function setupTicketListener() {
   if (ticketListener) ticketListener();
   ticketListener = db.collection('tickets')
@@ -565,7 +607,6 @@ function setupTicketListener() {
                 <strong style="color:#16a34a">🎫 ${isHi?'टिकट अपडेट':'Ticket Update'}</strong><br><br>
                 <strong>${tn}</strong><br>
                 ${isHi?'स्थिति':'Status'}: <span style="color:#666">${prevStatus}</span> → <strong style="color:#16a34a">${data.ticketStatus}</strong>
-                ${data.resolutionRemarks ? `<br><br><em>💬 ${isHi?'रिमार्क्स जोड़े गए':'New remarks added'}</em>` : ''}
               </div>`, 'bot', true);
             }, 400);
           }
@@ -573,27 +614,34 @@ function setupTicketListener() {
         }
       });
       TICKETS = newTickets;
-      if (currentModalType === 'track-ticket' && modalOverlay.classList.contains('show')) {
-        renderTrackTicketModal();
-      }
+      if (currentModalType === 'track-ticket' && modalOverlay.classList.contains('show')) renderTrackTicketModal();
     }, err => console.error('Ticket listener error:', err));
 }
 
-/* ============================================================
-   ORDER CARD
-   ============================================================ */
-function getStatusColor(status) {
-  if (!status) return 'gray';
-  const s = status.toLowerCase();
-  if (s.includes('deliver')) return 'green';
-  if (s.includes('dispatch') && s.includes('fully')) return 'green';
-  if (s === 'dispatched' || s.includes('complete dispatch')) return 'green';
-  if (s.includes('dispatch')) return 'blue';
-  if (s.includes('transit')) return 'purple';
-  if (s.includes('hold') || s.includes('back')) return 'red';
-  if (s.includes('cancel')) return 'red';
-  return 'yellow';
+/* CHAT UI */
+const chat = document.getElementById('chat');
+const input = document.getElementById('userInput');
+const sendBtn = document.getElementById('sendBtn');
+const chips = document.getElementById('chips');
+
+function addMsg(text, who = "bot", showTime = true, isAdmin = false, skipLog = false) {
+  const w = document.createElement('div');
+  w.className = 'msg ' + who + (isAdmin ? ' admin-msg' : '');
+  let html = text;
+  if (showTime) html += `<div class="ts">${nowTime()}</div>`;
+  w.innerHTML = html;
+  chat.appendChild(w);
+  chat.scrollTop = chat.scrollHeight;
+  if (authState.loggedIn && authState.dealerCode && !isAdmin && !skipLog) {
+    if (who === 'user' || who === 'bot') {
+      const plainText = text.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      if (plainText && plainText.length > 1) sendThreadMessage(who === 'user' ? 'dealer' : 'bot', plainText.substring(0, 500));
+    }
+  }
 }
+function botReply(html) { addMsg(html, 'bot'); }
+
+/* ORDER CARD */
 function getProgressBar(status) {
   const stages = ['Received','Processing','Dispatched','In Transit','Delivered'];
   const s = String(status || '').toLowerCase().trim();
@@ -606,6 +654,7 @@ function getProgressBar(status) {
     `<div class="progress-step ${i <= active ? 'done' : ''}"></div>`).join('')}</div>
     <div class="progress-labels"><span>Received</span><span>Processing</span><span>Dispatched</span><span>In Transit</span><span>Delivered</span></div>`;
 }
+
 function orderCard(o) {
   const oc = I18N[LANG].orderCard;
   const statusClass = getStatusColor(o.orderStatus);
@@ -665,6 +714,7 @@ function orderCard(o) {
       <button class="fb-btn" data-fb="down">&#128078;</button>
     </div>`;
 }
+
 function attachFeedbackHandlers() {
   document.querySelectorAll('.feedback-row').forEach(row => {
     if (row.dataset.bound) return;
@@ -680,7 +730,7 @@ function attachFeedbackHandlers() {
             rating: btn.dataset.fb, timestamp: todayStamp(),
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
           });
-        } catch (e) { console.error(e); }
+        } catch (e) {}
         const th = document.createElement('span');
         th.className = 'fb-thanks'; th.textContent = row.dataset.thanks;
         row.appendChild(th);
@@ -689,9 +739,7 @@ function attachFeedbackHandlers() {
   });
 }
 
-/* ============================================================
-   MULTI SEARCH
-   ============================================================ */
+/* MULTI SEARCH */
 function splitInputNumbers(text) {
   return text.split(/[,\n;\t]+|\s{2,}/).map(s => s.trim()).filter(s => s.length > 0);
 }
@@ -716,6 +764,113 @@ function findOrdersMulti(text) {
 }
 
 /* ============================================================
+   NEW FEATURES
+   ============================================================ */
+
+/* 1. PENDING ORDERS */
+function showPendingOrders() {
+  const isHi = LANG === 'hi';
+  const pending = ORDERS.filter(o => Number(o.pendingQty) > 0);
+  if (!pending.length) {
+    botReply(isHi ? '✅ कोई पेंडिंग ऑर्डर नहीं है।' : '✅ No pending orders.');
+    return;
+  }
+  let html = `<strong>⏳ ${isHi?'पेंडिंग ऑर्डर':'Pending Orders'} (${pending.length})</strong><br><br>`;
+  pending.forEach(o => {
+    html += `<div class="pending-item">
+      <div class="pi-head">
+        <div class="pi-num">${o.orderNumber}</div>
+        <span class="status-badge ${getStatusColor(o.orderStatus)}" style="font-size:9px">${o.orderStatus||'-'}</span>
+      </div>
+      <div class="pi-info">
+        ${o.partNumber || '-'} — ${o.partDescription || '-'}<br>
+        ${isHi?'पेंडिंग':'Pending'}: <strong>${o.pendingQty}</strong> | ETA: <strong>${o.eta ? formatDate(o.eta) : 'N/A'}</strong>
+      </div>
+    </div>`;
+  });
+  addMsg(html, 'bot');
+}
+
+/* 2. RECENT ORDERS */
+function showRecentOrders() {
+  const isHi = LANG === 'hi';
+  const recent = [...ORDERS].filter(o => o.orderNumber).slice(-10).reverse();
+  if (!recent.length) { botReply(isHi ? 'कोई ऑर्डर नहीं मिला।' : 'No orders found.'); return; }
+  let html = `<strong>📋 ${isHi?'हाल के ऑर्डर':'Recent Orders'} (${recent.length})</strong><br><br>`;
+  recent.forEach(o => {
+    html += `<div class="pending-item" style="border-left-color:#2563eb">
+      <div class="pi-head">
+        <div class="pi-num">${o.orderNumber}</div>
+        <span class="status-badge ${getStatusColor(o.orderStatus)}" style="font-size:9px">${o.orderStatus||'-'}</span>
+      </div>
+      <div class="pi-info">
+        ${o.partNumber||'-'} — ${o.partDescription||'-'}<br>
+        ${o.orderType||''}
+      </div>
+    </div>`;
+  });
+  addMsg(html, 'bot');
+}
+
+/* 3. MY STATS */
+function showMyStats() {
+  const isHi = LANG === 'hi';
+  const total = ORDERS.filter(o => o.orderNumber).length;
+  const delivered = ORDERS.filter(o => String(o.orderStatus||'').toLowerCase().includes('deliver')).length;
+  const pending = ORDERS.filter(o => Number(o.pendingQty) > 0).length;
+  const onHold = ORDERS.filter(o => String(o.orderStatus||'').toLowerCase().includes('hold')).length;
+  const parts = ORDERS.filter(o => o.partNumber).length;
+
+  let html = `<strong>📊 ${isHi?'आपके आँकड़े':'Your Stats'}</strong><br><br>
+    <div class="stat-card">
+      <div class="sc-val">${total}</div>
+      <div class="sc-lbl">${isHi?'कुल ऑर्डर':'Total Orders'}</div>
+    </div>
+    <div class="stat-card">
+      <div class="sc-val">${parts}</div>
+      <div class="sc-lbl">${isHi?'कुल पार्ट्स':'Total Parts'}</div>
+    </div>
+    <div class="stat-card green">
+      <div class="sc-val">${delivered}</div>
+      <div class="sc-lbl">✅ ${isHi?'डिलीवर':'Delivered'}</div>
+    </div>
+    <div class="stat-card yellow">
+      <div class="sc-val">${pending}</div>
+      <div class="sc-lbl">⏳ ${isHi?'पेंडिंग':'Pending'}</div>
+    </div>
+    <div class="stat-card red">
+      <div class="sc-val">${onHold}</div>
+      <div class="sc-lbl">⚠️ ${isHi?'होल्ड पर':'On Hold'}</div>
+    </div>`;
+  addMsg(html, 'bot');
+}
+
+/* 4. PART AVAILABILITY CHECK */
+function checkPartAvailability(text) {
+  const isHi = LANG === 'hi';
+  const match = text.match(/(?:check\s+part|part\s+check|part\s+availability|पार्ट\s+चेक)[\s:]*([A-Z0-9\-_]+)/i);
+  if (!match) return false;
+  const partNum = match[1].trim().toUpperCase();
+  const related = ORDERS.filter(o => String(o.partNumber||'').toUpperCase() === partNum);
+  if (!related.length) {
+    botReply(isHi
+      ? `❌ Part <strong>${partNum}</strong> aapke orders me nahi mila.`
+      : `❌ Part <strong>${partNum}</strong> not found in your orders.`);
+    return true;
+  }
+  const latest = related[related.length - 1];
+  const inStock = String(latest.stockAvailability || '').toLowerCase().includes('avail') &&
+                  !String(latest.stockAvailability || '').toLowerCase().includes('not');
+  let html = `<strong>🔍 Part: ${partNum}</strong><br><br>
+    <strong>${latest.partDescription || '-'}</strong><br><br>
+    ${inStock ? '✅' : '⚠️'} <strong>${isHi?'स्टॉक':'Stock'}: ${latest.stockAvailability || '-'}</strong><br><br>`;
+  if (latest.eta) html += `📅 ${isHi?'अनुमानित ETA':'Tentative ETA'}: <strong>${formatDate(latest.eta)}</strong><br><br>`;
+  html += `<em>${isHi?'Order karne ke liye apne sales team se contact karein.':'To order, contact your sales team.'}</em>`;
+  addMsg(html, 'bot');
+  return true;
+}
+
+/* ============================================================
    HANDLE MESSAGE
    ============================================================ */
 async function handleMessage(text) {
@@ -723,9 +878,14 @@ async function handleMessage(text) {
   addMsg(text, 'user');
   const msg = text.toLowerCase().trim();
   const isHi = LANG === 'hi';
+
+  // Part availability check
+  if (checkPartAvailability(text)) return;
+
   if (/talk to (agent|support|team|dealer support)|connect.*support|support.*team|सपोर्ट.*बात/.test(msg)) {
     requestSupportTeam(); return;
   }
+
   const { results, notFound } = findOrdersMulti(text);
   if (!results.length && notFound.length) {
     botReply(isHi
@@ -766,48 +926,35 @@ async function handleMessage(text) {
   }
 }
 
-/* ============================================================
-   SUPPORT TEAM — SIMPLE CLEAN LOGIC
-   Bot NEVER blocks dealer. Silent mode NOT needed.
-   Working hours: msg goes to team, dealer can still use bot.
-   Off hours: msg saved, dealer can still use bot.
-   ============================================================ */
+/* SUPPORT TEAM */
 async function requestSupportTeam() {
   const isHi = LANG === 'hi';
-
-  /* Log request to thread */
   await sendThreadMessage('dealer', 'REQUEST: Talk to Dealer Support Team');
-
   if (isWorkingHours()) {
     botReply(isHi
       ? `🛡️ <strong>आपका अनुरोध सपोर्ट टीम को भेज दिया गया है।</strong><br><br>
          टीम कुछ ही देर में यहाँ आपसे संपर्क करेगी। तब तक आप नीचे अपना संदेश टाइप करके भेज सकते हैं।<br><br>
-         💡 आप चाहें तो बॉट से भी पूछ सकते हैं — Order Status, My Orders, FAQ आदि।`
+         💡 आप चाहें तो बॉट से भी पूछ सकते हैं।`
       : `🛡️ <strong>Your request has been sent to the Support Team.</strong><br><br>
-         The team will connect with you here shortly. Meanwhile, you can type your message below and send it.<br><br>
-         💡 You can also continue with the bot — Order Status, My Orders, FAQ, etc.`);
+         The team will connect with you here shortly. Meanwhile, you can type your message below.<br><br>
+         💡 You can also continue with the bot.`);
   } else {
     botReply(isHi
       ? `🕐 <strong>सपोर्ट टीम अभी ऑफलाइन है।</strong><br><br>
          सपोर्ट समय: <strong>सुबह 9:00 - शाम 7:00 (सोम-शनि)</strong><br><br>
          आपका संदेश टीम के पास सुरक्षित है। वे अगली उपलब्धता पर संपर्क करेंगे।<br><br>
-         💡 तब तक आप बॉट से पूछ सकते हैं — Order Status, My Orders, FAQ आदि।`
+         💡 तब तक आप बॉट से पूछ सकते हैं।`
       : `🕐 <strong>Support team is currently offline.</strong><br><br>
          Support hours: <strong>9:00 AM - 7:00 PM (Mon-Sat)</strong><br><br>
          Your message is saved with the team. They will respond when available.<br><br>
-         💡 Meanwhile, you can continue with the bot — Order Status, My Orders, FAQ, etc.`);
+         💡 Meanwhile, you can continue with the bot.`);
   }
-
-  /* Re-render chips (bot keeps working) */
-  renderMainChips();
 }
 
-/* ============================================================
-   CHIPS
-   ============================================================ */
+/* CHIPS */
 function renderMainChips() {
   const c = I18N[LANG].chips;
-  renderChips([c.myOrders, c.orderStatus, c.raiseTicket, c.trackTicket, c.faq, c.otherQuery, c.support]);
+  renderChips([c.pending, c.recent, c.myStats, c.orderStatus, c.raiseTicket, c.trackTicket, c.faq, c.otherQuery, c.support]);
 }
 function renderChips(list) {
   chips.innerHTML = '';
@@ -817,10 +964,14 @@ function renderChips(list) {
     const c_ = I18N[LANG].chips;
     if (c === c_.support) b.classList.add('support');
     if (c === c_.faq) b.classList.add('faq');
+    if (c === c_.pending || c === c_.recent || c === c_.myStats) b.classList.add('new');
     b.textContent = c;
     b.onclick = () => {
       const cc = I18N[LANG].chips;
-      if (c === cc.orderStatus) openModal('order');
+      if (c === cc.pending) showPendingOrders();
+      else if (c === cc.recent) showRecentOrders();
+      else if (c === cc.myStats) showMyStats();
+      else if (c === cc.orderStatus) openModal('order');
       else if (c === cc.otherQuery) openModal('query');
       else if (c === cc.myOrders) openModal('my-orders');
       else if (c === cc.raiseTicket) openModal('raise-ticket');
@@ -839,9 +990,7 @@ function send() {
 sendBtn.onclick = send;
 input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
 
-/* ============================================================
-   MODAL
-   ============================================================ */
+/* MODAL */
 const modalOverlay = document.getElementById('modalOverlay');
 const modalIcon = document.getElementById('modalIcon');
 const modalTitle = document.getElementById('modalTitle');
