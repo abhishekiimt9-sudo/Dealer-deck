@@ -101,6 +101,8 @@
   .chip.faq { background: #f0f9ff; color: #0369a1; border-color: #bae6fd; }
   .chip.new { background: #fff7ed; color: #c2410c; border-color: #fed7aa; font-weight: 600; }
   .chip.new:hover { background: #c2410c; color: #fff; border-color: #c2410c; }
+  .chip.stock { background: #f0fdf4; color: #16a34a; border-color: #bbf7d0; font-weight: 600; }
+  .chip.stock:hover { background: #16a34a; color: #fff; border-color: #16a34a; }
   .input-bar { display: flex; padding: 10px 12px; background: #fff;
     border-top: 1px solid #e5e7ef; gap: 8px; }
   .input-bar input { flex: 1; border: 1px solid #d7dbe6; border-radius: 22px;
@@ -258,7 +260,6 @@ const SUPPORT_START_HOUR = 9;
 const SUPPORT_END_HOUR = 19;
 const SUPPORT_WORKING_DAYS = [1,2,3,4,5,6];
 
-/* TRANSLATIONS */
 const I18N = {
   en: {
     hdrTitle: 'Parts & Order Support', hdrSub: 'MG Aftersales Assistant',
@@ -268,6 +269,7 @@ const I18N = {
     verified: 'Verified', howCanHelp: 'How can I help you today?',
     chips: {
       pending: '⏳ Pending', recent: '📋 Recent', myStats: '📊 Stats',
+      stockCheck: '📦 Check Stock',
       myOrders: 'My Orders', orderStatus: 'Order Status',
       raiseTicket: 'Raise Ticket', trackTicket: 'Track Ticket', faq: 'FAQ',
       otherQuery: 'Other Query', support: 'Talk to Dealer Support Team'
@@ -276,6 +278,9 @@ const I18N = {
       orderTitle: 'Enter Order / Part Number',
       orderSub: 'Enter one or more numbers separated by comma.',
       orderLabel: 'Order / Part Number',
+      stockTitle: 'Check Stock Availability',
+      stockSub: 'Enter part number to check stock',
+      stockLabel: 'Part Number',
       queryTitle: 'Type Your Query', querySub: 'Write your question below.',
       queryLabel: 'Your Query',
       ticketTitle: 'Raise Support Ticket', ticketSub: 'Fill the details.',
@@ -311,6 +316,7 @@ const I18N = {
     verified: 'सत्यापित', howCanHelp: 'मैं आपकी कैसे सहायता कर सकता हूँ?',
     chips: {
       pending: '⏳ पेंडिंग', recent: '📋 हाल के', myStats: '📊 आँकड़े',
+      stockCheck: '📦 स्टॉक देखें',
       myOrders: 'मेरे ऑर्डर', orderStatus: 'ऑर्डर स्थिति',
       raiseTicket: 'टिकट बनाएं', trackTicket: 'टिकट ट्रैक', faq: 'सामान्य प्रश्न',
       otherQuery: 'अन्य प्रश्न', support: 'डीलर सपोर्ट टीम'
@@ -319,6 +325,9 @@ const I18N = {
       orderTitle: 'ऑर्डर / पार्ट नंबर दर्ज करें',
       orderSub: 'एक या अधिक नंबर कॉमा से अलग करके दें।',
       orderLabel: 'ऑर्डर / पार्ट नंबर',
+      stockTitle: 'स्टॉक चेक करें',
+      stockSub: 'पार्ट नंबर दर्ज करें',
+      stockLabel: 'पार्ट नंबर',
       queryTitle: 'अपना प्रश्न लिखें', querySub: 'नीचे अपना प्रश्न लिखें।',
       queryLabel: 'आपका प्रश्न',
       ticketTitle: 'सपोर्ट टिकट बनाएं', ticketSub: 'विवरण भरें।',
@@ -356,18 +365,18 @@ function t(key) {
   return cur;
 }
 
-/* STATE */
 let ORDERS = [];
 let TICKETS = [];
 let BROADCASTS = [];
+let STOCK_DATA = [];
 let authState = { dealerCode: null, dealerName: null, lastOrderContext: null, loggedIn: false };
 let threadListener = null;
 let ticketListener = null;
 let broadcastListener = null;
+let stockListener = null;
 let seenMessageIds = new Set();
 let lastTicketStates = {};
 
-/* UTILITIES */
 function nowTime() { return new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }); }
 function todayStamp() {
   const d = new Date();
@@ -431,8 +440,6 @@ function getStatusColor(status) {
   if (s.includes('hold') || s.includes('back') || s.includes('cancel')) return 'red';
   return 'yellow';
 }
-
-/* ⭐ Progress levels for transition validation */
 function getStatusLevel(status) {
   const s = String(status || '').toLowerCase().trim();
   if (s.includes('cancel')) return 0;
@@ -473,6 +480,7 @@ async function attemptLogin() {
     setupThreadListener();
     setupTicketListener();
     setupBroadcastListener();
+    setupStockListener();
     setTimeout(() => checkAutoNotifications(), 1500);
   } catch (e) {
     console.error(e);
@@ -485,8 +493,8 @@ document.getElementById('loginInput').addEventListener('keydown', e => { if (e.k
 
 function doLogout() {
   if (!confirm('Are you sure you want to logout?')) return;
-  [threadListener, ticketListener, broadcastListener].forEach(f => { if (f) f(); });
-  threadListener = ticketListener = broadcastListener = null;
+  [threadListener, ticketListener, broadcastListener, stockListener].forEach(f => { if (f) f(); });
+  threadListener = ticketListener = broadcastListener = stockListener = null;
   authState = { dealerCode: null, dealerName: null, lastOrderContext: null, loggedIn: false };
   seenMessageIds.clear();
   lastTicketStates = {};
@@ -497,7 +505,6 @@ function doLogout() {
   document.getElementById('loginScreen').classList.remove('hidden');
 }
 
-/* ⭐ FIX 1: Welcome message — removed pending count line */
 function loginDealer(dealerCode, dealerName) {
   const myO = ORDERS.filter(o => o.orderNumber);
   const uniqueOrders = new Set(myO.map(o => o.orderNumber));
@@ -511,7 +518,7 @@ function loginDealer(dealerCode, dealerName) {
   renderMainChips();
 }
 
-/* ⭐ FIX 2: Broadcast — shown even on first load */
+/* BROADCAST */
 function setupBroadcastListener() {
   if (broadcastListener) broadcastListener();
   broadcastListener = db.collection('broadcasts')
@@ -521,30 +528,33 @@ function setupBroadcastListener() {
       const seen = JSON.parse(localStorage.getItem('mg_seen_broadcasts') || '[]');
       const toShow = [];
       newB.forEach(b => {
-        if (!seen.includes(b._id)) {
-          seen.push(b._id);
-          toShow.push(b);
-        }
+        if (!seen.includes(b._id)) { seen.push(b._id); toShow.push(b); }
       });
       localStorage.setItem('mg_seen_broadcasts', JSON.stringify(seen));
       const wasFirstLoad = BROADCASTS.length === 0;
       BROADCASTS = newB;
-
       toShow.forEach((b, idx) => {
         const delay = wasFirstLoad ? (2500 + idx * 700) : (300 + idx * 300);
         setTimeout(() => {
           const titlePart = b.title ? `<strong>${b.title}</strong><br>` : '';
           addMsg(`<div style="background:#eff6ff;border-left:4px solid #2563eb;padding:10px 12px;border-radius:8px;font-size:12.5px">
             <strong style="color:#1e40af">📢 ${LANG==='hi'?'घोषणा':'Announcement'}</strong><br><br>
-            ${titlePart}
-            ${b.message}
+            ${titlePart}${b.message}
           </div>`, 'bot', true, false, true);
         }, delay);
       });
     }, err => console.error('Broadcast listener:', err));
 }
 
-/* ⭐ FIX 3: Auto notification — only forward transitions */
+/* STOCK LISTENER */
+function setupStockListener() {
+  if (stockListener) stockListener();
+  stockListener = db.collection('stock').onSnapshot(snap => {
+    STOCK_DATA = snap.docs.map(d => d.data());
+  }, err => console.error('Stock listener:', err));
+}
+
+/* AUTO NOTIFICATIONS */
 function checkAutoNotifications() {
   const lastStatuses = JSON.parse(localStorage.getItem('mg_last_statuses') || '{}');
   const updates = [];
@@ -555,12 +565,9 @@ function checkAutoNotifications() {
     const oldStatus = lastStatuses[o.orderNumber];
     const newStatus = o.orderStatus;
     if (oldStatus && oldStatus !== newStatus) {
-      // Only notify if it's a forward transition (progress made)
       const oldLevel = getStatusLevel(oldStatus);
       const newLevel = getStatusLevel(newStatus);
-      if (newLevel > oldLevel) {
-        updates.push({ order: o, old: oldStatus, new: newStatus });
-      }
+      if (newLevel > oldLevel) updates.push({ order: o, old: oldStatus, new: newStatus });
     }
   });
   localStorage.setItem('mg_last_statuses', JSON.stringify(currentStatuses));
@@ -571,8 +578,10 @@ function checkAutoNotifications() {
       let html = `<div style="background:#fff7ed;border-left:4px solid #f59e0b;padding:10px 12px;border-radius:8px;font-size:12.5px">
         <strong style="color:#c2410c">🔔 ${isHi?'ऑर्डर अपडेट':'Order Updates'} (${updates.length})</strong><br><br>`;
       updates.forEach(u => {
-        html += `<strong>${u.order.orderNumber}</strong><br>
-          <span style="color:#666">${u.old}</span> → <strong style="color:#16a34a">${u.new}</strong><br><br>`;
+        html += `<strong>${u.order.orderNumber}</strong><br>`;
+        if (u.order.partNumber) html += `<span style="color:#555;font-size:12px">Part: ${u.order.partNumber}</span><br>`;
+        if (u.order.partDescription) html += `<span style="color:#777;font-size:11.5px">${u.order.partDescription}</span><br>`;
+        html += `<span style="color:#666">${u.old}</span> → <strong style="color:#16a34a">${u.new}</strong><br><br>`;
       });
       html += `</div>`;
       addMsg(html, 'bot', true);
@@ -580,7 +589,7 @@ function checkAutoNotifications() {
   }
 }
 
-/* SUPPORT CHAT LISTENER */
+/* SUPPORT CHAT */
 function setupThreadListener() {
   if (threadListener) threadListener();
   threadListener = db.collection('threads')
@@ -665,7 +674,6 @@ function addMsg(text, who = "bot", showTime = true, isAdmin = false, skipLog = f
 }
 function botReply(html) { addMsg(html, 'bot'); }
 
-/* ORDER CARD */
 function getProgressBar(status) {
   const stages = ['Received','Processing','Dispatched','In Transit','Delivered'];
   const s = String(status || '').toLowerCase().trim();
@@ -822,10 +830,7 @@ function showRecentOrders() {
         <div class="pi-num">${o.orderNumber}</div>
         <span class="status-badge ${getStatusColor(o.orderStatus)}" style="font-size:9px">${o.orderStatus||'-'}</span>
       </div>
-      <div class="pi-info">
-        ${o.partNumber||'-'} — ${o.partDescription||'-'}<br>
-        ${o.orderType||''}
-      </div>
+      <div class="pi-info">${o.partNumber||'-'} — ${o.partDescription||'-'}<br>${o.orderType||''}</div>
     </div>`;
   });
   addMsg(html, 'bot');
@@ -836,67 +841,93 @@ function showMyStats() {
   const uniqueOrders = new Set(ORDERS.filter(o => o.orderNumber).map(o => String(o.orderNumber)));
   const totalOrders = uniqueOrders.size;
   const totalParts = ORDERS.filter(o => o.partNumber).length;
-
   const dispatched = ORDERS.filter(o => {
     const s = String(o.orderStatus || '').toLowerCase();
     if (s.includes('pending')) return false;
     return s.includes('dispatch') || s.includes('deliver') || s.includes('transit');
   }).length;
-
   const backOrder = ORDERS.filter(o => String(o.orderStatus || '').toLowerCase().includes('back')).length;
   const onHold = ORDERS.filter(o => String(o.orderStatus || '').toLowerCase().includes('hold')).length;
   const pendingDispatch = ORDERS.filter(o => String(o.orderStatus || '').toLowerCase().includes('pending')).length;
 
   const html = `<strong>📊 ${isHi?'आपके आँकड़े':'Your Stats'}</strong><br><br>
-    <div class="stat-card">
-      <div class="sc-val">${totalOrders}</div>
-      <div class="sc-lbl">${isHi?'कुल ऑर्डर':'Total Orders'}</div>
-    </div>
-    <div class="stat-card">
-      <div class="sc-val">${totalParts}</div>
-      <div class="sc-lbl">${isHi?'कुल पार्ट्स':'Total Parts'}</div>
-    </div>
-    <div class="stat-card green">
-      <div class="sc-val">${dispatched}</div>
-      <div class="sc-lbl">🚚 ${isHi?'डिस्पैच':'Dispatched'}</div>
-    </div>
-    <div class="stat-card yellow">
-      <div class="sc-val">${pendingDispatch}</div>
-      <div class="sc-lbl">⏳ ${isHi?'पेंडिंग डिस्पैच':'Pending Dispatch'}</div>
-    </div>
-    <div class="stat-card red">
-      <div class="sc-val">${backOrder}</div>
-      <div class="sc-lbl">🔴 ${isHi?'बैक ऑर्डर':'Back Order'}</div>
-    </div>
-    <div class="stat-card red" style="background:linear-gradient(135deg,#fef2f2,#fee2e2)">
-      <div class="sc-val">${onHold}</div>
-      <div class="sc-lbl">⚠️ ${isHi?'होल्ड पर':'On Hold'}</div>
-    </div>`;
+    <div class="stat-card"><div class="sc-val">${totalOrders}</div><div class="sc-lbl">${isHi?'कुल ऑर्डर':'Total Orders'}</div></div>
+    <div class="stat-card"><div class="sc-val">${totalParts}</div><div class="sc-lbl">${isHi?'कुल पार्ट्स':'Total Parts'}</div></div>
+    <div class="stat-card green"><div class="sc-val">${dispatched}</div><div class="sc-lbl">🚚 ${isHi?'डिस्पैच':'Dispatched'}</div></div>
+    <div class="stat-card yellow"><div class="sc-val">${pendingDispatch}</div><div class="sc-lbl">⏳ ${isHi?'पेंडिंग डिस्पैच':'Pending Dispatch'}</div></div>
+    <div class="stat-card red"><div class="sc-val">${backOrder}</div><div class="sc-lbl">🔴 ${isHi?'बैक ऑर्डर':'Back Order'}</div></div>
+    <div class="stat-card red" style="background:linear-gradient(135deg,#fef2f2,#fee2e2)"><div class="sc-val">${onHold}</div><div class="sc-lbl">⚠️ ${isHi?'होल्ड पर':'On Hold'}</div></div>`;
   addMsg(html, 'bot');
 }
 
-function checkPartAvailability(text) {
+/* STOCK RESULT */
+function showStockResult(partNumInput) {
   const isHi = LANG === 'hi';
-  const match = text.match(/(?:check\s+part|part\s+check|part\s+availability|पार्ट\s+चेक)[\s:]*([A-Z0-9\-_]+)/i);
-  if (!match) return false;
-  const partNum = match[1].trim().toUpperCase();
-  const related = ORDERS.filter(o => String(o.partNumber||'').toUpperCase() === partNum);
-  if (!related.length) {
+  const q = partNumInput.trim().toUpperCase();
+  const item = STOCK_DATA.find(x => String(x.partNumber||'').toUpperCase() === q);
+  if (!item) {
     botReply(isHi
-      ? `❌ Part <strong>${partNum}</strong> aapke orders me nahi mila.`
-      : `❌ Part <strong>${partNum}</strong> not found in your orders.`);
-    return true;
+      ? `❌ पार्ट <strong>${partNumInput}</strong> स्टॉक लिस्ट में नहीं मिला।<br><br>कृपया पार्ट नंबर जांचें।`
+      : `❌ Part <strong>${partNumInput}</strong> not found in stock list.<br><br>Please verify the part number.`);
+    return;
   }
-  const latest = related[related.length - 1];
-  const inStock = String(latest.stockAvailability || '').toLowerCase().includes('avail') &&
-                  !String(latest.stockAvailability || '').toLowerCase().includes('not');
-  let html = `<strong>🔍 Part: ${partNum}</strong><br><br>
-    <strong>${latest.partDescription || '-'}</strong><br><br>
-    ${inStock ? '✅' : '⚠️'} <strong>${isHi?'स्टॉक':'Stock'}: ${latest.stockAvailability || '-'}</strong><br><br>`;
-  if (latest.eta) html += `📅 ${isHi?'अनुमानित ETA':'Tentative ETA'}: <strong>${formatDate(latest.eta)}</strong><br><br>`;
-  html += `<em>${isHi?'Order karne ke liye apne sales team se contact karein.':'To order, contact your sales team.'}</em>`;
+  const w1 = Number(item.wh1Qty) || 0;
+  const w2 = Number(item.wh2Qty) || 0;
+  const w3 = Number(item.wh3Qty) || 0;
+
+  function statusOf(qty) {
+    if (qty >= 20) return { color: '#16a34a', label: isHi ? 'उपलब्ध' : 'Available', emoji: '🟢' };
+    if (qty > 0) return { color: '#f59e0b', label: isHi ? 'सीमित' : 'Limited', emoji: '🟡' };
+    return { color: '#dc2626', label: isHi ? 'उपलब्ध नहीं' : 'Not Available', emoji: '🔴' };
+  }
+  const s1 = statusOf(w1), s2 = statusOf(w2), s3 = statusOf(w3);
+
+  const allGreen = w1 >= 20 && w2 >= 20 && w3 >= 20;
+  const anyGreen = w1 >= 20 || w2 >= 20 || w3 >= 20;
+  const anyYellow = (w1 > 0 && w1 < 20) || (w2 > 0 && w2 < 20) || (w3 > 0 && w3 < 20);
+  const allRed = w1 === 0 && w2 === 0 && w3 === 0;
+
+  let overallBadge = '', overallColor = '#dc2626';
+  if (allGreen) { overallBadge = isHi ? '✅ सभी में उपलब्ध' : '✅ Available in All'; overallColor = '#16a34a'; }
+  else if (anyGreen) {
+    const c = [w1,w2,w3].filter(x => x >= 20).length;
+    overallBadge = isHi ? `🟢 ${c}/3 में उपलब्ध` : `🟢 Available in ${c}/3`;
+    overallColor = '#16a34a';
+  } else if (anyYellow) { overallBadge = isHi ? '🟡 सीमित स्टॉक' : '🟡 Limited Stock'; overallColor = '#f59e0b'; }
+  else if (allRed) { overallBadge = isHi ? '❌ कहीं नहीं' : '❌ Not Available Anywhere'; overallColor = '#dc2626'; }
+
+  let html = `<div style="background:#fff;border:1px solid #e5e7ef;border-radius:12px;padding:14px;font-size:13px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px">
+      <strong style="font-size:15px;color:#b3001b">${item.partNumber}</strong>
+      <span style="background:${overallColor};color:#fff;padding:4px 10px;border-radius:12px;font-size:10.5px;font-weight:700;white-space:nowrap">${overallBadge}</span>
+    </div>
+    <div style="color:#333;margin-bottom:12px;font-weight:600">${item.partDescription || '-'}</div>
+    <div style="font-size:11px;color:#666;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">${isHi?'वेयरहाउस उपलब्धता':'Warehouse Availability'}</div>`;
+
+  const warehouses = [
+    { code: item.wh1Code || 'Warehouse 1', qty: w1, status: s1 },
+    { code: item.wh2Code || 'Warehouse 2', qty: w2, status: s2 },
+    { code: item.wh3Code || 'Warehouse 3', qty: w3, status: s3 }
+  ];
+  warehouses.forEach(w => {
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#f9fafc;border-radius:8px;margin-bottom:6px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:20px">${w.status.emoji}</span>
+        <strong style="color:#333;font-size:13px">${w.code}</strong>
+      </div>
+      <span style="color:${w.status.color};font-weight:700;font-size:12px">${w.status.label}</span>
+    </div>`;
+  });
+
+  html += `<div style="border-top:1px solid #f0f2f7;margin-top:10px;padding-top:10px">`;
+  if (item.mrp) html += `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12.5px"><span style="color:#666">MRP</span><span style="font-weight:700">₹${item.mrp}</span></div>`;
+  if (item.dealerPrice) html += `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12.5px"><span style="color:#666">${isHi?'डीलर मूल्य':'Dealer Price'}</span><span style="font-weight:700;color:#16a34a">₹${item.dealerPrice}</span></div>`;
+  html += `</div></div>`;
+
+  if (!allRed) {
+    html += `<br><em style="color:#666;font-size:11.5px">${isHi?'ऑर्डर करने के लिए डीलर सपोर्ट टीम से संपर्क करें।':'To place order, contact Dealer Support Team.'}</em>`;
+  }
   addMsg(html, 'bot');
-  return true;
 }
 
 /* HANDLE MESSAGE */
@@ -906,7 +937,11 @@ async function handleMessage(text) {
   const msg = text.toLowerCase().trim();
   const isHi = LANG === 'hi';
 
-  if (checkPartAvailability(text)) return;
+  // Direct check stock command
+  if (/^(?:check\s+stock|stock\s+check|स्टॉक)/i.test(msg)) {
+    const partMatch = text.match(/(?:check\s+stock|stock\s+check|स्टॉक)[\s:]*([A-Z0-9\-_]+)/i);
+    if (partMatch) { showStockResult(partMatch[1]); return; }
+  }
 
   if (/talk to (agent|support|team|dealer support)|connect.*support|support.*team|सपोर्ट.*बात/.test(msg)) {
     requestSupportTeam(); return;
@@ -947,9 +982,7 @@ async function handleMessage(text) {
     }
     setTimeout(attachFeedbackHandlers, 500);
   }, 500);
-  if (results[0] && results[0].matches[0]) {
-    authState.lastOrderContext = results[0].matches[0];
-  }
+  if (results[0] && results[0].matches[0]) authState.lastOrderContext = results[0].matches[0];
 }
 
 /* SUPPORT TEAM */
@@ -958,29 +991,19 @@ async function requestSupportTeam() {
   await sendThreadMessage('dealer', 'REQUEST: Talk to Dealer Support Team');
   if (isWorkingHours()) {
     botReply(isHi
-      ? `🛡️ <strong>आपका अनुरोध सपोर्ट टीम को भेज दिया गया है।</strong><br><br>
-         टीम कुछ ही देर में यहाँ आपसे संपर्क करेगी। तब तक आप नीचे अपना संदेश टाइप करके भेज सकते हैं।<br><br>
-         💡 आप चाहें तो बॉट से भी पूछ सकते हैं।`
-      : `🛡️ <strong>Your request has been sent to the Support Team.</strong><br><br>
-         The team will connect with you here shortly. Meanwhile, you can type your message below.<br><br>
-         💡 You can also continue with the bot.`);
+      ? `🛡️ <strong>आपका अनुरोध सपोर्ट टीम को भेज दिया गया है।</strong><br><br>टीम कुछ ही देर में यहाँ आपसे संपर्क करेगी। तब तक आप नीचे अपना संदेश टाइप करके भेज सकते हैं।<br><br>💡 आप चाहें तो बॉट से भी पूछ सकते हैं।`
+      : `🛡️ <strong>Your request has been sent to the Support Team.</strong><br><br>The team will connect with you here shortly. Meanwhile, you can type your message below.<br><br>💡 You can also continue with the bot.`);
   } else {
     botReply(isHi
-      ? `🕐 <strong>सपोर्ट टीम अभी ऑफलाइन है।</strong><br><br>
-         सपोर्ट समय: <strong>सुबह 9:00 - शाम 7:00 (सोम-शनि)</strong><br><br>
-         आपका संदेश टीम के पास सुरक्षित है। वे अगली उपलब्धता पर संपर्क करेंगे।<br><br>
-         💡 तब तक आप बॉट से पूछ सकते हैं।`
-      : `🕐 <strong>Support team is currently offline.</strong><br><br>
-         Support hours: <strong>9:00 AM - 7:00 PM (Mon-Sat)</strong><br><br>
-         Your message is saved with the team. They will respond when available.<br><br>
-         💡 Meanwhile, you can continue with the bot.`);
+      ? `🕐 <strong>सपोर्ट टीम अभी ऑफलाइन है।</strong><br><br>सपोर्ट समय: <strong>सुबह 9:00 - शाम 7:00 (सोम-शनि)</strong><br><br>आपका संदेश टीम के पास सुरक्षित है। वे अगली उपलब्धता पर संपर्क करेंगे।<br><br>💡 तब तक आप बॉट से पूछ सकते हैं।`
+      : `🕐 <strong>Support team is currently offline.</strong><br><br>Support hours: <strong>9:00 AM - 7:00 PM (Mon-Sat)</strong><br><br>Your message is saved with the team. They will respond when available.<br><br>💡 Meanwhile, you can continue with the bot.`);
   }
 }
 
 /* CHIPS */
 function renderMainChips() {
   const c = I18N[LANG].chips;
-  renderChips([c.pending, c.recent, c.myStats, c.orderStatus, c.raiseTicket, c.trackTicket, c.faq, c.otherQuery, c.support]);
+  renderChips([c.pending, c.recent, c.myStats, c.stockCheck, c.orderStatus, c.raiseTicket, c.trackTicket, c.faq, c.otherQuery, c.support]);
 }
 function renderChips(list) {
   chips.innerHTML = '';
@@ -991,12 +1014,14 @@ function renderChips(list) {
     if (c === c_.support) b.classList.add('support');
     if (c === c_.faq) b.classList.add('faq');
     if (c === c_.pending || c === c_.recent || c === c_.myStats) b.classList.add('new');
+    if (c === c_.stockCheck) b.classList.add('stock');
     b.textContent = c;
     b.onclick = () => {
       const cc = I18N[LANG].chips;
       if (c === cc.pending) showPendingOrders();
       else if (c === cc.recent) showRecentOrders();
       else if (c === cc.myStats) showMyStats();
+      else if (c === cc.stockCheck) openModal('stock-check');
       else if (c === cc.orderStatus) openModal('order');
       else if (c === cc.otherQuery) openModal('query');
       else if (c === cc.myOrders) openModal('my-orders');
@@ -1041,12 +1066,10 @@ function renderTrackTicketModal() {
   modalTitle.textContent = m.trackTitle;
   modalSubtitle.textContent = m.trackSub;
   modalDynamic.style.display = 'block';
-  modalLabel.style.display = 'none';
-  modalBtns.style.display = 'none';
+  modalLabel.style.display = 'none'; modalBtns.style.display = 'none';
   const isHi = LANG === 'hi';
   if (!TICKETS.length) {
-    modalDynamic.innerHTML = '<div style="text-align:center;color:#999;padding:20px;font-size:12.5px">' +
-      (isHi ? 'कोई टिकट नहीं' : 'No tickets raised yet') + '</div>';
+    modalDynamic.innerHTML = '<div style="text-align:center;color:#999;padding:20px;font-size:12.5px">' + (isHi ? 'कोई टिकट नहीं' : 'No tickets raised yet') + '</div>';
     return;
   }
   const sorted = [...TICKETS].sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
@@ -1055,33 +1078,35 @@ function renderTrackTicketModal() {
     const remarksBlock = x.resolutionRemarks
       ? `<div class="tc-remarks"><strong>💬 ${isHi?'रिमार्क्स':'Remarks'}:</strong><br>${x.resolutionRemarks.replace(/\n/g,'<br>')}</div>`
       : '';
-    return `
-      <div class="ticket-card">
-        <div class="tc-header">
-          <div class="tc-num">${x.ticketNumber || 'TKT'}</div>
-          <span class="status-badge ${sc}">${x.ticketStatus || 'Open'}</span>
-        </div>
-        ${x.orderNumber ? `<div class="tc-row"><strong>${isHi?'ऑर्डर':'Order'}:</strong> ${x.orderNumber}</div>` : ''}
-        ${x.partNumber ? `<div class="tc-row"><strong>${isHi?'पार्ट':'Part'}:</strong> ${x.partNumber}</div>` : ''}
-        <div class="tc-row"><strong>${isHi?'समस्या':'Issue'}:</strong> ${x.issueDescription || '-'}</div>
-        <div class="tc-row" style="color:#999;font-size:10.5px;margin-top:6px">
-          ${isHi?'उठाया':'Raised'}: ${x.raisedDate || '-'}
-          ${x.closedDate ? ` &nbsp;|&nbsp; ${isHi?'बंद':'Closed'}: ${x.closedDate}` : ''}
-        </div>
-        ${remarksBlock}
-      </div>`;
+    return `<div class="ticket-card">
+      <div class="tc-header"><div class="tc-num">${x.ticketNumber || 'TKT'}</div>
+      <span class="status-badge ${sc}">${x.ticketStatus || 'Open'}</span></div>
+      ${x.orderNumber ? `<div class="tc-row"><strong>${isHi?'ऑर्डर':'Order'}:</strong> ${x.orderNumber}</div>` : ''}
+      ${x.partNumber ? `<div class="tc-row"><strong>${isHi?'पार्ट':'Part'}:</strong> ${x.partNumber}</div>` : ''}
+      <div class="tc-row"><strong>${isHi?'समस्या':'Issue'}:</strong> ${x.issueDescription || '-'}</div>
+      <div class="tc-row" style="color:#999;font-size:10.5px;margin-top:6px">${isHi?'उठाया':'Raised'}: ${x.raisedDate || '-'}${x.closedDate ? ` &nbsp;|&nbsp; ${isHi?'बंद':'Closed'}: ${x.closedDate}` : ''}</div>
+      ${remarksBlock}</div>`;
   }).join('');
 }
 function openModal(type) {
   currentModalType = type;
   hideAllModalInputs();
   const m = I18N[LANG].modal;
+  const isHi = LANG === 'hi';
   if (type === 'order') {
     modalIcon.textContent = '\uD83D\uDD0D';
     modalTitle.textContent = m.orderTitle; modalSubtitle.textContent = m.orderSub;
     modalLabel.textContent = m.orderLabel;
     modalInput.style.display = 'block'; modalInput.value = '';
     modalInput.placeholder = 'e.g. 7400076472, 7400075116';
+    setTimeout(() => modalInput.focus(), 100);
+  } else if (type === 'stock-check') {
+    modalIcon.textContent = '\uD83D\uDCE6';
+    modalTitle.textContent = m.stockTitle;
+    modalSubtitle.textContent = m.stockSub;
+    modalLabel.textContent = m.stockLabel;
+    modalInput.style.display = 'block'; modalInput.value = '';
+    modalInput.placeholder = 'e.g. A4000331';
     setTimeout(() => modalInput.focus(), 100);
   } else if (type === 'query') {
     modalIcon.textContent = '\uD83D\uDCAC';
@@ -1093,8 +1118,7 @@ function openModal(type) {
     modalIcon.textContent = '\uD83C\uDFAB';
     modalTitle.textContent = m.ticketTitle; modalSubtitle.textContent = m.ticketSub;
     modalDynamic.style.display = 'block';
-    modalDynamic.innerHTML = `
-      <label>${m.ticketOrder}</label><input id="tktOrder" type="text" />
+    modalDynamic.innerHTML = `<label>${m.ticketOrder}</label><input id="tktOrder" type="text" />
       <label>${m.ticketPart}</label><input id="tktPart" type="text" />
       <label>${m.ticketIssue}</label><textarea id="tktIssue"></textarea>`;
     modalLabel.style.display = 'none';
@@ -1105,10 +1129,7 @@ function openModal(type) {
     modalIcon.textContent = '\u2753';
     modalTitle.textContent = m.faqTitle; modalSubtitle.textContent = m.faqSub;
     modalDynamic.style.display = 'block';
-    modalDynamic.innerHTML = I18N[LANG].faq.map((f, i) => `
-      <div class="faq-item" data-idx="${i}">
-        <div class="faq-q">${f.q}</div><div class="faq-a">${f.a}</div>
-      </div>`).join('');
+    modalDynamic.innerHTML = I18N[LANG].faq.map((f, i) => `<div class="faq-item" data-idx="${i}"><div class="faq-q">${f.q}</div><div class="faq-a">${f.a}</div></div>`).join('');
     modalLabel.style.display = 'none'; modalBtns.style.display = 'none';
     setTimeout(() => document.querySelectorAll('.faq-item').forEach(e => e.onclick = () => e.classList.toggle('open')), 50);
   } else if (type === 'my-orders') {
@@ -1122,8 +1143,7 @@ function openModal(type) {
       const groups = {};
       myO.forEach(o => { if (!groups[o.orderNumber]) groups[o.orderNumber] = []; groups[o.orderNumber].push(o); });
       modalDynamic.innerHTML = Object.keys(groups).map(on => {
-        const items = groups[on];
-        const first = items[0];
+        const items = groups[on]; const first = items[0];
         const partsList = items.map(i => `${i.partNumber || '-'} (${i.partDescription || '-'})`).join(' • ');
         return `<div class="order-list-item" data-order="${on}">
           <div class="order-num">${on} <span class="status-badge ${getStatusColor(first.orderStatus)}">${first.orderStatus || 'N/A'}</span></div>
@@ -1152,6 +1172,9 @@ modalSubmit.onclick = async () => {
   if (type === 'order') {
     const v = modalInput.value.trim(); if (!v) { modalInput.focus(); return; }
     closeModal(); handleMessage(v);
+  } else if (type === 'stock-check') {
+    const v = modalInput.value.trim(); if (!v) { modalInput.focus(); return; }
+    closeModal(); showStockResult(v);
   } else if (type === 'query') {
     const v = modalTextarea.value.trim(); if (!v) { modalTextarea.focus(); return; }
     closeModal(); handleMessage(v);
