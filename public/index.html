@@ -12,12 +12,9 @@
     background: #fff; border-radius: 18px; overflow: hidden;
     box-shadow: 0 20px 60px rgba(0,0,0,0.35); display: flex; flex-direction: column; position: relative; }
 
-  /* LOGIN SCREEN */
-  .login-screen {
-    position: absolute; inset: 0; background: #fff; z-index: 200;
+  .login-screen { position: absolute; inset: 0; background: #fff; z-index: 200;
     display: flex; flex-direction: column; justify-content: center; align-items: center;
-    padding: 30px 24px;
-  }
+    padding: 30px 24px; }
   .login-screen.hidden { display: none; }
   .login-logo { width: 70px; height: 70px; border-radius: 50%; background: #b3001b;
     color: #fff; font-weight: 800; font-size: 24px; display: flex;
@@ -43,7 +40,6 @@
   .login-hint code { background: #f4f6fb; padding: 2px 6px; border-radius: 4px;
     color: #b3001b; font-weight: 600; font-size: 11px; }
 
-  /* HEADER */
   .header { background: linear-gradient(90deg, #b3001b, #7a0012);
     color: #fff; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
   .logo { width: 36px; height: 36px; border-radius: 50%; background: #fff;
@@ -66,7 +62,7 @@
 
   .chat { flex: 1; overflow-y: auto; padding: 16px; background: #f4f6fb;
     display: flex; flex-direction: column; gap: 10px; }
-  .msg { max-width: 82%; padding: 10px 14px; border-radius: 14px;
+  .msg { max-width: 88%; padding: 10px 14px; border-radius: 14px;
     font-size: 13.5px; line-height: 1.5; word-wrap: break-word; animation: fadeIn 0.25s ease; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   .bot { background: #fff; color: #1a1a1a; align-self: flex-start;
@@ -79,10 +75,11 @@
   .order-card-header {
     display: flex; align-items: center; justify-content: space-between;
     padding-bottom: 8px; margin-bottom: 8px; border-bottom: 2px solid #f0f2f7;
+    gap: 8px; flex-wrap: wrap;
   }
-  .order-card-header .order-num { font-size: 14px; font-weight: 800; color: #b3001b; }
+  .order-card-header .order-num { font-size: 13.5px; font-weight: 800; color: #b3001b; }
   .status-badge { display: inline-block; padding: 4px 10px; border-radius: 20px;
-    font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
   .status-badge.green { background: #d1fae5; color: #065f46; }
   .status-badge.blue { background: #dbeafe; color: #1e40af; }
   .status-badge.yellow { background: #fef3c7; color: #92400e; }
@@ -92,7 +89,7 @@
 
   .bot table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 12.5px; }
   .bot table td { padding: 6px 6px; border-bottom: 1px solid #f0f2f7; vertical-align: top; }
-  .bot table td:first-child { color: #666; width: 45%; font-weight: 500; }
+  .bot table td:first-child { color: #666; width: 48%; font-weight: 500; }
   .bot table td:last-child { font-weight: 700; color: #111; text-align: right; }
   .bot table tr:last-child td { border-bottom: none; }
   .bot table tr.highlight td { background: #fffbeb; }
@@ -196,7 +193,6 @@
 <body>
 <div class="app">
 
-  <!-- LOGIN SCREEN -->
   <div class="login-screen" id="loginScreen">
     <div class="login-logo">MG</div>
     <div class="login-title">Parts & Order Support</div>
@@ -217,7 +213,6 @@
     </div>
   </div>
 
-  <!-- MAIN CHAT -->
   <div class="header">
     <div class="logo">MG</div>
     <div>
@@ -244,7 +239,6 @@
     <button class="send-btn" id="sendBtn">&#10148;</button>
   </div>
 
-  <!-- MODAL -->
   <div class="modal-overlay" id="modalOverlay">
     <div class="modal" id="modalBox">
       <div class="modal-icon" id="modalIcon">&#128269;</div>
@@ -301,6 +295,7 @@ const I18N = {
       orderType: 'Order Type', partNumber: 'Part Number', partDesc: 'Part Description',
       orderedQty: 'Ordered Qty', dispatchedQty: 'Dispatched Qty', pendingQty: 'Pending Qty',
       stock: 'Stock Availability', eta: 'Tentative ETA', dispatchDate: 'Dispatch Date',
+      invoiceNumber: 'Invoice Number',
       docket: 'Docket / LR Number', transporter: 'Transporter', holdReason: 'Hold Reason',
       lastUpdated: 'Last Updated', notAvailable: 'Currently not available',
       wasHelpful: 'Was this helpful?'
@@ -346,6 +341,7 @@ const I18N = {
       orderType: 'ऑर्डर प्रकार', partNumber: 'पार्ट नंबर', partDesc: 'पार्ट विवरण',
       orderedQty: 'ऑर्डर मात्रा', dispatchedQty: 'डिस्पैच मात्रा', pendingQty: 'बाकी मात्रा',
       stock: 'स्टॉक', eta: 'अनुमानित ETA', dispatchDate: 'डिस्पैच दिनांक',
+      invoiceNumber: 'इनवॉइस नंबर',
       docket: 'डॉकेट / LR', transporter: 'ट्रांसपोर्टर', holdReason: 'होल्ड कारण',
       lastUpdated: 'अंतिम अपडेट', notAvailable: 'अभी उपलब्ध नहीं',
       wasHelpful: 'क्या यह सहायक था?'
@@ -373,47 +369,12 @@ function t(key) {
    DATA STORE
    ============================================================ */
 const STORAGE_KEY = 'mg_orders_data';
-const LOG_KEY = 'mg_upload_log';
 const TICKETS_KEY = 'mg_support_tickets';
 const FEEDBACK_KEY = 'mg_feedback';
 const THREADS_KEY = 'mg_support_threads';
 
-const DEMO_ORDERS = [
-  { dealerCode:"MGDL001", dealerName:"ABC Motors Pvt Ltd", orderNumber:"ORD123456",
-    orderType:"VOR", orderDate:"01-Oct-2026", partNumber:"MG-P-45678",
-    partDescription:"Brake Pad Front", orderedQty:2, dispatchedQty:0, pendingQty:2,
-    orderStatus:"Pending Dispatch", stockAvailability:"Available", eta:"15-Oct-2026",
-    dispatchDate:"", docketLR:"", transporter:"", holdReason:"",
-    lastUpdated:"13-Oct-2026 14:30", ticketNumber:"TKT-2026-001", ticketStatus:"Open" },
-  { dealerCode:"MGDL001", dealerName:"ABC Motors Pvt Ltd", orderNumber:"ORD123457",
-    orderType:"Stock Order", orderDate:"05-Oct-2026", partNumber:"MG-P-99001",
-    partDescription:"Air Filter", orderedQty:10, dispatchedQty:10, pendingQty:0,
-    orderStatus:"Fully Dispatched", stockAvailability:"Available", eta:"12-Oct-2026",
-    dispatchDate:"10-Oct-2026", docketLR:"LR987654", transporter:"BlueDart Logistics",
-    holdReason:"", lastUpdated:"13-Oct-2026 14:30", ticketNumber:"", ticketStatus:"" },
-  { dealerCode:"MGDL001", dealerName:"ABC Motors Pvt Ltd", orderNumber:"ORD123458",
-    orderType:"Back Order", orderDate:"08-Oct-2026", partNumber:"MG-P-77777",
-    partDescription:"Clutch Plate", orderedQty:3, dispatchedQty:0, pendingQty:3,
-    orderStatus:"On Hold", stockAvailability:"Not Available", eta:"",
-    dispatchDate:"", docketLR:"", transporter:"", holdReason:"Stock Unavailability",
-    lastUpdated:"13-Oct-2026 14:30", ticketNumber:"", ticketStatus:"" },
-  { dealerCode:"MGDL002", dealerName:"XYZ Auto Parts", orderNumber:"ORD900001",
-    orderType:"VOR", orderDate:"02-Oct-2026", partNumber:"MG-P-11111",
-    partDescription:"Headlight Assembly", orderedQty:1, dispatchedQty:1, pendingQty:0,
-    orderStatus:"Fully Dispatched", stockAvailability:"Available", eta:"11-Oct-2026",
-    dispatchDate:"09-Oct-2026", docketLR:"LR112233", transporter:"DTDC",
-    holdReason:"", lastUpdated:"13-Oct-2026 14:30", ticketNumber:"", ticketStatus:"" }
-];
-
-const DEMO_TICKETS = [
-  { ticketNumber:"TKT-2026-001", dealerCode:"MGDL001", orderNumber:"ORD123456",
-    partNumber:"MG-P-45678", issueDescription:"Part received damaged",
-    ticketStatus:"In Progress", raisedDate:"10-Oct-2026", closedDate:"",
-    resolutionRemarks:"Replacement under process" }
-];
-
-let ORDERS = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') || DEMO_ORDERS;
-let TICKETS = JSON.parse(localStorage.getItem(TICKETS_KEY) || 'null') || DEMO_TICKETS;
+let ORDERS = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') || [];
+let TICKETS = JSON.parse(localStorage.getItem(TICKETS_KEY) || 'null') || [];
 let FEEDBACK = JSON.parse(localStorage.getItem(FEEDBACK_KEY) || '[]');
 
 function saveData() {
@@ -427,18 +388,6 @@ function saveData() {
    ============================================================ */
 function getThreads() { return JSON.parse(localStorage.getItem(THREADS_KEY) || '{}'); }
 function saveThreads(threads) { localStorage.setItem(THREADS_KEY, JSON.stringify(threads)); }
-
-function ensureThread(dealerCode, dealerName) {
-  const threads = getThreads();
-  if (!threads[dealerCode]) {
-    threads[dealerCode] = {
-      dealerCode, dealerName, messages: [], status: 'open',
-      lastUpdate: todayStamp(), unreadByAdmin: 0, unreadByDealer: 0
-    };
-    saveThreads(threads);
-  }
-  return threads[dealerCode];
-}
 
 function addThreadMessage(dealerCode, from, text, dealerName) {
   if (!dealerCode) return;
@@ -486,7 +435,7 @@ function applyLanguage() {
 }
 
 /* ============================================================
-   AUTH STATE
+   AUTH
    ============================================================ */
 let authState = {
   dealerCode: null, dealerName: null, lastOrderContext: null,
@@ -495,12 +444,13 @@ let authState = {
 let adminMsgSeen = {};
 
 function attemptLogin() {
-  const input = document.getElementById('loginInput');
-  const code = input.value.trim().toUpperCase();
+  const inp = document.getElementById('loginInput');
+  const code = inp.value.trim().toUpperCase();
   const err = document.getElementById('loginError');
 
   if (!code) { err.textContent = 'Please enter your Dealer Code.'; err.classList.add('show'); return; }
 
+  // Match dealer from ORDERS data
   const dealer = ORDERS.find(o => String(o.dealerCode).toUpperCase() === code);
   if (!dealer) {
     err.textContent = 'Dealer Code "' + code + '" not found. Please verify.';
@@ -542,17 +492,18 @@ document.getElementById('loginInput').addEventListener('keydown', e => {
 
 function loginDealer(dealerCode, dealerName) {
   const myO = ORDERS.filter(o => String(o.dealerCode).toUpperCase() === dealerCode.toUpperCase() && o.orderNumber);
+  const uniqueOrderNumbers = new Set(myO.map(o => o.orderNumber));
   const pend = myO.filter(o => o.pendingQty > 0).length;
   const hold = myO.filter(o => o.orderStatus === 'On Hold').length;
 
   const isHi = LANG === 'hi';
   let wmsg = `✅ ${t('verified')}: <strong>${dealerName}</strong> (${dealerCode}).<br><br>`;
   if (isHi) {
-    wmsg += `आपके <strong>${myO.length}</strong> ऑर्डर हैं।<br>`;
+    wmsg += `आपके <strong>${uniqueOrderNumbers.size}</strong> ऑर्डर और <strong>${myO.length}</strong> पार्ट्स हैं।<br>`;
     if (pend) wmsg += `&bull; <strong>${pend}</strong> डिस्पैच बाकी<br>`;
     if (hold) wmsg += `&bull; <strong>${hold}</strong> होल्ड पर<br>`;
   } else {
-    wmsg += `You have <strong>${myO.length}</strong> order(s).<br>`;
+    wmsg += `You have <strong>${uniqueOrderNumbers.size}</strong> order(s) with <strong>${myO.length}</strong> part(s).<br>`;
     if (pend) wmsg += `&bull; <strong>${pend}</strong> pending dispatch<br>`;
     if (hold) wmsg += `&bull; <strong>${hold}</strong> on hold<br>`;
   }
@@ -593,7 +544,7 @@ function openModal(type) {
     modalTitle.textContent = m.orderTitle; modalSubtitle.textContent = m.orderSub;
     modalLabel.textContent = m.orderLabel;
     modalInput.style.display = 'block'; modalInput.value = '';
-    modalInput.placeholder = 'e.g. ORD123456';
+    modalInput.placeholder = 'e.g. 7400076472';
     setTimeout(() => modalInput.focus(), 100);
   } else if (type === 'query') {
     modalIcon.textContent = '\uD83D\uDCAC';
@@ -641,14 +592,29 @@ function openModal(type) {
     modalTitle.textContent = m.myOrdersTitle; modalSubtitle.textContent = m.myOrdersSub;
     modalDynamic.style.display = 'block';
     const myO = ORDERS.filter(o => String(o.dealerCode).toUpperCase() === String(authState.dealerCode).toUpperCase() && o.orderNumber);
-    modalDynamic.innerHTML = myO.length ? myO.map(o => `
-      <div class="order-list-item" data-order="${o.orderNumber}">
-        <div class="order-num">${o.orderNumber}
-          <span class="status-badge ${getStatusColor(o.orderStatus)}">${o.orderStatus || 'N/A'}</span>
-        </div>
-        <div class="order-info">${o.partNumber || '-'} - ${o.partDescription || '-'}</div>
-        <div class="order-info">${o.orderType || '-'} &bull; Qty: ${o.orderedQty || 0}</div>
-      </div>`).join('') : '<div style="text-align:center;color:#999;padding:20px;font-size:12.5px">-</div>';
+    if (!myO.length) {
+      modalDynamic.innerHTML = '<div style="text-align:center;color:#999;padding:20px;font-size:12.5px">No orders found.</div>';
+    } else {
+      // Group by order number
+      const groups = {};
+      myO.forEach(o => {
+        if (!groups[o.orderNumber]) groups[o.orderNumber] = [];
+        groups[o.orderNumber].push(o);
+      });
+      modalDynamic.innerHTML = Object.keys(groups).map(on => {
+        const items = groups[on];
+        const first = items[0];
+        const partsList = items.map(i => `${i.partNumber || '-'} (${i.partDescription || '-'})`).join(' • ');
+        return `
+          <div class="order-list-item" data-order="${on}">
+            <div class="order-num">${on}
+              <span class="status-badge ${getStatusColor(first.orderStatus)}">${first.orderStatus || 'N/A'}</span>
+            </div>
+            <div class="order-info">${items.length} part(s): ${partsList}</div>
+            <div class="order-info">Type: ${first.orderType || '-'}</div>
+          </div>`;
+      }).join('');
+    }
     modalLabel.style.display = 'none'; modalBtns.style.display = 'none';
     setTimeout(() => document.querySelectorAll('.order-list-item').forEach(e =>
       e.onclick = () => { closeModal(); handleMessage(e.dataset.order); }), 50);
@@ -712,7 +678,7 @@ const sendBtn = document.getElementById('sendBtn');
 const chips = document.getElementById('chips');
 const silentBanner = document.getElementById('silentBanner');
 
-function addMsg(text, who = "bot", showTime = true, isAdmin = false) {
+function addMsg(text, who = "bot", showTime = true, isAdmin = false, skipLog = false) {
   const w = document.createElement('div');
   w.className = 'msg ' + who + (isAdmin ? ' admin-msg' : '');
   let html = text;
@@ -720,8 +686,7 @@ function addMsg(text, who = "bot", showTime = true, isAdmin = false) {
   w.innerHTML = html;
   chat.appendChild(w); chat.scrollTop = chat.scrollHeight;
 
-  // ⭐ AUTO-LOG to admin thread
-  if (authState.loggedIn && authState.dealerCode && !isAdmin) {
+  if (authState.loggedIn && authState.dealerCode && !isAdmin && !skipLog) {
     if (who === 'user' || who === 'bot') {
       const plainText = text
         .replace(/<br\s*\/?>/gi, ' ')
@@ -779,6 +744,7 @@ function orderCard(o) {
   if (o.stockAvailability) rows.push([oc.stock, o.stockAvailability]);
   rows.push([oc.eta, o.eta || oc.notAvailable, !o.eta]);
   if (o.dispatchDate) rows.push([oc.dispatchDate, o.dispatchDate]);
+  if (o.invoiceNumber) rows.push([oc.invoiceNumber, o.invoiceNumber]);
   if (o.docketLR) rows.push([oc.docket, o.docketLR]);
   if (o.transporter) rows.push([oc.transporter, o.transporter]);
   if (o.holdReason) rows.push([oc.holdReason, o.holdReason, true]);
@@ -839,7 +805,6 @@ function requestSupportTeam() {
   if (authState.supportRequested) return;
   authState.supportRequested = true;
   authState.silentMode = true;
-  ensureThread(authState.dealerCode, authState.dealerName);
   const isHi = LANG === 'hi';
   if (isWorkingHours()) {
     addMsg(isHi
@@ -874,8 +839,17 @@ function handleMessage(text) {
     setTimeout(attachFeedbackHandlers, 900); return;
   }
   if (found.length > 1) {
-    botReply((isHi ? 'कई ऑर्डर मिले। कृपया एक चुनें:' : 'Multiple orders found. Please select one:') + '<br><br>' +
-      found.map((o,i) => `${i+1}. <strong>${o.orderNumber}</strong> - ${o.partDescription || ''}`).join('<br>'));
+    // ⭐ Show ALL parts for this order number
+    authState.lastOrderContext = found[0];
+    botReply((isHi
+      ? `इस ऑर्डर नंबर के <strong>${found.length}</strong> पार्ट्स मिले:`
+      : `Found <strong>${found.length}</strong> parts for this order number:`));
+    setTimeout(() => {
+      found.forEach(o => {
+        addMsg(orderCard(o), 'bot');
+      });
+      setTimeout(attachFeedbackHandlers, 500);
+    }, 1000);
     return;
   }
 
@@ -893,18 +867,21 @@ function handleMessage(text) {
     return;
   }
 
-  if (/dispatch|docket|transporter|lr number|डिस्पैच/.test(msg)) {
+  if (/dispatch|docket|transporter|lr number|invoice|डिस्पैच/.test(msg)) {
     const o = authState.lastOrderContext;
     if (!o) { botReply(isHi ? 'कृपया ऑर्डर नंबर दें।' : 'Please share the Order Number.'); return; }
+    let details = '';
+    if (o.invoiceNumber) details += `&bull; ${isHi ? 'इनवॉइस नंबर' : 'Invoice Number'}: ${o.invoiceNumber}<br>`;
     if ((o.dispatchedQty || 0) > 0) {
-      botReply(`${isHi ? 'डिस्पैच विवरण' : 'Dispatch details'} - <strong>${o.orderNumber}</strong>:<br><br>
-        &bull; ${isHi ? 'मात्रा' : 'Dispatched Qty'}: ${o.dispatchedQty}<br>
-        &bull; ${isHi ? 'दिनांक' : 'Date'}: ${o.dispatchDate || '-'}<br>
-        &bull; Docket/LR: ${o.docketLR || '-'}<br>
-        &bull; ${isHi ? 'ट्रांसपोर्टर' : 'Transporter'}: ${o.transporter || '-'}
+      details += `&bull; ${isHi ? 'डिस्पैच मात्रा' : 'Dispatched Qty'}: ${o.dispatchedQty}<br>`;
+      if (o.dispatchDate) details += `&bull; ${isHi ? 'दिनांक' : 'Dispatch Date'}: ${o.dispatchDate}<br>`;
+      if (o.docketLR) details += `&bull; Docket/LR: ${o.docketLR}<br>`;
+      if (o.transporter) details += `&bull; ${isHi ? 'ट्रांसपोर्टर' : 'Transporter'}: ${o.transporter}<br>`;
+      botReply(`${isHi ? 'डिस्पैच विवरण' : 'Dispatch details'} - <strong>${o.orderNumber}</strong>:<br><br>${details}
         <div class="updated">${isHi ? 'अंतिम अपडेट' : 'Last Updated'}: ${o.lastUpdated}</div>`);
     } else {
       botReply(`${isHi ? 'डिस्पैच नहीं हुआ।' : 'Not dispatched yet.'}<br>
+        ${details}
         ${isHi ? 'स्थिति' : 'Status'}: <strong>${o.orderStatus || 'N/A'}</strong><br>
         ETA: ${o.eta || (isHi ? 'अभी उपलब्ध नहीं' : 'Currently not available')}`);
     }
@@ -989,7 +966,7 @@ setInterval(() => {
   if (adminMsgs.length > seen) {
     adminMsgs.slice(seen).forEach(m => {
       addMsg(`<strong style="color:#16a34a">🛡️ Dealer Support Team:</strong><br>${m.text}`,
-        'bot', true, true);
+        'bot', true, true, true);
     });
     adminMsgSeen[authState.dealerCode] = adminMsgs.length;
     const th = getThreads();
