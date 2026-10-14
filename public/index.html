@@ -1,138 +1,1464 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Dealer Order Support</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MG Parts & Order Support</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
-  * { box-sizing: border-box; }
-  body { margin:0; font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-         background:#eef2f7; height:100vh; display:flex; align-items:center; justify-content:center; }
-  .hidden { display:none !important; }
-  #login { background:#fff; padding:32px; border-radius:16px; width:360px;
-           box-shadow:0 12px 40px rgba(0,0,0,.12); }
-  #login h2 { margin:0 0 6px; font-size:20px; color:#1e293b; }
-  #login p  { margin:0 0 22px; font-size:13px; color:#64748b; }
-  #login input { width:100%; padding:11px 13px; margin-bottom:12px; border:1px solid #cbd5e1;
-                 border-radius:9px; font-size:14px; outline:none; }
-  #login input:focus { border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.12); }
-  #login button { width:100%; padding:12px; background:#2563eb; color:#fff; border:0;
-                  border-radius:9px; font-size:15px; font-weight:600; cursor:pointer; }
-  #login button:hover { background:#1d4ed8; }
-  #loginErr { color:#dc2626; font-size:13px; margin-top:8px; min-height:18px; }
-  #chat { width:430px; height:92vh; max-height:760px; background:#fff; border-radius:16px;
-          display:flex; flex-direction:column; overflow:hidden; box-shadow:0 12px 40px rgba(0,0,0,.12); }
-  .chat-head { background:linear-gradient(135deg,#2563eb,#1e40af); color:#fff;
-               padding:14px 18px; display:flex; align-items:center; gap:12px; }
-  .avatar { width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,.2);
-            display:flex; align-items:center; justify-content:center; font-size:20px; }
-  .chat-head h3 { margin:0; font-size:15px; }
-  .chat-head small { opacity:.85; font-size:12px; }
-  .dot { width:8px; height:8px; border-radius:50%; background:#4ade80; display:inline-block; margin-right:4px; }
-  #messages { flex:1; overflow-y:auto; padding:18px; background:#f8fafc;
-              display:flex; flex-direction:column; gap:12px; }
-  .msg { max-width:82%; padding:10px 14px; border-radius:14px; font-size:13.5px;
-         line-height:1.5; white-space:pre-wrap; word-wrap:break-word; }
-  .msg.dealer { align-self:flex-end; background:#2563eb; color:#fff; border-bottom-right-radius:4px; }
-  .msg.bot    { align-self:flex-start; background:#fff; color:#1e293b;
-                border:1px solid #e2e8f0; border-bottom-left-radius:4px; }
-  .msg.agent  { align-self:flex-start; background:#ecfdf5; color:#065f46;
-                border:1px solid #a7f3d0; border-bottom-left-radius:4px; }
-  .msg .meta { font-size:10px; opacity:.6; margin-top:6px; }
-  .chips { padding:8px 14px 0; display:flex; gap:8px; flex-wrap:wrap; background:#f8fafc; }
-  .chip { background:#fff; border:1px solid #cbd5e1; color:#334155; font-size:12px;
-          padding:5px 11px; border-radius:20px; cursor:pointer; }
-  .chip:hover { background:#2563eb; color:#fff; border-color:#2563eb; }
-  .chat-input { display:flex; gap:8px; padding:12px; border-top:1px solid #e2e8f0; background:#fff; }
-  .chat-input input { flex:1; padding:11px 14px; border:1px solid #cbd5e1; border-radius:22px;
-                      font-size:14px; outline:none; }
-  .chat-input input:focus { border-color:#2563eb; }
-  .chat-input button { width:44px; height:44px; border-radius:50%; border:0; background:#2563eb;
-                       color:#fff; font-size:18px; cursor:pointer; }
-  .chat-input button:hover { background:#1d4ed8; }
-  .typing { font-size:11px; color:#64748b; padding:0 18px 6px; height:14px; }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
+  body { background: linear-gradient(135deg, #0b1b3a 0%, #1e3c72 100%);
+    min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 16px; }
+  .app { width: 100%; max-width: 480px; height: 92vh; max-height: 820px;
+    background: #fff; border-radius: 18px; overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.35); display: flex; flex-direction: column; position: relative; }
+  .header { background: linear-gradient(90deg, #b3001b, #7a0012);
+    color: #fff; padding: 10px 14px; display: flex; align-items: center; gap: 10px; }
+  .logo { width: 34px; height: 34px; border-radius: 50%; background: #fff;
+    color: #b3001b; font-weight: 800; display: flex; align-items: center;
+    justify-content: center; font-size: 13px; flex-shrink: 0; }
+  .header h1 { font-size: 13.5px; font-weight: 600; line-height: 1.2; }
+  .header p { font-size: 10px; opacity: 0.85; }
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+  .lang-switch { display: flex; gap: 2px; background: rgba(0,0,0,0.25); padding: 2px; border-radius: 6px; }
+  .lang-btn { font-size: 10px; padding: 4px 8px; border-radius: 4px; cursor: pointer;
+    color: #fff; opacity: 0.7; transition: 0.15s; font-weight: 600; }
+  .lang-btn.active { background: #fff; color: #b3001b; opacity: 1; }
+  .tabs { display: flex; gap: 3px; background: rgba(0,0,0,0.2); padding: 2px; border-radius: 6px; }
+  .tab { font-size: 10px; padding: 4px 8px; border-radius: 4px; cursor: pointer;
+    color: #fff; opacity: 0.7; transition: 0.15s; }
+  .tab.active { background: #fff; color: #b3001b; font-weight: 600; opacity: 1; }
+
+  .hours-bar { background: #ecfdf5; color: #065f46; padding: 6px 12px; font-size: 10.5px;
+    text-align: center; border-bottom: 1px solid #a7f3d0; font-weight: 500; }
+  .hours-bar.closed { background: #fef3c7; color: #92400e; border-bottom-color: #fde68a; }
+
+  .view { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .view.hidden { display: none; }
+  .chat { flex: 1; overflow-y: auto; padding: 16px; background: #f4f6fb;
+    display: flex; flex-direction: column; gap: 10px; }
+  .msg { max-width: 82%; padding: 10px 14px; border-radius: 14px;
+    font-size: 13.5px; line-height: 1.5; word-wrap: break-word; animation: fadeIn 0.25s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .bot { background: #fff; color: #1a1a1a; align-self: flex-start;
+    border-bottom-left-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .user { background: #b3001b; color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
+  .bot strong { color: #b3001b; }
+  .bot table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 12.5px; }
+  .bot table td { padding: 4px 6px; border-bottom: 1px solid #eee; vertical-align: top; }
+  .bot table td:first-child { color: #666; width: 45%; }
+  .bot table td:last-child { font-weight: 600; color: #111; }
+  .updated { font-size: 11px; color: #888; margin-top: 6px; font-style: italic; }
+  .ts { font-size: 10px; color: #999; margin-top: 4px; text-align: right; }
+  .user .ts { color: rgba(255,255,255,0.75); }
+
+  .progress-track { display: flex; align-items: center; margin: 8px 0 4px; gap: 2px; }
+  .progress-step { flex: 1; height: 6px; background: #e5e7eb; border-radius: 3px; }
+  .progress-step.done { background: #16a34a; }
+  .progress-step.active { background: #f59e0b; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px 4px; background: #f4f6fb; }
+  .chip { background: #fff; border: 1px solid #d7dbe6; color: #b3001b;
+    font-size: 11.5px; padding: 6px 10px; border-radius: 20px; cursor: pointer; transition: 0.15s; }
+  .chip:hover { background: #b3001b; color: #fff; border-color: #b3001b; }
+  .chip.support { background: #b3001b; color: #fff; border-color: #b3001b; font-weight: 600; }
+  .chip.support:hover { background: #7a0012; }
+  .chip.faq { background: #f0f9ff; color: #0369a1; border-color: #bae6fd; }
+  .chip.faq:hover { background: #0369a1; color: #fff; border-color: #0369a1; }
+
+  .input-bar { display: flex; padding: 10px 12px; background: #fff;
+    border-top: 1px solid #e5e7ef; gap: 8px; }
+  .input-bar input { flex: 1; border: 1px solid #d7dbe6; border-radius: 22px;
+    padding: 10px 16px; font-size: 13.5px; outline: none; }
+  .input-bar input:focus { border-color: #b3001b; }
+  .send-btn { background: #b3001b; color: #fff; border: none; border-radius: 50%;
+    width: 42px; height: 42px; cursor: pointer; font-size: 16px;
+    display: flex; align-items: center; justify-content: center; }
+  .send-btn:hover { background: #7a0012; }
+
+  .typing { display: flex; gap: 4px; padding: 12px 16px; background: #fff;
+    border-radius: 14px; align-self: flex-start; width: fit-content; }
+  .typing span { width: 7px; height: 7px; background: #b3001b; border-radius: 50%;
+    animation: bounce 1.2s infinite; }
+  .typing span:nth-child(2) { animation-delay: 0.15s; }
+  .typing span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes bounce { 0%,60%,100% { transform: none; opacity: 0.4; }
+    30% { transform: translateY(-5px); opacity: 1; } }
+
+  .feedback-row { display: flex; gap: 8px; margin-top: 8px; padding-top: 8px;
+    border-top: 1px dashed #ddd; align-items: center; flex-wrap: wrap; }
+  .feedback-row span { font-size: 11px; color: #666; margin-right: 4px; }
+  .fb-btn { background: #f4f6fb; border: 1px solid #d7dbe6; border-radius: 20px;
+    padding: 4px 10px; font-size: 13px; cursor: pointer; transition: 0.15s; }
+  .fb-btn:hover { background: #e5e7ef; }
+  .fb-btn.active { background: #16a34a; color: #fff; border-color: #16a34a; }
+  .fb-thanks { font-size: 11px; color: #16a34a; font-weight: 600; }
+
+  .admin { flex: 1; overflow-y: auto; padding: 14px; background: #f4f6fb; }
+  .card { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .card h3 { font-size: 13px; color: #1a1a1a; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px; }
+  .card h3 .num { background: #b3001b; color: #fff; width: 22px; height: 22px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; }
+  .upload-zone { border: 2px dashed #c9cfe0; border-radius: 10px; padding: 20px 12px;
+    text-align: center; cursor: pointer; transition: 0.15s; background: #fafbff; }
+  .upload-zone:hover, .upload-zone.drag { border-color: #b3001b; background: #fff5f6; }
+  .upload-zone .icon { font-size: 30px; margin-bottom: 6px; }
+  .upload-zone p { font-size: 12.5px; color: #555; }
+  .upload-zone small { font-size: 11px; color: #999; }
+  .upload-zone input { display: none; }
+
+  .btn { background: #b3001b; color: #fff; border: none; border-radius: 8px;
+    padding: 9px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: 0.15s; }
+  .btn:hover { background: #7a0012; }
+  .btn.ghost { background: #fff; color: #b3001b; border: 1px solid #b3001b; }
+  .btn.ghost:hover { background: #fff5f6; }
+  .btn-row { display: flex; gap: 8px; margin-top: 10px; }
+
+  .stats { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .stat { flex: 1; min-width: 80px; padding: 10px; border-radius: 8px;
+    background: #f4f6fb; text-align: center; }
+  .stat .val { font-size: 18px; font-weight: 700; color: #b3001b; }
+  .stat .lbl { font-size: 10.5px; color: #777; margin-top: 2px; }
+  .stat.ok .val { color: #16a34a; }
+  .stat.warn .val { color: #d97706; }
+  .stat.err .val { color: #dc2626; }
+
+  .preview-table { max-height: 220px; overflow: auto; border-radius: 8px;
+    border: 1px solid #e5e7ef; margin-top: 8px; }
+  .preview-table table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .preview-table th { background: #b3001b; color: #fff; padding: 7px 8px; text-align: left;
+    position: sticky; top: 0; font-weight: 600; white-space: nowrap; }
+  .preview-table td { padding: 6px 8px; border-bottom: 1px solid #eee; color: #333; white-space: nowrap; }
+  .preview-table tr:nth-child(even) td { background: #fafbff; }
+  .preview-table tr.bad td { background: #fee2e2; color: #991b1b; }
+
+  .log-item { display: flex; align-items: center; gap: 10px; padding: 9px 0;
+    border-bottom: 1px solid #eee; font-size: 12px; }
+  .log-item:last-child { border-bottom: none; }
+  .log-badge { padding: 3px 8px; border-radius: 6px; font-size: 10.5px; font-weight: 600; color: #fff; }
+  .log-badge.success { background: #16a34a; }
+  .log-badge.partial { background: #d97706; }
+  .log-badge.failed { background: #dc2626; }
+  .log-meta { margin-left: auto; text-align: right; color: #888; font-size: 10.5px; }
+  .log-name { font-weight: 600; color: #333; }
+
+  .empty { text-align: center; padding: 20px; color: #999; font-size: 12.5px; }
+
+  .silent-banner { background: #fff7ed; color: #9a3412; padding: 8px 12px; font-size: 11.5px;
+    text-align: center; border-top: 1px solid #fed7aa; font-weight: 500; }
+
+  /* Analytics */
+  .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .kpi { background: linear-gradient(135deg, #fff5f6, #fef2f4);
+    border: 1px solid #fecdd3; border-radius: 10px; padding: 12px; text-align: center; }
+  .kpi.blue { background: linear-gradient(135deg, #eff6ff, #dbeafe); border-color: #bfdbfe; }
+  .kpi.green { background: linear-gradient(135deg, #ecfdf5, #d1fae5); border-color: #a7f3d0; }
+  .kpi.yellow { background: linear-gradient(135deg, #fffbeb, #fef3c7); border-color: #fde68a; }
+  .kpi .kpi-val { font-size: 22px; font-weight: 800; color: #b3001b; line-height: 1; }
+  .kpi.blue .kpi-val { color: #1e40af; }
+  .kpi.green .kpi-val { color: #065f46; }
+  .kpi.yellow .kpi-val { color: #92400e; }
+  .kpi .kpi-lbl { font-size: 10.5px; color: #666; margin-top: 4px; font-weight: 600; }
+  .kpi .kpi-sub { font-size: 9.5px; color: #999; margin-top: 2px; }
+
+  .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 11.5px; }
+  .bar-row .bar-label { width: 90px; color: #555; font-weight: 600; flex-shrink: 0; }
+  .bar-row .bar-track { flex: 1; height: 16px; background: #f0f2f7; border-radius: 8px; overflow: hidden; }
+  .bar-row .bar-fill { height: 100%; border-radius: 8px;
+    background: linear-gradient(90deg, #b3001b, #e11d48);
+    transition: width 0.6s ease; min-width: 4px; }
+  .bar-row .bar-fill.green { background: linear-gradient(90deg, #16a34a, #4ade80); }
+  .bar-row .bar-fill.blue { background: linear-gradient(90deg, #1e40af, #60a5fa); }
+  .bar-row .bar-fill.yellow { background: linear-gradient(90deg, #d97706, #fbbf24); }
+  .bar-row .bar-fill.red { background: linear-gradient(90deg, #dc2626, #f87171); }
+  .bar-row .bar-val { width: 32px; text-align: right; color: #333; font-weight: 700; flex-shrink: 0; }
+
+  .top-list-item { display: flex; align-items: center; gap: 10px; padding: 8px 0;
+    border-bottom: 1px solid #f0f2f7; font-size: 12px; }
+  .top-list-item:last-child { border-bottom: none; }
+  .top-list-item .rank { width: 22px; height: 22px; border-radius: 50%;
+    background: #f4f6fb; color: #666; font-weight: 700; font-size: 11px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .top-list-item.rank-1 .rank { background: #fbbf24; color: #fff; }
+  .top-list-item.rank-2 .rank { background: #cbd5e1; color: #fff; }
+  .top-list-item.rank-3 .rank { background: #fb923c; color: #fff; }
+  .top-list-item .name { flex: 1; font-weight: 600; color: #333; }
+  .top-list-item .count { color: #b3001b; font-weight: 700; }
+
+  .trend-chart { display: flex; align-items: flex-end; gap: 4px; height: 100px;
+    padding: 8px 0; margin-top: 6px; }
+  .trend-bar { flex: 1; background: linear-gradient(180deg, #b3001b, #7a0012);
+    border-radius: 4px 4px 0 0; min-height: 4px; position: relative;
+    transition: height 0.6s ease; }
+  .trend-bar:hover::after { content: attr(data-val); position: absolute;
+    bottom: 100%; left: 50%; transform: translateX(-50%);
+    background: #333; color: #fff; padding: 2px 6px; border-radius: 4px;
+    font-size: 10px; white-space: nowrap; margin-bottom: 4px; }
+  .trend-labels { display: flex; gap: 4px; margin-top: 4px; }
+  .trend-labels div { flex: 1; text-align: center; font-size: 9px; color: #888; }
+
+  .modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.5);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100; padding: 20px; animation: fadeIn 0.2s ease; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: #fff; border-radius: 16px; width: 100%; max-width: 380px;
+    padding: 22px 20px 18px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    animation: popIn 0.25s ease; max-height: 80vh; overflow-y: auto; }
+  @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .modal .modal-icon { width: 48px; height: 48px; border-radius: 50%; background: #fff5f6;
+    color: #b3001b; display: flex; align-items: center; justify-content: center;
+    font-size: 22px; margin: 0 auto 12px; }
+  .modal h3 { font-size: 15px; color: #111; text-align: center; margin-bottom: 4px; font-weight: 700; }
+  .modal p { font-size: 12.5px; color: #666; text-align: center; margin-bottom: 16px; line-height: 1.5; }
+  .modal label { display: block; font-size: 11.5px; color: #555; font-weight: 600;
+    margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px; }
+  .modal input, .modal textarea, .modal select {
+    width: 100%; border: 1.5px solid #d7dbe6; border-radius: 10px;
+    padding: 11px 14px; font-size: 13.5px; outline: none;
+    font-family: inherit; transition: 0.15s; margin-bottom: 10px; }
+  .modal input:focus, .modal textarea:focus, .modal select:focus {
+    border-color: #b3001b; box-shadow: 0 0 0 3px rgba(179,0,27,0.1); }
+  .modal textarea { resize: vertical; min-height: 70px; }
+  .modal .modal-btns { display: flex; gap: 10px; margin-top: 16px; }
+  .modal .modal-btns button { flex: 1; padding: 11px; border-radius: 10px; font-size: 13px;
+    font-weight: 600; cursor: pointer; border: none; transition: 0.15s; }
+  .modal .cancel-btn { background: #f0f2f7; color: #555; }
+  .modal .cancel-btn:hover { background: #e2e5ec; }
+  .modal .submit-btn { background: #b3001b; color: #fff; }
+  .modal .submit-btn:hover { background: #7a0012; }
+
+  .faq-item { border-bottom: 1px solid #eee; padding: 10px 0; cursor: pointer; }
+  .faq-item:last-child { border-bottom: none; }
+  .faq-q { font-size: 12.5px; font-weight: 600; color: #b3001b;
+    display: flex; justify-content: space-between; align-items: center; }
+  .faq-q::after { content: '+'; font-size: 16px; color: #999; }
+  .faq-item.open .faq-q::after { content: '\2212'; }
+  .faq-a { font-size: 12px; color: #555; line-height: 1.5; max-height: 0;
+    overflow: hidden; transition: max-height 0.3s ease; }
+  .faq-item.open .faq-a { max-height: 200px; margin-top: 6px; }
+
+  .order-list-item { border: 1px solid #e5e7ef; border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 8px; cursor: pointer;
+    transition: 0.15s; background: #fafbff; }
+  .order-list-item:hover { border-color: #b3001b; background: #fff5f6; }
+  .order-list-item .order-num { font-size: 12.5px; font-weight: 700;
+    color: #b3001b; margin-bottom: 3px; }
+  .order-list-item .order-info { font-size: 11px; color: #666; }
+  .order-status-badge { display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 10px; font-weight: 600; margin-left: 6px; }
+  .badge-pending { background: #fef3c7; color: #92400e; }
+  .badge-dispatch { background: #dbeafe; color: #1e40af; }
+  .badge-transit { background: #e0e7ff; color: #3730a3; }
+  .badge-delivered { background: #d1fae5; color: #065f46; }
+  .badge-hold { background: #fee2e2; color: #991b1b; }
 </style>
 </head>
 <body>
-
-<div id="login">
-  <h2>🏭 Dealer Order Support</h2>
-  <p>Apna Dealer Code daal kar order status poochein</p>
-  <input id="inpCode" placeholder="Dealer Code (e.g. D1001)" autocomplete="off" />
-  <input id="inpName" placeholder="Dealer Name (optional)" autocomplete="off" />
-  <button onclick="join()">Start Chat</button>
-  <div id="loginErr"></div>
-</div>
-
-<div id="chat" class="hidden">
-  <div class="chat-head">
-    <div class="avatar">🤖</div>
+<div class="app">
+  <div class="header">
+    <div class="logo">MG</div>
     <div>
-      <h3>Order Support Assistant</h3>
-      <small><span class="dot"></span><span id="whoami">—</span></small>
+      <h1 id="hdrTitle">Parts & Order Support</h1>
+      <p id="hdrSub">MG Aftersales Assistant</p>
+    </div>
+    <div class="header-right">
+      <div class="lang-switch">
+        <div class="lang-btn active" data-lang="en">EN</div>
+        <div class="lang-btn" data-lang="hi">हिं</div>
+      </div>
+      <div class="tabs">
+        <div class="tab active" data-view="dealer" id="tabDealer">Dealer</div>
+        <div class="tab" data-view="admin" id="tabAdmin">Admin</div>
+        <div class="tab" data-view="analytics" id="tabAnalytics">Stats</div>
+      </div>
     </div>
   </div>
-  <div id="messages"></div>
-  <div class="typing" id="typing"></div>
-  <div class="chips">
-    <div class="chip" onclick="quick('Mere saare recent orders ka status batao')">📋 Recent Orders</div>
-    <div class="chip" onclick="quick('Mera order back order me hai, ETA batao')">⏳ Back Order ETA</div>
-    <div class="chip" onclick="quick('agent')">💬 Talk to Agent</div>
+
+  <div class="view" id="view-dealer">
+    <div class="hours-bar" id="hoursBar">Support Hours: 9:00 AM - 7:00 PM (Mon-Sat)</div>
+    <div id="chat" class="chat"></div>
+    <div id="silentBanner" class="silent-banner" style="display:none">
+      <span id="silentText">Your request has been sent to the Dealer Support Team.</span>
+    </div>
+    <div id="chips" class="chips"></div>
+    <div class="input-bar">
+      <input id="userInput" type="text" placeholder="Type your message..." autocomplete="off" />
+      <button class="send-btn" id="sendBtn">&#10148;</button>
+    </div>
   </div>
-  <div class="chat-input">
-    <input id="inpMsg" placeholder="PO number ya Part number likhein..." autocomplete="off"
-           onkeydown="if(event.key==='Enter') send()" />
-    <button onclick="send()">➤</button>
+
+  <div class="view hidden" id="view-admin">
+    <div class="admin">
+      <div class="card">
+        <h3><span class="num">1</span> <span data-i18n="uploadTitle">Upload Excel / CSV File</span></h3>
+        <div class="upload-zone" id="uploadZone">
+          <div class="icon">&#128228;</div>
+          <p data-i18n="uploadClick"><strong>Click to upload</strong> or drag file here</p>
+          <small data-i18n="uploadFormats">Supports .xlsx, .xls, .csv</small>
+          <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" />
+        </div>
+      </div>
+
+      <div class="card" id="previewCard" style="display:none">
+        <h3><span class="num">2</span> <span data-i18n="previewTitle">Preview & Validate</span></h3>
+        <div class="stats">
+          <div class="stat ok"><div class="val" id="statTotal">0</div><div class="lbl" data-i18n="statTotal">Total Rows</div></div>
+          <div class="stat ok"><div class="val" id="statValid">0</div><div class="lbl" data-i18n="statValid">Valid</div></div>
+          <div class="stat err"><div class="val" id="statRejected">0</div><div class="lbl" data-i18n="statRejected">Rejected</div></div>
+        </div>
+        <div class="preview-table" id="previewTable"></div>
+        <div class="btn-row">
+          <button class="btn" id="publishBtn" data-i18n="btnPublish">Publish to Chatbot</button>
+          <button class="btn ghost" id="cancelBtn" data-i18n="btnCancel">Cancel</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3><span class="num">3</span> <span data-i18n="historyTitle">Upload History</span></h3>
+        <div id="uploadHistory"><div class="empty" data-i18n="noUploads">No uploads yet.</div></div>
+      </div>
+
+      <div class="card">
+        <h3><span class="num">4</span> <span data-i18n="liveDataTitle">Live Data (Active Records)</span></h3>
+        <div id="liveData"><div class="empty" data-i18n="noData">No data uploaded yet. Using demo data.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="view hidden" id="view-analytics">
+    <div class="admin" id="analyticsBody">
+      <!-- Populated dynamically -->
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="modalBox">
+      <div class="modal-icon" id="modalIcon">&#128269;</div>
+      <h3 id="modalTitle">Enter Order Number</h3>
+      <p id="modalSubtitle">Please provide your order number to check status.</p>
+
+      <div id="modalInputWrap">
+        <label id="modalLabel" for="modalInput">Order Number</label>
+        <input id="modalInput" type="text" placeholder="e.g. ORD123456" autocomplete="off" />
+        <textarea id="modalTextarea" style="display:none" placeholder="Type your query here..."></textarea>
+        <div id="modalDynamic" style="display:none"></div>
+      </div>
+
+      <div class="modal-btns" id="modalBtns">
+        <button class="cancel-btn" id="modalCancel">Cancel</button>
+        <button class="submit-btn" id="modalSubmit">Submit</button>
+      </div>
+    </div>
   </div>
 </div>
 
-<script src="/socket.io/socket.io.js"></script>
 <script>
-let socket = null, dealerCode = null;
-function join() {
-  const code = document.getElementById('inpCode').value.trim().toUpperCase();
-  const name = document.getElementById('inpName').value.trim();
-  if (!code) { document.getElementById('loginErr').textContent = 'Dealer Code zaroori hai'; return; }
-  socket = io();
-  socket.on('connect', () => {
-    socket.emit('dealer:join', { dealerCode: code, dealerName: name }, (res) => {
-      if (!res || !res.ok) {
-        document.getElementById('loginErr').textContent = res?.error || 'Connection failed';
-        return;
-      }
-      dealerCode = code;
-      document.getElementById('login').classList.add('hidden');
-      document.getElementById('chat').classList.remove('hidden');
-      document.getElementById('whoami').textContent = code + (res.dealerName ? ' • ' + res.dealerName : '');
-      document.getElementById('messages').innerHTML = '';
-      if (res.history && res.history.length) res.history.forEach(addMessage);
-      else addMessage({ sender:'bot', message:'Namaste! 🙏 Main aapka Order Support Assistant hoon.\n\n• PO number likh kar status poochein\n• Part number se bhi poochein\n• "agent" likhein live executive ke liye', created_at: new Date().toISOString() });
+/* ============================================================
+   1. TRANSLATIONS
+   ============================================================ */
+const I18N = {
+  en: {
+    hdrTitle: 'Parts & Order Support',
+    hdrSub: 'MG Aftersales Assistant',
+    tabDealer: 'Dealer', tabAdmin: 'Admin', tabAnalytics: 'Stats',
+    hoursOpen: 'Support Team Available: 9:00 AM - 7:00 PM (Mon-Sat)',
+    hoursClosed: 'Support Team Offline. You can still chat with the bot. Next available: 9:00 AM',
+    inputPlaceholder: 'Type your message...',
+    silentText: 'Your request has been sent to the Dealer Support Team.',
+    uploadTitle: 'Upload Excel / CSV File',
+    uploadClick: 'Click to upload or drag file here',
+    uploadFormats: 'Supports .xlsx, .xls, .csv',
+    previewTitle: 'Preview & Validate',
+    statTotal: 'Total Rows', statValid: 'Valid', statRejected: 'Rejected',
+    btnPublish: 'Publish to Chatbot', btnCancel: 'Cancel',
+    historyTitle: 'Upload History', liveDataTitle: 'Live Data (Active Records)',
+    noUploads: 'No uploads yet.', noData: 'No data uploaded yet. Using demo data.',
+    welcome: 'Welcome to MG Parts & Order Support.',
+    enterCode: 'Please enter your Dealer Code to continue.',
+    demoCodes: 'Demo codes: MGDL001, MGDL002',
+    verified: 'Verified', howCanHelp: 'How can I help you today?',
+    notFound: 'Dealer code not found. Please verify and try again.',
+    loggedOut: 'Logged out successfully. Please enter your Dealer Code.',
+    chips: {
+      myOrders: 'My Orders', orderStatus: 'Order Status', raiseTicket: 'Raise Ticket',
+      trackTicket: 'Track Ticket', faq: 'FAQ', otherQuery: 'Other Query',
+      support: 'Talk to Dealer Support Team',
+      dispatch: 'Dispatch Details', eta: 'Check ETA'
+    },
+    modal: {
+      orderTitle: 'Enter Order Number', orderSub: 'Please provide your order number to check status.',
+      orderLabel: 'Order Number',
+      queryTitle: 'Type Your Query', querySub: 'Write your question or concern below.',
+      queryLabel: 'Your Query',
+      ticketTitle: 'Raise Support Ticket', ticketSub: 'Fill the details. You will receive a ticket number.',
+      ticketOrder: 'Order Number (optional)', ticketPart: 'Part Number (optional)',
+      ticketIssue: 'Issue Description *',
+      trackTitle: 'Your Support Tickets', trackSub: 'Below are the tickets raised by your dealership.',
+      faqTitle: 'Frequently Asked Questions', faqSub: 'Click a question to see the answer.',
+      myOrdersTitle: 'My Orders', myOrdersSub: 'All orders for your dealership. Click any to view.',
+      cancel: 'Cancel', submit: 'Submit'
+    },
+    analytics: {
+      title: 'Dashboard Analytics',
+      totalOrders: 'Total Orders', delivered: 'Delivered', pending: 'Pending',
+      onHold: 'On Hold', dispatched: 'Dispatched', inTransit: 'In Transit',
+      statusDist: 'Order Status Distribution',
+      typeBreakdown: 'Order Type Breakdown',
+      topDealers: 'Top Dealers by Orders',
+      feedbackSummary: 'Feedback Summary',
+      ticketSummary: 'Support Tickets Summary',
+      trendTitle: 'Orders Trend (Last 7 Days)',
+      thumbsUp: 'Helpful', thumbsDown: 'Not Helpful',
+      openTickets: 'Open', closedTickets: 'Closed / Resolved',
+      totalFeedback: 'Total Feedback',
+      noDataYet: 'No data available yet.'
+    },
+    faq: [
+      { q: 'How can I track my VOR order?', a: 'Enter your VOR order number in the chat or click "Order Status" to check the latest status, ETA, and dispatch details.' },
+      { q: 'What does "On Hold" mean?', a: 'On Hold means the order is temporarily paused. Common reasons include credit block, stock unavailability, or procurement delay.' },
+      { q: 'When will my order be dispatched?', a: 'Orders are dispatched within 24-48 hours once stock is available. Check Tentative ETA.' },
+      { q: 'How do I raise a support ticket?', a: 'Click "Raise Ticket" button. Provide order number, part number, and issue description.' },
+      { q: 'What are the support hours?', a: 'Support is available Mon-Sat, 9:00 AM to 7:00 PM. Bot is available 24x7.' },
+      { q: 'How to check back order status?', a: 'Back orders are visible in "My Orders". They show Not Available stock with a tentative ETA.' }
+    ]
+  },
+  hi: {
+    hdrTitle: 'पार्ट्स और ऑर्डर सपोर्ट',
+    hdrSub: 'MG आफ्टरसेल्स असिस्टेंट',
+    tabDealer: 'डीलर', tabAdmin: 'एडमिन', tabAnalytics: 'आँकड़े',
+    hoursOpen: 'सपोर्ट टीम उपलब्ध: सुबह 9:00 - शाम 7:00 (सोम-शनि)',
+    hoursClosed: 'सपोर्ट टीम ऑफलाइन है। बॉट से चैट जारी रखें। अगली उपलब्धता: सुबह 9:00',
+    inputPlaceholder: 'अपना संदेश लिखें...',
+    silentText: 'आपका अनुरोध डीलर सपोर्ट टीम को भेज दिया गया है।',
+    uploadTitle: 'एक्सेल / CSV फ़ाइल अपलोड करें',
+    uploadClick: 'अपलोड करने के लिए क्लिक करें या फ़ाइल खींचें',
+    uploadFormats: '.xlsx, .xls, .csv सपोर्टेड',
+    previewTitle: 'प्रीव्यू और वैलिडेशन',
+    statTotal: 'कुल पंक्तियाँ', statValid: 'मान्य', statRejected: 'अस्वीकृत',
+    btnPublish: 'चैटबॉट पर प्रकाशित करें', btnCancel: 'रद्द करें',
+    historyTitle: 'अपलोड इतिहास', liveDataTitle: 'लाइव डेटा (सक्रिय रिकॉर्ड)',
+    noUploads: 'अभी तक कोई अपलोड नहीं।', noData: 'कोई डेटा नहीं। डेमो डेटा उपयोग हो रहा है।',
+    welcome: 'MG पार्ट्स और ऑर्डर सपोर्ट में आपका स्वागत है।',
+    enterCode: 'कृपया अपना डीलर कोड दर्ज करें।',
+    demoCodes: 'डेमो कोड: MGDL001, MGDL002',
+    verified: 'सत्यापित', howCanHelp: 'मैं आपकी कैसे सहायता कर सकता हूँ?',
+    notFound: 'डीलर कोड नहीं मिला। कृपया जाँचें और पुनः प्रयास करें।',
+    loggedOut: 'सफलतापूर्वक लॉग आउट। कृपया अपना डीलर कोड दर्ज करें।',
+    chips: {
+      myOrders: 'मेरे ऑर्डर', orderStatus: 'ऑर्डर स्थिति', raiseTicket: 'टिकट बनाएं',
+      trackTicket: 'टिकट ट्रैक करें', faq: 'सामान्य प्रश्न', otherQuery: 'अन्य प्रश्न',
+      support: 'डीलर सपोर्ट टीम से बात करें',
+      dispatch: 'डिस्पैच विवरण', eta: 'ETA देखें'
+    },
+    modal: {
+      orderTitle: 'ऑर्डर नंबर दर्ज करें', orderSub: 'स्थिति देखने के लिए कृपया ऑर्डर नंबर दें।',
+      orderLabel: 'ऑर्डर नंबर',
+      queryTitle: 'अपना प्रश्न लिखें', querySub: 'नीचे अपना प्रश्न या चिंता लिखें।',
+      queryLabel: 'आपका प्रश्न',
+      ticketTitle: 'सपोर्ट टिकट बनाएं', ticketSub: 'विवरण भरें। आपको टिकट नंबर तुरंत मिलेगा।',
+      ticketOrder: 'ऑर्डर नंबर (वैकल्पिक)', ticketPart: 'पार्ट नंबर (वैकल्पिक)',
+      ticketIssue: 'समस्या का विवरण *',
+      trackTitle: 'आपके सपोर्ट टिकट', trackSub: 'आपके डीलरशिप के टिकट नीचे हैं।',
+      faqTitle: 'अक्सर पूछे जाने वाले प्रश्न', faqSub: 'उत्तर देखने के लिए प्रश्न पर क्लिक करें।',
+      myOrdersTitle: 'मेरे ऑर्डर', myOrdersSub: 'आपके सभी ऑर्डर। विवरण देखने के लिए क्लिक करें।',
+      cancel: 'रद्द करें', submit: 'जमा करें'
+    },
+    analytics: {
+      title: 'डैशबोर्ड एनालिटिक्स',
+      totalOrders: 'कुल ऑर्डर', delivered: 'डिलीवर', pending: 'बाकी',
+      onHold: 'होल्ड पर', dispatched: 'डिस्पैच', inTransit: 'ट्रांज़िट में',
+      statusDist: 'ऑर्डर स्थिति वितरण',
+      typeBreakdown: 'ऑर्डर प्रकार विभाजन',
+      topDealers: 'शीर्ष डीलर (ऑर्डर अनुसार)',
+      feedbackSummary: 'फीडबैक सारांश',
+      ticketSummary: 'सपोर्ट टिकट सारांश',
+      trendTitle: 'ऑर्डर ट्रेंड (पिछले 7 दिन)',
+      thumbsUp: 'सहायक', thumbsDown: 'सहायक नहीं',
+      openTickets: 'खुले', closedTickets: 'बंद / हल',
+      totalFeedback: 'कुल फीडबैक',
+      noDataYet: 'अभी कोई डेटा उपलब्ध नहीं।'
+    },
+    faq: [
+      { q: 'मैं अपने VOR ऑर्डर को कैसे ट्रैक करूँ?', a: 'चैट में VOR ऑर्डर नंबर दर्ज करें या "ऑर्डर स्थिति" पर क्लिक करें।' },
+      { q: '"होल्ड पर" का क्या मतलब है?', a: 'होल्ड का मतलब है ऑर्डर अस्थायी रूप से रोका गया है। सामान्य कारण: क्रेडिट ब्लॉक, स्टॉक अनुपलब्धता।' },
+      { q: 'मेरा ऑर्डर कब डिस्पैच होगा?', a: 'स्टॉक उपलब्ध होने पर 24-48 घंटे में। अनुमानित ETA देखें।' },
+      { q: 'सपोर्ट टिकट कैसे बनाएं?', a: '"टिकट बनाएं" बटन पर क्लिक करें। ऑर्डर नंबर, पार्ट नंबर और विवरण दें।' },
+      { q: 'सपोर्ट के घंटे क्या हैं?', a: 'सोम-शनि, सुबह 9:00 से शाम 7:00 तक। बॉट 24x7 उपलब्ध है।' },
+      { q: 'बैक ऑर्डर स्थिति कैसे देखें?', a: 'बैक ऑर्डर "मेरे ऑर्डर" में दिखेंगे। स्टॉक अनुपलब्ध और ETA दिखेगी।' }
+    ]
+  }
+};
+
+let LANG = localStorage.getItem('mg_lang') || 'en';
+
+function t(key) {
+  const parts = key.split('.');
+  let cur = I18N[LANG];
+  for (const p of parts) { if (cur && cur[p] !== undefined) cur = cur[p]; else return key; }
+  return cur;
+}
+function tf(key, fallback) { const v = t(key); return v === key ? fallback : v; }
+
+function applyLanguage() {
+  document.getElementById('hdrTitle').textContent = t('hdrTitle');
+  document.getElementById('hdrSub').textContent = t('hdrSub');
+  document.getElementById('tabDealer').textContent = t('tabDealer');
+  document.getElementById('tabAdmin').textContent = t('tabAdmin');
+  document.getElementById('tabAnalytics').textContent = t('tabAnalytics');
+  document.getElementById('userInput').placeholder = t('inputPlaceholder');
+  document.getElementById('silentText').textContent = t('silentText');
+
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (el.querySelector('strong')) {
+      el.innerHTML = '<strong>' + t('uploadClick').split(' or ')[0] + '</strong> or ' + t('uploadClick').split(' or ')[1];
+    } else {
+      el.textContent = t(key);
+    }
+  });
+
+  // Fix upload click text properly
+  const uploadP = document.querySelector('[data-i18n="uploadClick"]');
+  if (uploadP) {
+    const parts = t('uploadClick').split(' or ');
+    if (parts.length === 2) uploadP.innerHTML = `<strong>${parts[0]}</strong> or ${parts[1]}`;
+    else uploadP.textContent = t('uploadClick');
+  }
+
+  updateHoursBar();
+  renderHistory();
+  renderLiveData();
+  if (!document.getElementById('view-analytics').classList.contains('hidden')) renderAnalytics();
+
+  // Update language buttons
+  document.querySelectorAll('.lang-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.lang === LANG);
+  });
+}
+
+/* ============================================================
+   2. DATA STORE
+   ============================================================ */
+const STORAGE_KEY = 'mg_orders_data';
+const LOG_KEY = 'mg_upload_log';
+const TICKETS_KEY = 'mg_support_tickets';
+const FEEDBACK_KEY = 'mg_feedback';
+
+const DEMO_ORDERS = [
+  { orderNumber:"ORD123456", dealerCode:"MGDL001", dealerName:"ABC Motors Pvt Ltd",
+    orderType:"VOR", orderDate:"01-Oct-2026", partNumber:"MG-P-45678",
+    partDescription:"Brake Pad Front", orderedQty:2, dispatchedQty:0, pendingQty:2,
+    orderStatus:"Pending Dispatch", stockAvailability:"Available", eta:"15-Oct-2026",
+    dispatchDate:"", docketLR:"", transporter:"", holdReason:"",
+    lastUpdated:"13-Oct-2026 14:30", ticketNumber:"TKT-2026-001", ticketStatus:"Open" },
+  { orderNumber:"ORD123457", dealerCode:"MGDL001", dealerName:"ABC Motors Pvt Ltd",
+    orderType:"Stock Order", orderDate:"05-Oct-2026", partNumber:"MG-P-99001",
+    partDescription:"Air Filter", orderedQty:10, dispatchedQty:10, pendingQty:0,
+    orderStatus:"Fully Dispatched", stockAvailability:"Available", eta:"12-Oct-2026",
+    dispatchDate:"10-Oct-2026", docketLR:"LR987654", transporter:"BlueDart Logistics",
+    holdReason:"", lastUpdated:"13-Oct-2026 14:30", ticketNumber:"", ticketStatus:"" },
+  { orderNumber:"ORD123458", dealerCode:"MGDL001", dealerName:"ABC Motors Pvt Ltd",
+    orderType:"Back Order", orderDate:"08-Oct-2026", partNumber:"MG-P-77777",
+    partDescription:"Clutch Plate", orderedQty:3, dispatchedQty:0, pendingQty:3,
+    orderStatus:"On Hold", stockAvailability:"Not Available", eta:"",
+    dispatchDate:"", docketLR:"", transporter:"", holdReason:"Stock Unavailability",
+    lastUpdated:"13-Oct-2026 14:30", ticketNumber:"", ticketStatus:"" },
+  { orderNumber:"ORD900001", dealerCode:"MGDL002", dealerName:"XYZ Auto Parts",
+    orderType:"VOR", orderDate:"02-Oct-2026", partNumber:"MG-P-11111",
+    partDescription:"Headlight Assembly", orderedQty:1, dispatchedQty:1, pendingQty:0,
+    orderStatus:"Fully Dispatched", stockAvailability:"Available", eta:"11-Oct-2026",
+    dispatchDate:"09-Oct-2026", docketLR:"LR112233", transporter:"DTDC",
+    holdReason:"", lastUpdated:"13-Oct-2026 14:30", ticketNumber:"", ticketStatus:"" }
+];
+
+const DEMO_TICKETS = [
+  { ticketNumber:"TKT-2026-001", dealerCode:"MGDL001", orderNumber:"ORD123456",
+    partNumber:"MG-P-45678", issueDescription:"Part received damaged",
+    ticketStatus:"In Progress", raisedDate:"10-Oct-2026", closedDate:"",
+    resolutionRemarks:"Replacement under process" }
+];
+
+let ORDERS = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') || DEMO_ORDERS;
+let UPLOAD_LOG = JSON.parse(localStorage.getItem(LOG_KEY) || '[]');
+let TICKETS = JSON.parse(localStorage.getItem(TICKETS_KEY) || 'null') || DEMO_TICKETS;
+let FEEDBACK = JSON.parse(localStorage.getItem(FEEDBACK_KEY) || '[]');
+
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(ORDERS));
+  localStorage.setItem(LOG_KEY, JSON.stringify(UPLOAD_LOG));
+  localStorage.setItem(TICKETS_KEY, JSON.stringify(TICKETS));
+  localStorage.setItem(FEEDBACK_KEY, JSON.stringify(FEEDBACK));
+}
+
+/* ============================================================
+   3. UTILITIES
+   ============================================================ */
+function nowTime() {
+  return new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
+}
+function todayStamp() {
+  const d = new Date();
+  return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
+    + ' ' + d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+}
+function isWorkingHours() {
+  const d = new Date();
+  const day = d.getDay();
+  const hour = d.getHours();
+  return day !== 0 && hour >= 9 && hour < 19;
+}
+function updateHoursBar() {
+  const bar = document.getElementById('hoursBar');
+  if (isWorkingHours()) {
+    bar.textContent = t('hoursOpen');
+    bar.classList.remove('closed');
+  } else {
+    bar.textContent = t('hoursClosed');
+    bar.classList.add('closed');
+  }
+}
+
+/* ============================================================
+   4. COLUMN MAP
+   ============================================================ */
+const COLUMN_MAP = {
+  'dealer code': 'dealerCode', 'dealer name': 'dealerName',
+  'order number': 'orderNumber', 'order type': 'orderType', 'order date': 'orderDate',
+  'part number': 'partNumber', 'part description': 'partDescription',
+  'ordered quantity': 'orderedQty', 'dispatched quantity': 'dispatchedQty',
+  'pending quantity': 'pendingQty', 'order status': 'orderStatus',
+  'stock availability': 'stockAvailability', 'tentative eta': 'eta',
+  'dispatch date': 'dispatchDate', 'docket / lr number': 'docketLR',
+  'docket/lr number': 'docketLR', 'transporter name': 'transporter',
+  'order hold reason': 'holdReason', 'last updated date & time': 'lastUpdated',
+  'last updated': 'lastUpdated', 'support ticket number': 'ticketNumber',
+  'ticket status': 'ticketStatus'
+};
+const REQUIRED = ['dealerCode','orderNumber','orderType','partNumber','orderedQty','orderStatus'];
+
+/* ============================================================
+   5. FILE UPLOAD
+   ============================================================ */
+document.getElementById('uploadZone').onclick = () =>
+  document.getElementById('fileInput').click();
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+zone.addEventListener('drop', e => {
+  e.preventDefault(); zone.classList.remove('drag');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+document.getElementById('fileInput').onchange = e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+};
+
+function handleFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const raw = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+      if (!raw.length) { alert('File is empty.'); return; }
+      const result = validateRows(raw);
+      renderPreview(result, file.name);
+    } catch (err) { alert('Failed to read file: ' + err.message); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function normalizeHeader(h) { return String(h).trim().toLowerCase(); }
+
+function validateRows(raw) {
+  const rows = []; const errors = []; const seen = new Set();
+  raw.forEach((r, i) => {
+    const rowNum = i + 2;
+    const obj = {};
+    Object.keys(r).forEach(k => {
+      const mapped = COLUMN_MAP[normalizeHeader(k)];
+      if (mapped) obj[mapped] = typeof r[k] === 'string' ? r[k].trim() : r[k];
+    });
+    const missing = REQUIRED.filter(f => obj[f] === undefined || obj[f] === '');
+    if (missing.length) { errors.push({ row: rowNum, reason: 'Missing: ' + missing.join(', ') }); return; }
+    const key = obj.orderNumber + '|' + obj.partNumber;
+    if (seen.has(key)) { errors.push({ row: rowNum, reason: 'Duplicate' }); return; }
+    seen.add(key);
+    obj.orderedQty = Number(obj.orderedQty) || 0;
+    obj.dispatchedQty = Number(obj.dispatchedQty) || 0;
+    obj.pendingQty = Number(obj.pendingQty) || (obj.orderedQty - obj.dispatchedQty);
+    if (obj.dispatchedQty > obj.orderedQty) { errors.push({ row: rowNum, reason: 'Dispatched > Ordered' }); return; }
+    if (obj.dispatchedQty > 0 && (!obj.docketLR || !obj.transporter)) {
+      errors.push({ row: rowNum, reason: 'Docket/Transporter missing' }); return;
+    }
+    if (obj.orderStatus === 'On Hold' && !obj.holdReason) {
+      errors.push({ row: rowNum, reason: 'No hold reason' }); return;
+    }
+    rows.push(obj);
+  });
+  return { rows, errors };
+}
+
+function renderPreview(result, fileName) {
+  const { rows, errors } = result;
+  document.getElementById('previewCard').style.display = 'block';
+  document.getElementById('statTotal').textContent = rows.length + errors.length;
+  document.getElementById('statValid').textContent = rows.length;
+  document.getElementById('statRejected').textContent = errors.length;
+  const cols = ['orderNumber','dealerCode','orderType','partNumber','orderStatus','eta'];
+  let html = '<table><thead><tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
+  rows.forEach(o => { html += '<tr>' + cols.map(c => `<td>${o[c] ?? ''}</td>`).join('') + '</tr>'; });
+  errors.forEach(e => { html += `<tr class="bad"><td colspan="${cols.length}">Row ${e.row}: ${e.reason}</td></tr>`; });
+  html += '</tbody></table>';
+  document.getElementById('previewTable').innerHTML = html;
+  document.getElementById('publishBtn').onclick = () => publishData(rows, errors, fileName);
+  document.getElementById('cancelBtn').onclick = () => {
+    document.getElementById('previewCard').style.display = 'none';
+    document.getElementById('fileInput').value = '';
+  };
+}
+
+function publishData(rows, errors, fileName) {
+  if (!rows.length) { alert('No valid rows to publish.'); return; }
+  rows.forEach(r => { r.lastUpdated = r.lastUpdated || todayStamp(); });
+  ORDERS = rows;
+  const status = errors.length === 0 ? 'success' : 'partial';
+  UPLOAD_LOG.unshift({ fileName, status, total: rows.length + errors.length,
+    valid: rows.length, rejected: errors.length, timestamp: todayStamp() });
+  UPLOAD_LOG = UPLOAD_LOG.slice(0, 10);
+  saveData(); renderHistory(); renderLiveData();
+  alert(`Published!\n\n${rows.length} records live.` +
+    (errors.length ? `\n${errors.length} rejected.` : ''));
+  document.getElementById('previewCard').style.display = 'none';
+  document.getElementById('fileInput').value = '';
+}
+
+function renderHistory() {
+  const el = document.getElementById('uploadHistory');
+  if (!UPLOAD_LOG.length) { el.innerHTML = `<div class="empty">${t('noUploads')}</div>`; return; }
+  el.innerHTML = UPLOAD_LOG.map(l => `
+    <div class="log-item">
+      <span class="log-badge ${l.status}">${l.status.toUpperCase()}</span>
+      <div><div class="log-name">${l.fileName}</div>
+      <div style="font-size:11px;color:#777">${l.valid} valid &bull; ${l.rejected} rejected</div></div>
+      <div class="log-meta">${l.timestamp}</div>
+    </div>`).join('');
+}
+
+function renderLiveData() {
+  const el = document.getElementById('liveData');
+  if (!ORDERS.length) { el.innerHTML = `<div class="empty">${t('noData')}</div>`; return; }
+  el.innerHTML = `
+    <div class="stats">
+      <div class="stat ok"><div class="val">${ORDERS.length}</div><div class="lbl">${t('analytics.totalOrders')}</div></div>
+      <div class="stat"><div class="val">${new Set(ORDERS.map(o=>o.dealerCode)).size}</div><div class="lbl">${t('analytics.topDealers')}</div></div>
+      <div class="stat warn"><div class="val">${ORDERS.filter(o=>o.orderStatus==='On Hold').length}</div><div class="lbl">${t('analytics.onHold')}</div></div>
+    </div>
+    <div class="preview-table" style="margin-top:10px">
+      <table><thead><tr><th>Order #</th><th>Dealer</th><th>Part</th><th>Status</th></tr></thead><tbody>
+      ${ORDERS.slice(0,20).map(o => `<tr><td>${o.orderNumber}</td><td>${o.dealerCode}</td>
+        <td>${o.partNumber}</td><td>${o.orderStatus}</td></tr>`).join('')}
+      </tbody></table>
+    </div>`;
+}
+
+/* ============================================================
+   6. ANALYTICS DASHBOARD
+   ============================================================ */
+function renderAnalytics() {
+  const el = document.getElementById('analyticsBody');
+  const total = ORDERS.length;
+  const delivered = ORDERS.filter(o => o.orderStatus === 'Delivered').length;
+  const dispatched = ORDERS.filter(o => o.orderStatus === 'Fully Dispatched' || o.orderStatus === 'Partially Dispatched').length;
+  const inTransit = ORDERS.filter(o => o.orderStatus === 'In Transit').length;
+  const pending = ORDERS.filter(o => o.pendingQty > 0).length;
+  const onHold = ORDERS.filter(o => o.orderStatus === 'On Hold').length;
+
+  // Status distribution
+  const statuses = {};
+  ORDERS.forEach(o => { statuses[o.orderStatus] = (statuses[o.orderStatus] || 0) + 1; });
+  const statusEntries = Object.entries(statuses).sort((a,b) => b[1] - a[1]);
+  const maxStatus = Math.max(1, ...statusEntries.map(e => e[1]));
+
+  // Order type breakdown
+  const types = {};
+  ORDERS.forEach(o => { types[o.orderType] = (types[o.orderType] || 0) + 1; });
+  const typeEntries = Object.entries(types).sort((a,b) => b[1] - a[1]);
+  const maxType = Math.max(1, ...typeEntries.map(e => e[1]));
+
+  // Top dealers
+  const dealerCount = {};
+  ORDERS.forEach(o => {
+    const key = o.dealerCode + '|' + (o.dealerName || o.dealerCode);
+    dealerCount[key] = (dealerCount[key] || 0) + 1;
+  });
+  const topDealers = Object.entries(dealerCount).sort((a,b) => b[1] - a[1]).slice(0, 5);
+  const maxDealer = Math.max(1, ...topDealers.map(d => d[1]));
+
+  // Feedback
+  const thumbsUp = FEEDBACK.filter(f => f.rating === 'up').length;
+  const thumbsDown = FEEDBACK.filter(f => f.rating === 'down').length;
+  const totalFb = FEEDBACK.length || 1;
+
+  // Tickets
+  const openTickets = TICKETS.filter(tk => tk.ticketStatus !== 'Closed' && tk.ticketStatus !== 'Resolved').length;
+  const closedTickets = TICKETS.length - openTickets;
+
+  // Trend last 7 days
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const label = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+    const dayStart = new Date(d); dayStart.setHours(0,0,0,0);
+    const dayEnd = new Date(d); dayEnd.setHours(23,59,59,999);
+    const count = ORDERS.filter(o => {
+      if (!o.orderDate) return false;
+      const od = new Date(o.orderDate);
+      return od >= dayStart && od <= dayEnd;
+    }).length;
+    days.push({ label, count });
+  }
+  const maxTrend = Math.max(1, ...days.map(d => d.count));
+
+  const a = I18N[LANG].analytics;
+
+  el.innerHTML = `
+    <div class="card">
+      <h3>${a.title}</h3>
+      <div class="kpi-grid">
+        <div class="kpi blue">
+          <div class="kpi-val">${total}</div>
+          <div class="kpi-lbl">${a.totalOrders}</div>
+        </div>
+        <div class="kpi green">
+          <div class="kpi-val">${delivered}</div>
+          <div class="kpi-lbl">${a.delivered}</div>
+        </div>
+        <div class="kpi yellow">
+          <div class="kpi-val">${pending}</div>
+          <div class="kpi-lbl">${a.pending}</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-val">${onHold}</div>
+          <div class="kpi-lbl">${a.onHold}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>${a.statusDist}</h3>
+      ${statusEntries.length ? statusEntries.map(([s, c]) => {
+        const pct = Math.round((c / maxStatus) * 100);
+        let cls = '';
+        if (s.includes('Deliver')) cls = 'green';
+        else if (s.includes('Hold')) cls = 'red';
+        else if (s.includes('Dispatch') || s.includes('Transit')) cls = 'blue';
+        else cls = 'yellow';
+        return `<div class="bar-row">
+          <div class="bar-label">${s}</div>
+          <div class="bar-track"><div class="bar-fill ${cls}" style="width:${pct}%"></div></div>
+          <div class="bar-val">${c}</div>
+        </div>`;
+      }).join('') : `<div class="empty">${a.noDataYet}</div>`}
+    </div>
+
+    <div class="card">
+      <h3>${a.typeBreakdown}</h3>
+      ${typeEntries.length ? typeEntries.map(([ty, c]) => {
+        const pct = Math.round((c / maxType) * 100);
+        return `<div class="bar-row">
+          <div class="bar-label">${ty}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+          <div class="bar-val">${c}</div>
+        </div>`;
+      }).join('') : `<div class="empty">${a.noDataYet}</div>`}
+    </div>
+
+    <div class="card">
+      <h3>${a.topDealers}</h3>
+      ${topDealers.length ? topDealers.map(([key, c], i) => {
+        const [code, name] = key.split('|');
+        return `<div class="top-list-item rank-${i+1}">
+          <div class="rank">${i+1}</div>
+          <div class="name">${name}<br><span style="font-size:10px;color:#888">${code}</span></div>
+          <div class="count">${c}</div>
+        </div>`;
+      }).join('') : `<div class="empty">${a.noDataYet}</div>`}
+    </div>
+
+    <div class="card">
+      <h3>${a.trendTitle}</h3>
+      <div class="trend-chart">
+        ${days.map(d => `<div class="trend-bar" style="height:${(d.count/maxTrend)*100}%" data-val="${d.count}"></div>`).join('')}
+      </div>
+      <div class="trend-labels">
+        ${days.map(d => `<div>${d.label.split(' ')[0]}</div>`).join('')}
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>${a.feedbackSummary}</h3>
+      <div class="stats">
+        <div class="stat ok">
+          <div class="val">${thumbsUp}</div>
+          <div class="lbl">&#128077; ${a.thumbsUp}</div>
+        </div>
+        <div class="stat err">
+          <div class="val">${thumbsDown}</div>
+          <div class="lbl">&#128078; ${a.thumbsDown}</div>
+        </div>
+        <div class="stat">
+          <div class="val">${FEEDBACK.length}</div>
+          <div class="lbl">${a.totalFeedback}</div>
+        </div>
+      </div>
+      ${FEEDBACK.length ? `
+        <div style="margin-top:10px;height:12px;border-radius:6px;overflow:hidden;display:flex;background:#e5e7eb">
+          <div style="width:${(thumbsUp/totalFb)*100}%;background:#16a34a"></div>
+          <div style="width:${(thumbsDown/totalFb)*100}%;background:#dc2626"></div>
+        </div>
+        <div style="font-size:11px;color:#666;margin-top:6px;text-align:center">
+          ${Math.round((thumbsUp/totalFb)*100)}% ${a.thumbsUp}
+        </div>
+      ` : ''}
+    </div>
+
+    <div class="card">
+      <h3>${a.ticketSummary}</h3>
+      <div class="stats">
+        <div class="stat warn"><div class="val">${openTickets}</div><div class="lbl">${a.openTickets}</div></div>
+        <div class="stat ok"><div class="val">${closedTickets}</div><div class="lbl">${a.closedTickets}</div></div>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   7. TAB SWITCHING
+   ============================================================ */
+document.querySelectorAll('.tab').forEach(tb => {
+  tb.onclick = () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    tb.classList.add('active');
+    const view = tb.dataset.view;
+    document.getElementById('view-dealer').classList.toggle('hidden', view !== 'dealer');
+    document.getElementById('view-admin').classList.toggle('hidden', view !== 'admin');
+    document.getElementById('view-analytics').classList.toggle('hidden', view !== 'analytics');
+    if (view === 'admin') { renderHistory(); renderLiveData(); }
+    if (view === 'analytics') renderAnalytics();
+  };
+});
+
+/* Language switch */
+document.querySelectorAll('.lang-btn').forEach(b => {
+  b.onclick = () => {
+    LANG = b.dataset.lang;
+    localStorage.setItem('mg_lang', LANG);
+    applyLanguage();
+    // Re-render welcome if at start
+    if (!authState.dealerCode && chat.children.length <= 1) {
+      chat.innerHTML = '';
+      addMsg(`${t('welcome')}<br><br>${t('enterCode')}<br><em>${t('demoCodes')}</em>`);
+      renderChips(["MGDL001", "MGDL002"]);
+    } else {
+      renderMainChips();
+    }
+  };
+});
+
+/* ============================================================
+   8. POPUP MODAL
+   ============================================================ */
+const modalOverlay = document.getElementById('modalOverlay');
+const modalIcon = document.getElementById('modalIcon');
+const modalTitle = document.getElementById('modalTitle');
+const modalSubtitle = document.getElementById('modalSubtitle');
+const modalInput = document.getElementById('modalInput');
+const modalTextarea = document.getElementById('modalTextarea');
+const modalDynamic = document.getElementById('modalDynamic');
+const modalLabel = document.getElementById('modalLabel');
+const modalCancel = document.getElementById('modalCancel');
+const modalSubmit = document.getElementById('modalSubmit');
+const modalBtns = document.getElementById('modalBtns');
+
+let currentModalType = null;
+
+function hideAllModalInputs() {
+  modalInput.style.display = 'none';
+  modalTextarea.style.display = 'none';
+  modalDynamic.style.display = 'none';
+  modalDynamic.innerHTML = '';
+  modalLabel.style.display = 'block';
+  modalBtns.style.display = 'flex';
+}
+
+function openModal(type) {
+  currentModalType = type;
+  hideAllModalInputs();
+  const m = I18N[LANG].modal;
+
+  if (type === 'order') {
+    modalIcon.textContent = '\uD83D\uDD0D';
+    modalTitle.textContent = m.orderTitle;
+    modalSubtitle.textContent = m.orderSub;
+    modalLabel.textContent = m.orderLabel;
+    modalInput.style.display = 'block';
+    modalInput.value = '';
+    modalInput.placeholder = 'e.g. ORD123456';
+    setTimeout(() => modalInput.focus(), 100);
+  }
+  else if (type === 'query') {
+    modalIcon.textContent = '\uD83D\uDCAC';
+    modalTitle.textContent = m.queryTitle;
+    modalSubtitle.textContent = m.querySub;
+    modalLabel.textContent = m.queryLabel;
+    modalTextarea.style.display = 'block';
+    modalTextarea.value = '';
+    setTimeout(() => modalTextarea.focus(), 100);
+  }
+  else if (type === 'raise-ticket') {
+    modalIcon.textContent = '\uD83C\uDFAB';
+    modalTitle.textContent = m.ticketTitle;
+    modalSubtitle.textContent = m.ticketSub;
+    modalDynamic.style.display = 'block';
+    modalDynamic.innerHTML = `
+      <label>${m.ticketOrder}</label>
+      <input id="tktOrder" type="text" placeholder="ORD123456" />
+      <label>${m.ticketPart}</label>
+      <input id="tktPart" type="text" placeholder="MG-P-45678" />
+      <label>${m.ticketIssue}</label>
+      <textarea id="tktIssue" placeholder="..."></textarea>
+    `;
+    modalLabel.style.display = 'none';
+    setTimeout(() => document.getElementById('tktIssue').focus(), 100);
+  }
+  else if (type === 'track-ticket') {
+    modalIcon.textContent = '\uD83D\uDCCB';
+    modalTitle.textContent = m.trackTitle;
+    modalSubtitle.textContent = m.trackSub;
+    modalDynamic.style.display = 'block';
+    const myT = TICKETS.filter(x => String(x.dealerCode).toUpperCase() === String(authState.dealerCode).toUpperCase());
+    modalDynamic.innerHTML = myT.length ? myT.map(x => `
+      <div style="border:1px solid #e5e7ef;border-radius:10px;padding:10px;margin-bottom:8px">
+        <div style="font-size:12.5px;font-weight:700;color:#b3001b">${x.ticketNumber}</div>
+        <div style="font-size:11px;color:#666;margin-top:3px">${x.issueDescription}</div>
+        <div style="margin-top:6px">
+          <span class="order-status-badge ${x.ticketStatus === 'Closed' || x.ticketStatus === 'Resolved' ? 'badge-delivered' : 'badge-pending'}">${x.ticketStatus}</span>
+          <span style="font-size:10px;color:#888;margin-left:6px">${x.raisedDate}</span>
+        </div>
+      </div>`).join('') : '<div style="text-align:center;color:#999;padding:20px;font-size:12.5px">-</div>';
+    modalLabel.style.display = 'none';
+    modalBtns.style.display = 'none';
+  }
+  else if (type === 'faq') {
+    modalIcon.textContent = '\u2753';
+    modalTitle.textContent = m.faqTitle;
+    modalSubtitle.textContent = m.faqSub;
+    modalDynamic.style.display = 'block';
+    modalDynamic.innerHTML = I18N[LANG].faq.map((f, i) => `
+      <div class="faq-item" data-idx="${i}">
+        <div class="faq-q">${f.q}</div>
+        <div class="faq-a">${f.a}</div>
+      </div>`).join('');
+    modalLabel.style.display = 'none';
+    modalBtns.style.display = 'none';
+    setTimeout(() => {
+      document.querySelectorAll('.faq-item').forEach(e => e.onclick = () => e.classList.toggle('open'));
+    }, 50);
+  }
+  else if (type === 'my-orders') {
+    modalIcon.textContent = '\uD83D\uDCE6';
+    modalTitle.textContent = m.myOrdersTitle;
+    modalSubtitle.textContent = m.myOrdersSub;
+    modalDynamic.style.display = 'block';
+    const myO = ORDERS.filter(o => String(o.dealerCode).toUpperCase() === String(authState.dealerCode).toUpperCase());
+    modalDynamic.innerHTML = myO.length ? myO.map(o => `
+      <div class="order-list-item" data-order="${o.orderNumber}">
+        <div class="order-num">${o.orderNumber}
+          <span class="order-status-badge ${getStatusBadge(o.orderStatus)}">${o.orderStatus}</span>
+        </div>
+        <div class="order-info">${o.partNumber} - ${o.partDescription}</div>
+        <div class="order-info">${o.orderType} &bull; Qty: ${o.orderedQty}</div>
+      </div>`).join('') : '<div style="text-align:center;color:#999;padding:20px;font-size:12.5px">-</div>';
+    modalLabel.style.display = 'none';
+    modalBtns.style.display = 'none';
+    setTimeout(() => {
+      document.querySelectorAll('.order-list-item').forEach(e => {
+        e.onclick = () => { closeModal(); handleMessage(e.dataset.order); };
+      });
+    }, 50);
+  }
+
+  modalOverlay.classList.add('show');
+}
+
+function getStatusBadge(status) {
+  if (!status) return 'badge-pending';
+  const s = status.toLowerCase();
+  if (s.includes('deliver')) return 'badge-delivered';
+  if (s.includes('transit')) return 'badge-transit';
+  if (s.includes('dispatch')) return 'badge-dispatch';
+  if (s.includes('hold')) return 'badge-hold';
+  return 'badge-pending';
+}
+
+function closeModal() {
+  modalOverlay.classList.remove('show');
+  currentModalType = null;
+  modalInput.value = '';
+  modalTextarea.value = '';
+}
+
+modalCancel.onclick = closeModal;
+modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
+modalInput.addEventListener('keydown', e => { if (e.key === 'Enter') modalSubmit.click(); });
+modalTextarea.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); modalSubmit.click(); }
+});
+
+modalSubmit.onclick = () => {
+  const type = currentModalType;
+
+  if (type === 'order') {
+    const v = modalInput.value.trim();
+    if (!v) { modalInput.focus(); return; }
+    closeModal(); handleMessage(v);
+  }
+  else if (type === 'query') {
+    const v = modalTextarea.value.trim();
+    if (!v) { modalTextarea.focus(); return; }
+    closeModal(); handleMessage(v);
+  }
+  else if (type === 'raise-ticket') {
+    const o = (document.getElementById('tktOrder')?.value || '').trim();
+    const p = (document.getElementById('tktPart')?.value || '').trim();
+    const iss = (document.getElementById('tktIssue')?.value || '').trim();
+    if (!iss) { document.getElementById('tktIssue').focus(); return; }
+    const tn = 'TKT-' + new Date().getFullYear() + '-' + String(TICKETS.length + 1).padStart(4, '0');
+    TICKETS.push({
+      ticketNumber: tn, dealerCode: authState.dealerCode, orderNumber: o,
+      partNumber: p, issueDescription: iss, ticketStatus: 'Open',
+      raisedDate: todayStamp(), closedDate: '', resolutionRemarks: ''
+    });
+    saveData(); closeModal();
+    botReply(`${LANG === 'hi' ? 'सपोर्ट टिकट सफलतापूर्वक बनाया गया!' : 'Support ticket created successfully!'}<br><br>
+      <strong>${LANG === 'hi' ? 'टिकट नंबर' : 'Ticket Number'}:</strong> ${tn}<br>
+      <strong>Status:</strong> Open<br>
+      <strong>${LANG === 'hi' ? 'दिनांक' : 'Raised On'}:</strong> ${todayStamp()}`);
+  }
+};
+
+/* ============================================================
+   9. CHATBOT
+   ============================================================ */
+const chat = document.getElementById('chat');
+const input = document.getElementById('userInput');
+const sendBtn = document.getElementById('sendBtn');
+const chips = document.getElementById('chips');
+const silentBanner = document.getElementById('silentBanner');
+
+let authState = {
+  dealerCode: null, lastOrderContext: null,
+  silentMode: false, supportRequested: false, interactionCount: 0
+};
+
+function addMsg(text, who = "bot", showTime = true) {
+  const w = document.createElement('div');
+  w.className = 'msg ' + who;
+  let html = text;
+  if (showTime) html += `<div class="ts">${nowTime()}</div>`;
+  w.innerHTML = html;
+  chat.appendChild(w); chat.scrollTop = chat.scrollHeight;
+}
+function showTyping() {
+  const t = document.createElement('div');
+  t.className = 'typing'; t.id = 'typing';
+  t.innerHTML = '<span></span><span></span><span></span>';
+  chat.appendChild(t); chat.scrollTop = chat.scrollHeight;
+}
+function hideTyping() { const x = document.getElementById('typing'); if (x) x.remove(); }
+function botReply(html, delay = 700) {
+  if (authState.silentMode) return;
+  showTyping();
+  setTimeout(() => { hideTyping(); addMsg(html, 'bot'); }, delay);
+}
+function clearChat() {
+  chat.innerHTML = ''; chips.innerHTML = ''; silentBanner.style.display = 'none';
+  authState.lastOrderContext = null; authState.silentMode = false;
+  authState.supportRequested = false; authState.interactionCount = 0;
+}
+
+function getProgressBar(status) {
+  const stages = ['Received','Processing','Dispatched','In Transit','Delivered'];
+  const map = { 'Order Received':0, 'Processing':1, 'Pending Dispatch':1,
+    'Partially Dispatched':2, 'Fully Dispatched':2, 'In Transit':3, 'Delivered':4,
+    'On Hold':1, 'Cancelled':0 };
+  const active = map[status] !== undefined ? map[status] : 1;
+  return `<div class="progress-track">${stages.map((_, i) =>
+    `<div class="progress-step ${i < active ? 'done' : i === active ? 'active' : ''}"></div>`).join('')}</div>
+    <div style="font-size:10px;color:#888;text-align:center">${status}</div>`;
+}
+
+function orderCard(o) {
+  const isHi = LANG === 'hi';
+  const L = (en, hi) => isHi ? hi : en;
+  const fb = isHi ? 'क्या यह सहायक था?' : 'Was this helpful?';
+  const thanks = isHi ? 'फीडबैक के लिए धन्यवाद!' : 'Thank you for your feedback!';
+
+  return `
+    <strong>${L('Order Details','ऑर्डर विवरण')} - ${o.orderNumber}</strong>
+    ${getProgressBar(o.orderStatus)}
+    <table>
+      <tr><td>${L('Order Type','ऑर्डर प्रकार')}</td><td>${o.orderType}</td></tr>
+      <tr><td>${L('Part Number','पार्ट नंबर')}</td><td>${o.partNumber}</td></tr>
+      <tr><td>${L('Part Description','पार्ट विवरण')}</td><td>${o.partDescription}</td></tr>
+      <tr><td>${L('Order Status','ऑर्डर स्थिति')}</td><td>${o.orderStatus}</td></tr>
+      <tr><td>${L('Ordered Qty','ऑर्डर मात्रा')}</td><td>${o.orderedQty}</td></tr>
+      <tr><td>${L('Dispatched Qty','डिस्पैच मात्रा')}</td><td>${o.dispatchedQty}</td></tr>
+      <tr><td>${L('Pending Qty','बाकी मात्रा')}</td><td>${o.pendingQty}</td></tr>
+      <tr><td>${L('Stock','स्टॉक')}</td><td>${o.stockAvailability || '-'}</td></tr>
+      <tr><td>${L('Tentative ETA','अनुमानित ETA')}</td><td>${o.eta || L('Currently not available','अभी उपलब्ध नहीं')}</td></tr>
+      ${o.dispatchDate ? `<tr><td>${L('Dispatch Date','डिस्पैच दिनांक')}</td><td>${o.dispatchDate}</td></tr>` : ''}
+      ${o.docketLR ? `<tr><td>${L('Docket/LR','डॉकेट/LR')}</td><td>${o.docketLR}</td></tr>` : ''}
+      ${o.transporter ? `<tr><td>${L('Transporter','ट्रांसपोर्टर')}</td><td>${o.transporter}</td></tr>` : ''}
+      ${o.holdReason ? `<tr><td>${L('Hold Reason','होल्ड कारण')}</td><td>${o.holdReason}</td></tr>` : ''}
+    </table>
+    <div class="updated">${L('Last Updated','अंतिम अपडेट')}: ${o.lastUpdated || '-'}</div>
+    <div class="feedback-row" data-feedback="${o.orderNumber}" data-thanks="${thanks}">
+      <span>${fb}</span>
+      <button class="fb-btn" data-fb="up">&#128077;</button>
+      <button class="fb-btn" data-fb="down">&#128078;</button>
+    </div>`;
+}
+
+function attachFeedbackHandlers() {
+  document.querySelectorAll('.feedback-row').forEach(row => {
+    if (row.dataset.bound) return;
+    row.dataset.bound = '1';
+    row.querySelectorAll('.fb-btn').forEach(btn => {
+      btn.onclick = () => {
+        if (row.querySelector('.fb-thanks')) return;
+        const rating = btn.dataset.fb;
+        btn.classList.add('active');
+        row.querySelectorAll('.fb-btn').forEach(b => b.disabled = true);
+        FEEDBACK.push({ orderNumber: row.dataset.feedback, dealerCode: authState.dealerCode,
+          rating, timestamp: todayStamp() });
+        saveData();
+        const th = document.createElement('span');
+        th.className = 'fb-thanks'; th.textContent = row.dataset.thanks || 'Thank you!';
+        row.appendChild(th);
+      };
     });
   });
-  socket.on('chat:message', addMessage);
-  socket.on('bot:typing', (v) => document.getElementById('typing').textContent = v ? 'Assistant typing…' : '');
 }
+
+function findOrders(q) {
+  const s = q.trim().toUpperCase();
+  return ORDERS.filter(o =>
+    String(o.orderNumber).toUpperCase() === s ||
+    String(o.partNumber).toUpperCase() === s ||
+    String(o.dealerCode).toUpperCase() === s);
+}
+
+function requestSupportTeam() {
+  if (authState.supportRequested) return;
+  authState.supportRequested = true; authState.silentMode = true;
+  const isHi = LANG === 'hi';
+  if (isWorkingHours()) {
+    addMsg(isHi
+      ? `<strong>डीलर सपोर्ट टीम</strong> को अनुरोध भेज दिया गया।<br><br>
+         हमारी टीम जल्द ही आपसे संपर्क करेगी।`
+      : `Request sent to <strong>Dealer Support Team</strong>.<br><br>
+         Our team is available now and will connect with you shortly.`, 'bot');
+  } else {
+    addMsg(isHi
+      ? `<strong>डीलर सपोर्ट टीम</strong> के लिए अनुरोध दर्ज किया गया।<br><br>
+         टीम अभी ऑफलाइन है। सपोर्ट समय: सुबह 9:00 - शाम 7:00 (सोम-शनि)।`
+      : `Request recorded for <strong>Dealer Support Team</strong>.<br><br>
+         Our team is currently offline. Support hours: 9:00 AM - 7:00 PM (Mon-Sat).`, 'bot');
+  }
+  silentBanner.style.display = 'block';
+  chips.innerHTML = '';
+}
+
+function handleMessage(text) {
+  addMsg(text, 'user');
+  if (authState.silentMode) return;
+  authState.interactionCount++;
+  const msg = text.toLowerCase().trim();
+  const isHi = LANG === 'hi';
+
+  if (/talk to (agent|support|team|dealer support)|connect.*support|support.*team|सपोर्ट.*बात/.test(msg)) {
+    requestSupportTeam(); return;
+  }
+
+  if (/^(hi|hello|hey|namaste|नमस्ते)/.test(msg)) {
+    botReply(`${t('welcome')}<br><br>${t('enterCode')}`);
+    return;
+  }
+
+  if (!authState.dealerCode) {
+    const code = text.trim().toUpperCase();
+    const exists = ORDERS.some(o => String(o.dealerCode).toUpperCase() === code);
+    if (exists) {
+      clearChat();
+      authState.dealerCode = code;
+      const name = ORDERS.find(o => String(o.dealerCode).toUpperCase() === code).dealerName;
+      const myO = ORDERS.filter(o => String(o.dealerCode).toUpperCase() === code);
+      const pend = myO.filter(o => o.pendingQty > 0).length;
+      const hold = myO.filter(o => o.orderStatus === 'On Hold').length;
+
+      let wmsg = `${t('verified')}: <strong>${name}</strong> (${code}).<br><br>`;
+      if (isHi) {
+        wmsg += `आपके <strong>${myO.length}</strong> ऑर्डर पंजीकृत हैं।<br>`;
+        if (pend) wmsg += `&bull; <strong>${pend}</strong> डिस्पैच बाकी<br>`;
+        if (hold) wmsg += `&bull; <strong>${hold}</strong> होल्ड पर<br>`;
+      } else {
+        wmsg += `You have <strong>${myO.length}</strong> order(s) registered.<br>`;
+        if (pend) wmsg += `&bull; <strong>${pend}</strong> pending dispatch<br>`;
+        if (hold) wmsg += `&bull; <strong>${hold}</strong> on hold<br>`;
+      }
+      wmsg += `<br>${t('howCanHelp')}`;
+      botReply(wmsg);
+      renderMainChips();
+    } else {
+      botReply(t('notFound'));
+    }
+    return;
+  }
+
+  if (/logout|switch dealer|change dealer|लॉग आउट/.test(msg)) {
+    clearChat();
+    authState.dealerCode = null;
+    botReply(t('loggedOut'));
+    renderChips(["MGDL001", "MGDL002"]);
+    return;
+  }
+
+  const found = findOrders(text);
+  if (found.length === 1) {
+    authState.lastOrderContext = found[0];
+    botReply((isHi ? 'उपलब्ध विवरण यहाँ हैं:' : 'Here are the available details:') + '<br><br>' + orderCard(found[0]));
+    setTimeout(attachFeedbackHandlers, 900);
+    return;
+  }
+  if (found.length > 1) {
+    botReply((isHi ? 'कई ऑर्डर मिले। कृपया चुनें:' : 'Multiple orders found. Please select:') +
+      '<br><br>' + found.map((o,i) => `${i+1}. ${o.orderNumber} - ${o.partDescription}`).join('<br>'));
+    return;
+  }
+
+  if (/delay|late|why.*not|pending|देरी|क्यों/.test(msg)) {
+    const o = authState.lastOrderContext;
+    if (!o) { botReply(isHi ? 'कृपया पहले ऑर्डर नंबर दें।' : 'Please share the Order Number first.'); return; }
+    if (o.holdReason) {
+      botReply(`${isHi ? 'ऑर्डर' : 'Order'} <strong>${o.orderNumber}</strong> ${isHi ? 'होल्ड पर है।' : 'is on hold.'}<br><br>
+        <strong>${isHi ? 'कारण' : 'Reason'}:</strong> ${o.holdReason}
+        <div class="updated">${isHi ? 'अंतिम अपडेट' : 'Last Updated'}: ${o.lastUpdated}</div>`);
+    } else {
+      botReply(`${isHi ? 'ऑर्डर' : 'Order'} <strong>${o.orderNumber}</strong> ${isHi ? 'की स्थिति' : 'is'} <strong>${o.orderStatus}</strong>.<br><br>
+        ${isHi ? 'कोई पुष्ट कारण उपलब्ध नहीं है। कृपया सपोर्ट टीम से संपर्क करें।' :
+        'No confirmed delay reason available. Please contact Dealer Support Team.'}`);
+    }
+    return;
+  }
+
+  if (/dispatch|docket|transporter|lr number|डिस्पैच/.test(msg)) {
+    const o = authState.lastOrderContext;
+    if (!o) { botReply(isHi ? 'कृपया ऑर्डर नंबर दें।' : 'Please share the Order Number.'); return; }
+    if (o.dispatchedQty > 0) {
+      botReply(`${isHi ? 'डिस्पैच विवरण' : 'Dispatch details'} - <strong>${o.orderNumber}</strong>:<br><br>
+        &bull; ${isHi ? 'डिस्पैच मात्रा' : 'Dispatched Qty'}: ${o.dispatchedQty}<br>
+        &bull; ${isHi ? 'दिनांक' : 'Date'}: ${o.dispatchDate || '-'}<br>
+        &bull; Docket/LR: ${o.docketLR || '-'}<br>
+        &bull; ${isHi ? 'ट्रांसपोर्टर' : 'Transporter'}: ${o.transporter || '-'}
+        <div class="updated">${isHi ? 'अंतिम अपडेट' : 'Last Updated'}: ${o.lastUpdated}</div>`);
+    } else {
+      botReply(`${isHi ? 'ऑर्डर अभी डिस्पैच नहीं हुआ।' : 'Order has not been dispatched yet.'}<br>
+        ${isHi ? 'स्थिति' : 'Status'}: <strong>${o.orderStatus}</strong><br>
+        ETA: ${o.eta || (isHi ? 'अभी उपलब्ध नहीं' : 'Currently not available')}`);
+    }
+    return;
+  }
+
+  if (/eta|availability|available|उपलब्ध/.test(msg)) {
+    const o = authState.lastOrderContext;
+    if (!o) { botReply(isHi ? 'कृपया ऑर्डर या पार्ट नंबर दें।' : 'Please share the Order or Part Number.'); return; }
+    botReply(`<strong>${o.partNumber}</strong> (${o.partDescription}):<br><br>
+      &bull; ${isHi ? 'स्टॉक' : 'Stock'}: <strong>${o.stockAvailability || '-'}</strong><br>
+      &bull; ${isHi ? 'अनुमानित ETA' : 'Tentative ETA'}: <strong>${o.eta || (isHi ? 'अभी उपलब्ध नहीं' : 'Currently not available')}</strong>
+      <div class="updated">${isHi ? 'अंतिम अपडेट' : 'Last Updated'}: ${o.lastUpdated}</div>`);
+    return;
+  }
+
+  if (/help|options|मदद/.test(msg)) {
+    botReply(isHi
+      ? `मैं इनमें सहायता कर सकता हूँ:<br>&bull; ऑर्डर स्थिति<br>&bull; डिस्पैच विवरण<br>&bull; स्टॉक और ETA<br>&bull; सपोर्ट टिकट<br>&bull; सामान्य प्रश्न`
+      : `I can help with:<br>&bull; Order status<br>&bull; Dispatch details<br>&bull; Stock and ETA<br>&bull; Support tickets<br>&bull; FAQs`);
+    return;
+  }
+
+  botReply(isHi
+    ? `"<strong>${text}</strong>" से मेल खाता कोई ऑर्डर या पार्ट नहीं मिला।<br><br>कृपया ऑर्डर नंबर, डीलर कोड या पार्ट नंबर जाँचें।`
+    : `Could not find a matching order or part for "<strong>${text}</strong>".<br><br>Please verify the Order Number, Dealer Code, or Part Number.`);
+}
+
+/* ============================================================
+   10. CHIPS
+   ============================================================ */
+function renderMainChips() {
+  const c = I18N[LANG].chips;
+  renderChips([c.myOrders, c.orderStatus, c.raiseTicket, c.trackTicket, c.faq, c.otherQuery, c.support]);
+}
+
+function renderChips(list) {
+  chips.innerHTML = '';
+  list.forEach(c => {
+    const b = document.createElement('div');
+    b.className = 'chip';
+    const c_ = I18N[LANG].chips;
+    if (c === c_.support) b.classList.add('support');
+    if (c === c_.faq) b.classList.add('faq');
+    b.textContent = c;
+    b.onclick = () => {
+      const cc = I18N[LANG].chips;
+      if (c === cc.orderStatus) openModal('order');
+      else if (c === cc.otherQuery) openModal('query');
+      else if (c === cc.myOrders) openModal('my-orders');
+      else if (c === cc.raiseTicket) openModal('raise-ticket');
+      else if (c === cc.trackTicket) openModal('track-ticket');
+      else if (c === cc.faq) openModal('faq');
+      else if (c === cc.support) requestSupportTeam();
+      else if (c === cc.dispatch || c === cc.eta) {
+        if (authState.lastOrderContext) { input.value = c; send(); }
+        else openModal('order');
+      }
+      else { input.value = c; send(); }
+    };
+    chips.appendChild(b);
+  });
+}
+
 function send() {
-  const inp = document.getElementById('inpMsg');
-  const text = inp.value.trim();
-  if (!text || !socket) return;
-  inp.value = '';
-  socket.emit('dealer:message', { text });
+  const v = input.value.trim(); if (!v) return;
+  input.value = ''; handleMessage(v);
 }
-function quick(t) { document.getElementById('inpMsg').value = t; send(); }
-function addMessage(m) {
-  const box = document.getElementById('messages');
-  const div = document.createElement('div');
-  div.className = 'msg ' + (m.sender === 'dealer' ? 'dealer' : m.sender === 'agent' ? 'agent' : 'bot');
-  const label = m.sender === 'agent' ? '👨‍💼 Support: ' : '';
-  div.textContent = label + m.message;
-  const meta = document.createElement('div');
-  meta.className = 'meta';
-  meta.textContent = new Date(m.created_at).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
-  div.appendChild(meta);
-  box.appendChild(div);
-  box.scrollTop = box.scrollHeight;
-}
+sendBtn.onclick = send;
+input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
+
+/* ============================================================
+   11. BOOT
+   ============================================================ */
+applyLanguage();
+setInterval(updateHoursBar, 60000);
+
+addMsg(`${t('welcome')}<br><br>${t('enterCode')}<br><em>${t('demoCodes')}</em>`);
+renderChips(["MGDL001", "MGDL002"]);
+renderHistory();
+renderLiveData();
 </script>
 </body>
 </html>
